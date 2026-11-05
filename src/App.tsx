@@ -68,6 +68,12 @@ function DivergedBanner() {
   );
 }
 
+/** Remount per-document pages when the id changes so no state (pending edits, recipes) leaks between documents. */
+function Keyed({ page: Page }: { page: React.ComponentType }) {
+  const { id } = useParams();
+  return <Page key={id} />;
+}
+
 function DocShell() {
   return (
     <div className="flex h-full flex-col">
@@ -109,9 +115,9 @@ const router = createBrowserRouter([
         path: '/doc/:id',
         element: <DocShell />,
         children: [
-          { index: true, element: <EditorPage /> },
-          { path: 'new-variant', element: <VariantBuilder /> },
-          { path: 'pull', element: <PullPage /> },
+          { index: true, element: <Keyed page={EditorPage} /> },
+          { path: 'new-variant', element: <Keyed page={VariantBuilder} /> },
+          { path: 'pull', element: <Keyed page={PullPage} /> },
         ],
       },
       { path: '/compare', element: <ComparePage /> },

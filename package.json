@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "node e2e/run.mjs",
-    "tex:assets": "texlyre-busytex download-assets tex-assets"
+    "tex:assets": "texlyre-busytex download-assets tex-assets",
+    "e2e:engines": "node e2e/engines.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "6.20.4",
