@@ -1,5 +1,5 @@
 {
-  "name": "resumechef",
+  "name": "texchef",
   "private": true,
   "version": "0.1.0",
   "description": "Browser LaTeX editor for master resumes and linked, role-focused variants. Local-first, syncs to your own Google Drive.",

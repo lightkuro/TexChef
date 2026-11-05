@@ -16,9 +16,9 @@ interface DriveFile {
 /**
  * Google Drive storage with the `drive.file` scope. Layout:
  *
- *   ResumeChef/                      (visible; readable copies of each document + PDFs)
+ *   texChef/                      (visible; readable copies of each document + PDFs)
  *     <Document name>/ main.tex, …, <Document name>.pdf
- *     .resumechef/
+ *     .texchef/
  *       index.json                   document metadata + heads (compare-and-swap via Drive `version`)
  *       packs/<id>.json              immutable commit bundles
  *       blobs/<sha256>               large binary files (images, fonts)
@@ -79,8 +79,8 @@ export class DriveProvider implements SyncProvider {
   private ensureFolders() {
     if (!this.folders) {
       this.folders = (async () => {
-        const root = await this.findOrCreateFolder('ResumeChef', 'root');
-        const data = await this.findOrCreateFolder('.resumechef', 'data', root);
+        const root = await this.findOrCreateFolder('texChef', 'root');
+        const data = await this.findOrCreateFolder('.texchef', 'data', root);
         const [packs, blobs] = await Promise.all([
           this.findOrCreateFolder('packs', 'packs', data),
           this.findOrCreateFolder('blobs', 'blobs', data),

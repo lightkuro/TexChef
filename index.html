@@ -3,14 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="ResumeChef — LaTeX resume editor with a master resume and linked, role-focused variants." />
+    <meta name="description" content="texChef — a LaTeX editor in your browser. Write a master resume once, branch focused versions, and keep them in sync." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <title>ResumeChef</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:title" content="texChef" />
+    <meta property="og:description" content="A LaTeX editor in your browser for master resumes and tailored versions." />
+    <meta property="og:image" content="/logo-512.png" />
+    <title>texChef</title>
     <script>
+      // Apply mode and color theme before the app loads, to avoid a flash.
       try {
         const t = localStorage.getItem('rc-theme');
         const dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
         if (dark) document.documentElement.classList.add('dark');
+        const p = localStorage.getItem('rc-palette');
+        if (p && p !== 'kitchen') document.documentElement.dataset.palette = p;
       } catch {}
     </script>
   </head>

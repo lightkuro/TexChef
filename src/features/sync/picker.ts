@@ -41,7 +41,7 @@ export async function pickFromDrive(): Promise<File[]> {
       .setOAuthToken(token.accessToken)
       .setDeveloperKey(API_KEY)
       .setAppId(APP_ID)
-      .setTitle('Import into ResumeChef')
+      .setTitle('Import into texChef')
       .setCallback((data: PickerResponse) => {
         if (data.action === gp.Action.PICKED) resolve(data.docs);
         else if (data.action === gp.Action.CANCEL) resolve([]);

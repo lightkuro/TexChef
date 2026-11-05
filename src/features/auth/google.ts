@@ -141,7 +141,7 @@ export async function requestToken(opts: { prompt?: '' | 'consent' | 'select_acc
         }
         // Google's consent screen lets people untick individual permissions.
         if (!g.accounts.oauth2.hasGrantedAllScopes(r, DRIVE_SCOPE)) {
-          reject(new Error('ResumeChef needs the Google Drive permission to sync. Connect again and leave it ticked.'));
+          reject(new Error('texChef needs the Google Drive permission to sync. Connect again and leave it ticked.'));
           return;
         }
         const t: StoredToken = { accessToken: r.access_token, expiresAt: Date.now() + r.expires_in * 1000, email: opts.hint ?? token?.email };

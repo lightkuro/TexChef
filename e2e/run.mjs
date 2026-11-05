@@ -47,6 +47,23 @@ await step('dashboard loads with welcome screen', async () => {
   await page.getByText('One master resume, many tailored versions').waitFor();
 });
 
+await step('home page links to Privacy and Terms; themes switch', async () => {
+  await page.getByTestId('link-privacy').click();
+  await page.getByTestId('legal-page').getByText('Limited Use requirements', { exact: false }).waitFor();
+  await page.goto(`${BASE}/terms`);
+  await page.getByTestId('legal-page').getByText('Limitation of liability').waitFor();
+  await page.goto(BASE);
+  await page.getByTestId('theme-menu').click();
+  await page.getByTestId('palette-ocean').click();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.palette), 'ocean');
+  const accent = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim());
+  assert.equal(accent, '#1d5fd1');
+  await page.screenshot({ path: `${OUT}00-theme-ocean.png` });
+  await page.getByTestId('theme-menu').click();
+  await page.getByTestId('palette-kitchen').click();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.palette ?? 'kitchen'), 'kitchen');
+});
+
 await step('create master resume from template and compile it', async () => {
   await page.getByTestId('new-doc').click();
   await page.getByTestId('template-resume-master').click();

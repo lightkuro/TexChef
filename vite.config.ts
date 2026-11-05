@@ -40,7 +40,7 @@ function texAssets(): Plugin {
     createReadStream(file).pipe(res);
   };
   return {
-    name: 'resumechef-tex-assets',
+    name: 'texchef-tex-assets',
     configureServer: (server) => void server.middlewares.use(handler),
     // `vite preview` serves the sharded copy from dist/ when `pnpm build:pages` made one.
     configurePreviewServer: (server) => {

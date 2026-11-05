@@ -15,6 +15,7 @@ export class RCDatabase extends Dexie {
   previews!: Table<PreviewRecord, string>;
   meta!: Table<MetaRecord, string>;
 
+  // Kept as 'resumechef' (the app's former name) so existing local data stays readable.
   constructor(name = 'resumechef') {
     super(name);
     this.version(1).stores({

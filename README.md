@@ -1,4 +1,4 @@
-# ResumeChef
+# texChef
 
 A browser LaTeX editor (in the spirit of Overleaf) built around one idea: **write one long master resume, then branch
 focused variants from it** — and keep them linked.
@@ -9,7 +9,9 @@ focused variants from it** — and keep them linked.
 - **Version history.** Every save is an immutable version; restore, branch from, download or compare any of them.
 - **Graphs.** A family tree of documents (master → variants → sub‑variants) and git‑style version swimlanes.
 - **Side‑by‑side compare & edit.** Any two documents (or versions); both sides editable, per‑change copy arrows, copy whole blocks across, PDFs side by side.
-- **Bring your own storage.** Everything lives in your browser (IndexedDB) and, if you connect it, your own Google Drive using the narrow `drive.file` permission. There is no ResumeChef server.
+- **Bring your own storage.** Everything lives in your browser (IndexedDB) and, if you connect it, your own Google Drive using the narrow `drive.file` permission. There is no texChef server.
+- **Themes.** Six color themes (Kitchen, Ocean, Forest, Plum, Graphite, Nord), each in light and dark.
+- **Privacy Policy and Terms** at `/privacy` and `/terms`, linked from every page footer (needed for Google's branding review).
 - **Upload / download.** `.tex`, `.cls`, `.sty`, `.bib`, images, fonts, Overleaf `.zip` exports; download PDF, sources or a project `.zip`, or all PDFs at once.
 
 ## Blocks: how variants work
@@ -69,16 +71,24 @@ Other scripts:
 
 Without Google configuration the app runs in **Local only** mode: fully functional, data stays in this browser.
 
+Before making the site public, set `VITE_LEGAL_OPERATOR`, `VITE_LEGAL_CONTACT` and `VITE_LEGAL_JURISDICTION` (build
+variables, like the Google ones) so the Privacy Policy and Terms name who runs the site, how to reach you, and which
+law applies. Until they are set, the pages show a visible “not set yet” marker. The texts in `src/legal/` are a
+starting point written for this app's actual data flows, not legal advice; have them reviewed if the stakes matter.
+
 ## Google Drive setup
 
-ResumeChef uses the Google Identity Services token flow from the browser — no backend and no client secret.
+texChef uses the Google Identity Services token flow from the browser — no backend and no client secret.
 
-1. **Project.** In [Google Cloud console](https://console.cloud.google.com/), create a project (e.g. `resumechef`)
+1. **Project.** In [Google Cloud console](https://console.cloud.google.com/), create a project (e.g. `texchef`)
    and note its **project number** (Dashboard / project settings) — that is `VITE_GOOGLE_APP_ID`.
 2. **APIs.** APIs & Services → Library: enable **Google Drive API** and **Google Picker API**.
 3. **Google Auth Platform** (left menu; formerly "OAuth consent screen"):
-   - **Branding:** app name (`ResumeChef`), support email, developer contact; under **Authorized domains** add
-     `kurolight.dev`.
+   - **Branding:** app name (`texChef`), support email, logo `brand/logo-120.png` (120×120 PNG), app home page
+     `https://texchef.kurolight.dev`, privacy policy `https://texchef.kurolight.dev/privacy`, terms of service
+     `https://texchef.kurolight.dev/terms`, developer contact; under **Authorized domains** add `kurolight.dev`.
+     Google shows the name and logo on the sign-in screen only after a brand verification (a few days); until then it
+     shows the domain, which is fine for testing.
    - **Audience:** user type **External**, publishing status **Testing**; add yourself and friends as **Test users**
      (up to 100).
    - **Data Access:** Add or remove scopes → `.../auth/drive.file` ("See, edit, create and delete only the specific
@@ -100,10 +110,10 @@ ResumeChef uses the Google Identity Services token flow from the browser — no 
 What ends up in Drive:
 
 ```
-ResumeChef/
+texChef/
   Master resume/          readable copy of each document + its latest PDF (updated when you save a version)
   Master resume · Backend/
-  .resumechef/            history: index.json, packs/ (versions), blobs/ (large files) — leave as is
+  .texchef/            history: index.json, packs/ (versions), blobs/ (large files) — leave as is
 ```
 
 Sync runs after saves, when the tab regains focus and every minute. Edits made offline or on two devices at once are
@@ -170,6 +180,8 @@ src/
   storage/     Dexie database, sync engine (packs + index), Drive and in-memory providers
   features/    dashboard, editor, graph, compare, variants UI, history, sync, settings, import/export
   templates/   master resume, cover letter, article
+  legal/       Privacy Policy and Terms pages (details from VITE_LEGAL_* variables)
+brand/         logo sources (SVG) and exported PNGs (120 px for Google, 512 px)
 scripts/       engine sharding, the worker wrapper that reassembles shards, deploy helper
 e2e/           Playwright end-to-end checks
 ```

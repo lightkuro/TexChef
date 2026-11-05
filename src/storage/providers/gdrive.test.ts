@@ -115,7 +115,7 @@ describe('DriveProvider against a fake Drive API', () => {
     await A.engine.sync();
     await B.engine.sync();
     const folders = [...drive.files.values()].filter((f) => f.mimeType === 'application/vnd.google-apps.folder');
-    expect(folders.map((f) => f.name).sort()).toEqual(['.resumechef', 'ResumeChef', 'blobs', 'packs']);
+    expect(folders.map((f) => f.name).sort()).toEqual(['.texchef', 'blobs', 'packs', 'texChef']);
 
     B.repo.blobFetcher = (h) => B.provider.readBlob(h);
     const work = await B.repo.getWork(doc.id);

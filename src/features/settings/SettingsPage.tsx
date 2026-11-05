@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { ArrowLeft, Cloud, HardDrive, Cpu, Palette, Database, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/app/repo';
-import { usePrefs, type Theme } from '@/app/prefs';
+import { PALETTES, usePrefs, type Theme } from '@/app/prefs';
+import { Swatch } from '@/components/ThemeMenu';
+import { cn } from '@/lib/utils';
 import { compiler } from '@/compile/compiler';
 import { useEngineStatus } from '@/features/compile/useCompile';
 import { useSync, connectDrive, disconnectDrive, syncNow } from '@/features/sync/controller';
@@ -30,6 +32,7 @@ export function SettingsPage() {
   const sync = useSync();
   const engine = useEngineStatus();
   const theme = usePrefs((s) => s.theme);
+  const palette = usePrefs((s) => s.palette);
   const autoCompile = usePrefs((s) => s.autoCompile);
   const setPref = usePrefs((s) => s.set);
   const [reset, setReset] = useState(false);
@@ -49,7 +52,7 @@ export function SettingsPage() {
       <div className="mx-auto max-w-2xl space-y-4 p-6">
         <Section icon={sync.state === 'local' ? <HardDrive className="size-4" /> : <Cloud className="size-4 text-ok" />} title="Storage">
           <p className="text-muted">
-            Documents always live in this browser first. Connect Google Drive to back them up and use them on other devices. ResumeChef asks
+            Documents always live in this browser first. Connect Google Drive to back them up and use them on other devices. texChef asks
             only for the <code className="rounded bg-subtle px-1">drive.file</code> permission, so it can see the files it creates and the files you
             pick, and nothing else in your Drive.
           </p>
@@ -84,8 +87,8 @@ export function SettingsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted">
-                In Drive you will find a <b>ResumeChef</b> folder with a readable copy of each document and its latest PDF. History lives in
-                <code className="mx-1 rounded bg-subtle px-1">ResumeChef/.resumechef</code>; leave it as it is.
+                In Drive you will find a <b>texChef</b> folder with a readable copy of each document and its latest PDF. History lives in
+                <code className="mx-1 rounded bg-subtle px-1">texChef/.texchef</code>; leave it as it is.
                 {!pickerConfigured && ' Importing existing Drive files needs VITE_GOOGLE_API_KEY and VITE_GOOGLE_APP_ID.'}
               </p>
             </div>
@@ -116,19 +119,49 @@ export function SettingsPage() {
 
         <Section icon={<Palette className="size-4" />} title="Appearance">
           <label className="flex items-center gap-2">
-            Theme
+            Mode
             <Select value={theme} onChange={(e) => setPref({ theme: e.target.value as Theme })}>
-              <option value="system">System</option>
+              <option value="system">Match system</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
             </Select>
           </label>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Color theme">
+            {PALETTES.map((p) => (
+              <button
+                key={p.id}
+                role="radio"
+                aria-checked={palette === p.id}
+                onClick={() => setPref({ palette: p.id })}
+                className={cn(
+                  'flex items-center gap-2 rounded-lg border p-2.5 text-left text-sm',
+                  palette === p.id ? 'border-accent bg-accent-soft' : 'border-line hover:bg-subtle',
+                )}
+                data-testid={`settings-palette-${p.id}`}
+              >
+                <span className="flex flex-col gap-1">
+                  <Swatch colors={p.light} />
+                  <Swatch colors={p.dark} />
+                </span>
+                {p.name}
+              </button>
+            ))}
+          </div>
         </Section>
 
         <Section icon={<ShieldCheck className="size-4" />} title="Privacy">
           <p className="text-muted">
-            There is no ResumeChef server. Your documents go only to this browser and, if you connect it, your own Google Drive. The Google access
+            There is no texChef server. Your documents go only to this browser and, if you connect it, your own Google Drive. The Google access
             token stays in this tab's session storage and expires after an hour.
+          </p>
+          <p className="text-muted">
+            <Link to="/privacy" className="text-accent underline">
+              Privacy Policy
+            </Link>{' '}
+            ·{' '}
+            <Link to="/terms" className="text-accent underline">
+              Terms of Service
+            </Link>
           </p>
         </Section>
 
@@ -151,7 +184,7 @@ export function SettingsPage() {
                   onClick={async () => {
                     const ok = await requestPersistence();
                     setStorage(await storageStatus());
-                    if (ok) toast.success('The browser will keep ResumeChef data');
+                    if (ok) toast.success('The browser will keep texChef data');
                     else toast.info('The browser declined for now. Chrome grants it automatically once you use or bookmark the site; Drive sync keeps a backup either way.');
                   }}
                 >

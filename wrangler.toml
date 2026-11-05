@@ -2,7 +2,7 @@
 # are free and unlimited). `npx wrangler deploy` uploads dist/, which holds the app and the TeX
 # engine split into gzipped parts under 25 MiB (see scripts/shard-tex-assets.mjs).
 # Workers Builds overrides `name` with the Worker connected in the dashboard.
-name = "resumechef"
+name = "texchef"
 compatibility_date = "2026-10-01"
 
 [build]

@@ -11,6 +11,8 @@ const VariantBuilder = lazy(() => import('@/features/variants/VariantBuilder').t
 const PullPage = lazy(() => import('@/features/variants/PullPage').then((m) => ({ default: m.PullPage })));
 const ComparePage = lazy(() => import('@/features/compare/ComparePage').then((m) => ({ default: m.ComparePage })));
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+const PrivacyPage = lazy(() => import('@/legal/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import('@/legal/TermsPage').then((m) => ({ default: m.TermsPage })));
 
 function Loading() {
   return (
@@ -20,7 +22,7 @@ function Loading() {
   );
 }
 import { repo, useDoc } from '@/app/repo';
-import { applyTheme, usePrefs } from '@/app/prefs';
+import { applyPalette, applyTheme, usePrefs } from '@/app/prefs';
 import { startSyncLoop } from '@/features/sync/controller';
 import { requestPersistence } from '@/app/persist';
 import { mergeDivergedHead, discardDivergedHead } from '@/storage/sync/engine';
@@ -101,6 +103,8 @@ function DocShell() {
 function Root() {
   useAutosave();
   const theme = usePrefs((s) => s.theme);
+  const palette = usePrefs((s) => s.palette);
+  useEffect(() => applyPalette(palette), [palette]);
   useEffect(() => {
     applyTheme(theme);
     const mq = matchMedia('(prefers-color-scheme: dark)');
@@ -145,6 +149,8 @@ const router = createBrowserRouter([
       },
       { path: '/compare', element: <ComparePage /> },
       { path: '/settings', element: <SettingsPage /> },
+      { path: '/privacy', element: <PrivacyPage /> },
+      { path: '/terms', element: <TermsPage /> },
       { path: '*', element: <Dashboard /> },
     ],
   },

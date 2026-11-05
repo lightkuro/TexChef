@@ -126,6 +126,6 @@ export async function downloadAllPdfs(): Promise<number> {
     if (prev) entries[`${safeFilename(d.name)}.pdf`] = prev.pdf;
   }
   const n = Object.keys(entries).length;
-  if (n) downloadBlob(zipSync(entries), 'ResumeChef PDFs.zip', 'application/zip');
+  if (n) downloadBlob(zipSync(entries), 'texChef PDFs.zip', 'application/zip');
   return n;
 }

@@ -47,6 +47,128 @@
   color-scheme: dark;
 }
 
+/* Color themes (palette x light/dark). Kitchen is the default defined above. */
+:root[data-palette='ocean']:not(.dark) {
+  --bg: #f3f6fb;
+  --panel: #ffffff;
+  --subtle: #e9eff7;
+  --border: #d5dfeb;
+  --fg: #0f172a;
+  --muted: #5a6a80;
+  --accent: #1d5fd1;
+  --accent-hover: #164aa6;
+  --accent-fg: #ffffff;
+  --accent-soft: #e2ecfc;
+}
+:root.dark[data-palette='ocean'] {
+  --bg: #0c121e;
+  --panel: #121a29;
+  --subtle: #1a2536;
+  --border: #29374e;
+  --fg: #e4ebf5;
+  --muted: #93a3b9;
+  --accent: #5b9cff;
+  --accent-hover: #85b6ff;
+  --accent-fg: #06142c;
+  --accent-soft: #19304f;
+}
+:root[data-palette='forest']:not(.dark) {
+  --bg: #f4f7f2;
+  --panel: #ffffff;
+  --subtle: #eaf0e6;
+  --border: #d6dfcf;
+  --fg: #17200f;
+  --muted: #5e6b55;
+  --accent: #2e7d32;
+  --accent-hover: #22602a;
+  --accent-fg: #ffffff;
+  --accent-soft: #e1f0df;
+}
+:root.dark[data-palette='forest'] {
+  --bg: #0e130d;
+  --panel: #151c13;
+  --subtle: #1d261a;
+  --border: #2e3a2a;
+  --fg: #e5ece0;
+  --muted: #9bab93;
+  --accent: #62c266;
+  --accent-hover: #83d186;
+  --accent-fg: #07160a;
+  --accent-soft: #1b331f;
+}
+:root[data-palette='plum']:not(.dark) {
+  --bg: #f8f5fa;
+  --panel: #ffffff;
+  --subtle: #f0e9f4;
+  --border: #e0d4e7;
+  --fg: #1f1424;
+  --muted: #6b5a75;
+  --accent: #8a3ebd;
+  --accent-hover: #6e2e98;
+  --accent-fg: #ffffff;
+  --accent-soft: #f2e5fa;
+}
+:root.dark[data-palette='plum'] {
+  --bg: #130e17;
+  --panel: #1b1420;
+  --subtle: #241b2b;
+  --border: #392c43;
+  --fg: #eee6f3;
+  --muted: #ac9bb7;
+  --accent: #c487fc;
+  --accent-hover: #d5a8fd;
+  --accent-fg: #1d0b2b;
+  --accent-soft: #33204a;
+}
+:root[data-palette='graphite']:not(.dark) {
+  --bg: #f5f5f5;
+  --panel: #ffffff;
+  --subtle: #ececec;
+  --border: #dadada;
+  --fg: #161616;
+  --muted: #696969;
+  --accent: #262626;
+  --accent-hover: #000000;
+  --accent-fg: #ffffff;
+  --accent-soft: #e7e7e7;
+}
+:root.dark[data-palette='graphite'] {
+  --bg: #101010;
+  --panel: #181818;
+  --subtle: #212121;
+  --border: #333333;
+  --fg: #ececec;
+  --muted: #9a9a9a;
+  --accent: #e6e6e6;
+  --accent-hover: #ffffff;
+  --accent-fg: #111111;
+  --accent-soft: #2b2b2b;
+}
+:root[data-palette='nord']:not(.dark) {
+  --bg: #eceff4;
+  --panel: #f8f9fb;
+  --subtle: #e5e9f0;
+  --border: #d8dee9;
+  --fg: #2e3440;
+  --muted: #5b6678;
+  --accent: #5e81ac;
+  --accent-hover: #4b6a90;
+  --accent-fg: #ffffff;
+  --accent-soft: #dce5f0;
+}
+:root.dark[data-palette='nord'] {
+  --bg: #2b303b;
+  --panel: #323846;
+  --subtle: #3b4252;
+  --border: #4c566a;
+  --fg: #eceff4;
+  --muted: #a3adbf;
+  --accent: #88c0d0;
+  --accent-hover: #a3d0dc;
+  --accent-fg: #1f242d;
+  --accent-soft: #3d5160;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-panel: var(--panel);
@@ -138,6 +260,8 @@ body {
   --xy-background-color: var(--bg);
   --xy-edge-stroke: var(--muted);
   --xy-minimap-background-color: var(--panel);
+  --xy-minimap-mask-background-color: color-mix(in oklab, var(--bg) 65%, transparent);
+  --xy-minimap-mask-stroke-color: var(--border);
   --xy-controls-button-background-color: var(--panel);
   --xy-controls-button-color: var(--fg);
   --xy-controls-button-border-color: var(--border);

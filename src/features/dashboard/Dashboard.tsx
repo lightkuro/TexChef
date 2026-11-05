@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Plus, Upload, Network, List, GitCommitHorizontal, Download, CloudDownload, Search, Settings, ChefHat, FileText, Moon, Sun, Archive } from 'lucide-react';
+import { Plus, Upload, Network, List, GitCommitHorizontal, Download, CloudDownload, Search, Settings, FileText, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
@@ -13,27 +13,20 @@ import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { useSync } from '@/features/sync/controller';
 import { pickFromDrive, pickerConfigured } from '@/features/sync/picker';
 import { Button, Input, Spinner, Tip } from '@/components/ui';
+import { Logo } from '@/components/Logo';
+import { ThemeMenu } from '@/components/ThemeMenu';
 import { cn } from '@/lib/utils';
 
 export function AppHeader({ children }: { children?: React.ReactNode }) {
-  const theme = usePrefs((s) => s.theme);
-  const setPref = usePrefs((s) => s.set);
-  const dark = document.documentElement.classList.contains('dark');
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-panel px-4">
       <Link to="/" className="flex items-center gap-2 font-semibold">
-        <span className="flex size-7 items-center justify-center rounded-lg bg-accent text-accent-fg">
-          <ChefHat className="size-4" />
-        </span>
-        ResumeChef
+        <Logo size={28} />
+        texChef
       </Link>
       <div className="flex flex-1 items-center gap-2">{children}</div>
       <SyncIndicator />
-      <Tip content={`Theme: ${theme}`}>
-        <Button variant="ghost" size="icon" aria-label="Toggle theme" onClick={() => setPref({ theme: dark ? 'light' : 'dark' })}>
-          {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-        </Button>
-      </Tip>
+      <ThemeMenu />
       <Tip content="Settings">
         <Link to="/settings" aria-label="Settings" className="inline-flex size-8 items-center justify-center rounded-md hover:bg-subtle">
           <Settings className="size-4" />
@@ -208,6 +201,16 @@ export function Dashboard() {
           </div>
         )}
       </main>
+      <footer className="flex h-7 shrink-0 items-center gap-3 border-t border-line bg-panel px-4 text-[11px] text-muted">
+        <span>texChef</span>
+        <Link to="/privacy" className="hover:text-fg" data-testid="link-privacy">
+          Privacy
+        </Link>
+        <Link to="/terms" className="hover:text-fg" data-testid="link-terms">
+          Terms
+        </Link>
+        <span className="ml-auto">Runs in your browser · your files stay yours</span>
+      </footer>
       <NewDocDialog open={newOpen} onOpenChange={setNewOpen} />
     </div>
   );
@@ -245,7 +248,17 @@ function Welcome({ onNew, onUpload }: { onNew: () => void; onUpload: () => void 
           </li>
         ))}
       </ol>
-      <p className="mt-8 text-xs text-muted">Your documents are stored in this browser and, if you connect it, in your own Google Drive.</p>
+      <p className="mt-8 text-xs text-muted">
+        Your documents are stored in this browser and, if you connect it, in your own Google Drive. By using texChef you agree to the{' '}
+        <Link to="/terms" className="underline hover:text-fg">
+          Terms
+        </Link>{' '}
+        and{' '}
+        <Link to="/privacy" className="underline hover:text-fg">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </div>
   );
 }
