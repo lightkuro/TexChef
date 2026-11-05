@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, Cloud, HardDrive, Cpu, Palette, Database, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,7 +10,8 @@ import { useSync, connectDrive, disconnectDrive, syncNow } from '@/features/sync
 import { googleConfigured } from '@/features/auth/google';
 import { pickerConfigured } from '@/features/sync/picker';
 import { Badge, Button, Dialog, Select } from '@/components/ui';
-import { timeAgo } from '@/lib/utils';
+import { formatBytes, timeAgo } from '@/lib/utils';
+import { requestPersistence, storageStatus, type StorageStatus } from '@/app/persist';
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
@@ -32,6 +33,10 @@ export function SettingsPage() {
   const autoCompile = usePrefs((s) => s.autoCompile);
   const setPref = usePrefs((s) => s.set);
   const [reset, setReset] = useState(false);
+  const [storage, setStorage] = useState<StorageStatus>();
+  useEffect(() => {
+    void storageStatus().then(setStorage);
+  }, []);
 
   return (
     <div className="h-full overflow-auto">
@@ -128,6 +133,36 @@ export function SettingsPage() {
         </Section>
 
         <Section icon={<Database className="size-4" />} title="Local data">
+          <p className="text-muted">
+            Documents, versions and the downloaded TeX engine are kept in this browser, so reopening the site does not download them again.
+          </p>
+          {storage?.supported && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={storage.persisted ? 'ok' : 'warn'}>{storage.persisted ? 'Persistent storage' : 'Best-effort storage'}</Badge>
+              {storage.usage !== undefined && (
+                <span className="text-muted">
+                  {formatBytes(storage.usage)} used{storage.quota ? ` of ${formatBytes(storage.quota)} available` : ''}
+                </span>
+              )}
+              {!storage.persisted && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const ok = await requestPersistence();
+                    setStorage(await storageStatus());
+                    if (ok) toast.success('The browser will keep ResumeChef data');
+                    else toast.info('The browser declined for now. Chrome grants it automatically once you use or bookmark the site; Drive sync keeps a backup either way.');
+                  }}
+                >
+                  Keep data permanently
+                </Button>
+              )}
+            </div>
+          )}
+          {storage?.supported && !storage.persisted && (
+            <p className="text-xs text-muted">With best-effort storage the browser may clear this site's data when the disk is nearly full. Connect Google Drive to keep a copy.</p>
+          )}
           <p className="text-muted">Remove every document, version and cached PDF from this browser. Documents synced to Drive come back the next time you connect.</p>
           <Button variant="danger" onClick={() => setReset(true)}>
             Erase local data…

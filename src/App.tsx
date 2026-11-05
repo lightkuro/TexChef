@@ -22,6 +22,7 @@ function Loading() {
 import { repo, useDoc } from '@/app/repo';
 import { applyTheme, usePrefs } from '@/app/prefs';
 import { startSyncLoop } from '@/features/sync/controller';
+import { requestPersistence } from '@/app/persist';
 import { mergeDivergedHead, discardDivergedHead } from '@/storage/sync/engine';
 
 /** Autosave dirty working copies as checkpoints: after a minute idle and when the page is hidden. */
@@ -108,6 +109,14 @@ function Root() {
     return () => mq.removeEventListener('change', on);
   }, [theme]);
   useEffect(() => startSyncLoop(), []);
+  // Ask the browser to keep local data once there is something worth keeping.
+  useEffect(() => {
+    const off = repo.on('commit', () => {
+      off();
+      void requestPersistence();
+    });
+    return off;
+  }, []);
   return (
     <TooltipProvider>
       <div className="h-full">

@@ -5,7 +5,8 @@
 // (busytex_worker_impl.js and everything it loads) is unchanged.
 (function () {
   var realFetch = self.fetch.bind(self);
-  var manifest = realFetch(new URL('shards.json', self.location.href))
+  // Always revalidate the manifest; the content-addressed parts it names are cached for good.
+  var manifest = realFetch(new URL('shards.json', self.location.href), { cache: 'no-cache' })
     .then(function (r) {
       return r.ok ? r.json() : {};
     })

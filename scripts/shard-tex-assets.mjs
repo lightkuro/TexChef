@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-// Prepare the BusyTeX engine for Cloudflare Pages (free plan: max 25 MiB per file, 20,000 files).
+// Prepare the BusyTeX engine for Cloudflare static hosting (free plan: max 25 MiB per file, 20,000 files).
 //
 //   node scripts/shard-tex-assets.mjs [src=tex-assets/busytex] [out=dist/core/busytex]
 //
-// - .wasm and .data files are gzipped and split into parts of at most 24 MiB
-//   (e.g. texlive-basic.data → texlive-basic.data.gz.000, .001, …) and listed in shards.json.
+// - .wasm and .data files are gzipped and split into parts of at most 24 MiB, named after a hash
+//   of their content (e.g. texlive-basic.data → ../busytex-parts/texlive-basic.data.<hash>.gz.000)
+//   and listed in shards.json. Content-addressed parts can be cached forever (see public/_headers);
+//   shards.json and the small loader files are revalidated, so an engine upgrade never mixes parts.
 // - Every other file is copied unchanged (Cloudflare compresses text files on the fly).
 // - busytex_worker.js is replaced by scripts/busytex-worker-shim.js, which reassembles the parts
 //   in the browser; the original worker is kept as busytex_worker_impl.js.
@@ -13,6 +15,7 @@ import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGzip } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
@@ -27,8 +30,18 @@ if (!existsSync(join(src, 'busytex_worker.js'))) {
   console.error(`No BusyTeX assets in ${src}. Run \`pnpm tex:assets\` first.`);
   process.exit(1);
 }
+const partsDir = `${out}-parts`;
+const partsRel = `../${partsDir.slice(partsDir.lastIndexOf('/') + 1)}/`;
 rmSync(out, { recursive: true, force: true });
+rmSync(partsDir, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
+mkdirSync(partsDir, { recursive: true });
+
+async function hashFile(file) {
+  const h = createHash('sha256');
+  await pipeline(createReadStream(file), h);
+  return h.digest('hex').slice(0, 12);
+}
 
 /** Writable that rolls over to a new part file every PART bytes. */
 function partWriter(base) {
@@ -38,7 +51,7 @@ function partWriter(base) {
   const open = () => {
     const name = `${base}.gz.${String(parts.length).padStart(3, '0')}`;
     parts.push(name);
-    current = createWriteStream(join(out, name));
+    current = createWriteStream(join(partsDir, name));
     written = 0;
   };
   const stream = new Transform({
@@ -84,15 +97,15 @@ for (const name of readdirSync(src).sort()) {
     continue;
   }
   const size = statSync(file).size;
-  const { stream, parts } = partWriter(name);
+  const { stream, parts } = partWriter(`${name}.${await hashFile(file)}`);
   await pipeline(createReadStream(file), createGzip({ level: 6 }), stream);
-  const packed = parts.reduce((n, p) => n + statSync(join(out, p)).size, 0);
+  const packed = parts.reduce((n, p) => n + statSync(join(partsDir, p)).size, 0);
   total += packed;
-  manifest[name] = { size, type: TYPES[ext], encoding: 'gzip', parts };
+  manifest[name] = { size, type: TYPES[ext], encoding: 'gzip', parts: parts.map((p) => partsRel + p) };
   console.log(`${name.padEnd(28)} ${(size / 1e6).toFixed(1).padStart(6)} MB → ${(packed / 1e6).toFixed(1).padStart(6)} MB in ${parts.length} part(s)`);
 }
 writeFileSync(join(out, 'shards.json'), JSON.stringify(manifest, null, 1));
-const files = readdirSync(out);
-const biggest = Math.max(...files.map((f) => statSync(join(out, f)).size));
-console.log(`\n${files.length} files, ${(total / 1e6).toFixed(0)} MB of compressed parts, largest file ${(biggest / 1048576).toFixed(1)} MiB → ${out}`);
-if (biggest > LIMIT) throw new Error('A file exceeds the 25 MiB Cloudflare Pages limit');
+const files = [...readdirSync(out).map((f) => join(out, f)), ...readdirSync(partsDir).map((f) => join(partsDir, f))];
+const biggest = Math.max(...files.map((f) => statSync(f).size));
+console.log(`\n${files.length} files, ${(total / 1e6).toFixed(0)} MB of compressed parts, largest file ${(biggest / 1048576).toFixed(1)} MiB → ${out}, ${partsDir}`);
+if (biggest > LIMIT) throw new Error('A file exceeds the 25 MiB per-file limit');

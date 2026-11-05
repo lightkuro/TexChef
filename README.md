@@ -139,6 +139,12 @@ npx wrangler deploy
 Uploads are de-duplicated by content hash and the shards are deterministic, so after the first deploy only changed
 files are uploaded.
 
+**Caching.** Engine parts are named after a hash of their content (`/core/busytex-parts/…`) and cached by the
+browser for a year; the TeX packages are also stored in IndexedDB by the engine. The small loader files and
+`shards.json` are always revalidated (`304 Not Modified` when unchanged), so reopening the site downloads none of
+the large files, and a new engine version is picked up immediately without mixing old and new parts. The app asks
+the browser for persistent storage after the first save (status and usage are shown in Settings).
+
 To check the production setup locally, run `pnpm build:pages`, then `pnpm preview`; it serves the sharded copy.
 
 ## Project layout

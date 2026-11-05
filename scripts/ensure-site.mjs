@@ -16,7 +16,7 @@ const run = (args, label) => {
 };
 
 const appBuilt = existsSync(join(root, 'dist/index.html'));
-const engineBuilt = existsSync(join(root, 'dist/core/busytex/shards.json'));
+const engineBuilt = existsSync(join(root, 'dist/core/busytex/shards.json')) && existsSync(join(root, 'dist/core/busytex-parts'));
 
 if (!appBuilt) {
   run([join(root, 'node_modules/typescript/bin/tsc'), '-b'], 'type-checking');

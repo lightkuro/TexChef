@@ -7,5 +7,10 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
+# TeX engine loaders and shards.json: always revalidated (cheap 304s), so upgrades are picked up at once.
 /core/busytex/*
-  Cache-Control: public, max-age=604800
+  Cache-Control: no-cache
+
+# Content-addressed engine parts: never change, cache for a year.
+/core/busytex-parts/*
+  Cache-Control: public, max-age=31536000, immutable
