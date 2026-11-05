@@ -32,9 +32,9 @@ const step = async (name, fn) => {
 
 const pdfText = () =>
   page.evaluate(async () => {
+    // Use the app's live instances (exposed in dev) so hot reloads can't hand us a stale module copy.
     const { pdfText } = await import('/src/compile/pdf.ts');
-    const { useCompileStore } = await import('/src/features/compile/useCompile.ts');
-    const entries = Object.values(useCompileStore.getState().entries);
+    const entries = Object.values(window.rcCompile.getState().entries);
     const latest = entries.filter((e) => e.output?.pdf).sort((a, b) => (b.at ?? 0) - (a.at ?? 0))[0];
     return latest ? pdfText(latest.output.pdf) : '';
   });
@@ -64,14 +64,26 @@ await step('blocks panel lists the resume structure', async () => {
   await panel.getByText(/Northwind Analytics/).first().waitFor();
 });
 
+await step('SyncTeX: double-click PDF jumps to source, locate highlights PDF', async () => {
+  await page.locator('[data-testid=pdf-viewer] [data-page="1"] canvas').waitFor();
+  const wrap = page.locator('[data-testid=pdf-viewer] [data-page="1"]');
+  const box = await wrap.boundingBox();
+  const pw = Number(await wrap.getAttribute('data-pw'));
+  const ph = Number(await wrap.getAttribute('data-ph'));
+  // "Northwind Analytics" sits at about (40bp, 162bp) on page 1 of the template.
+  await page.mouse.dblclick(box.x + (60 / pw) * box.width, box.y + (159 / ph) * box.height);
+  await page.waitForFunction(() => /Northwind Analytics/.test(document.querySelector('.cm-activeLine')?.textContent ?? ''));
+  await page.getByTestId('locate-in-pdf').click();
+  await page.locator('.sync-hl').first().waitFor();
+});
+
 await step('editing the source recompiles the PDF', async () => {
   const cm = page.locator('.cm-content');
   await cm.click();
   await page.keyboard.press('Control+Home');
   await page.keyboard.type('% edited in e2e\n');
   await page.waitForFunction(async () => {
-    const { db } = await import('/src/app/repo.ts');
-    const w = await db.work.toArray();
+    const w = await window.rc.db.work.toArray();
     return w.some((x) => x.files['main.tex']?.text?.startsWith('% edited in e2e'));
   });
   await page.getByTestId('save-version').click();
@@ -99,7 +111,7 @@ await step('variant builder: pick #frontend, see live preview, create variant', 
 
 await step('edit master, then pull the update into the variant', async () => {
   await page.evaluate(async (masterId) => {
-    const { repo } = await import('/src/app/repo.ts');
+    const { repo } = window.rc;
     const w = await repo.getWork(masterId);
     const t = w.files['main.tex'].text.replace('improving load time by 60\\%', 'improving load time by 75\\%').replace('(555) 010-2030', '(555) 444-1212');
     await repo.writeWorkText(masterId, 'main.tex', t);
@@ -114,7 +126,7 @@ await step('edit master, then pull the update into the variant', async () => {
   await page.getByTestId('editor-page').waitFor();
   await page.getByText('up to date').waitFor();
   const text = await page.evaluate(async (id) => {
-    const { repo } = await import('/src/app/repo.ts');
+    const { repo } = window.rc;
     return (await repo.getWork(id)).files['main.tex'].text;
   }, variantUrl.split('/doc/')[1]);
   assert.match(text, /75\\%/);
@@ -154,7 +166,7 @@ await step('compare side by side, copy a block across', async () => {
   await page.getByLabel('Copy northwind-ingest to right').click();
   await page.getByText('Copied block to “Frontend resume”').waitFor();
   const text = await page.evaluate(async (id) => {
-    const { repo } = await import('/src/app/repo.ts');
+    const { repo } = window.rc;
     return (await repo.getWork(id)).files['main.tex'].text;
   }, v);
   assert.match(text, /streaming ingestion/);
@@ -184,7 +196,7 @@ await step('upload a .zip as a new document and download it again', async () => 
 
 await step('compile errors are reported with line numbers', async () => {
   await page.evaluate(async (id) => {
-    const { repo } = await import('/src/app/repo.ts');
+    const { repo } = window.rc;
     await repo.writeWorkText(id, 'main.tex', '\\documentclass{article}\n\\begin{document}\nOops \\undefinedmacro\n\\end{document}\n');
   }, page.url().split('/doc/')[1]);
   await page.getByTestId('problems').getByText(/Undefined control sequence/).waitFor({ timeout: 30_000 });

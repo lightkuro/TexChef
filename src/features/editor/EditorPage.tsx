@@ -14,6 +14,7 @@ import {
   History,
   Blocks,
   Play,
+  LocateFixed,
   Save,
   Zap,
   ZapOff,
@@ -35,6 +36,7 @@ import { EngineBanner } from '@/features/compile/EngineBanner';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { cn, docColor, formatBytes } from '@/lib/utils';
 import { usePrefs } from '@/app/prefs';
+import { decodeSynctex, parseSynctex, pdfToSource, sourceToPdf, type SyncData, type SyncRect } from '@/compile/synctex';
 
 type SideTab = 'files' | 'blocks' | 'history';
 
@@ -79,6 +81,33 @@ export function EditorPage() {
   });
   const pdf = entry?.output?.pdf ?? preview?.pdf;
   const pages = entry?.pages ?? preview?.pages;
+  const synctexBytes = entry?.output?.pdf ? entry.output.synctex : undefined;
+  const [sync, setSync] = useState<SyncData | null>(null);
+  const [highlights, setHighlights] = useState<SyncRect[]>();
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!synctexBytes) {
+      setSync(null);
+      return;
+    }
+    void decodeSynctex(synctexBytes)
+      .then((t) => !cancelled && setSync(parseSynctex(t)))
+      .catch(() => !cancelled && setSync(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [synctexBytes]);
+
+  const locateInPdf = useCallback(() => {
+    if (!sync || !path) {
+      toast.info('Compile once to enable jumping between source and PDF.');
+      return;
+    }
+    const rects = sourceToPdf(sync, path, cursorLine ?? 1);
+    if (rects.length) setHighlights(rects);
+    else toast.info('This line does not produce output in the PDF.');
+  }, [sync, path, cursorLine]);
 
   const writeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flush = useCallback(async () => {
@@ -294,6 +323,24 @@ export function EditorPage() {
             pdf={pdf}
             running={entry?.running}
             pages={pages}
+            highlights={highlights}
+            onSyncClick={({ page, x, y }) => {
+              if (!sync) {
+                toast.info('Compile once to enable jumping from the PDF to the source.');
+                return;
+              }
+              const hit = pdfToSource(sync, page, x, y);
+              if (!hit || !work.files[hit.file]) return;
+              if (hit.file !== path) setActivePath(hit.file);
+              setTimeout(() => editor.current?.goto(hit.line), hit.file !== path ? 60 : 0);
+            }}
+            actions={
+              <Tip content="Show the cursor's line in the PDF (double-click the PDF to jump back to the source)">
+                <Button size="icon-sm" variant="ghost" onClick={locateInPdf} aria-label="Locate in PDF" data-testid="locate-in-pdf">
+                  <LocateFixed className="size-3.5" />
+                </Button>
+              </Tip>
+            }
             onDownload={() => pdf && downloadPdf(doc.name, pdf)}
             emptyMessage={output && !output.ok ? 'Compilation failed — see problems below.' : 'Compile to see the PDF'}
           />

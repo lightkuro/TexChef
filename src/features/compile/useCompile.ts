@@ -26,6 +26,8 @@ export const useCompileStore = create<CompileStore>((set) => ({
     set((s) => ({ entries: { ...s.entries, [key]: { ...(s.entries[key] ?? { running: false }), ...patch } } })),
 }));
 
+if (import.meta.env.DEV) (window as unknown as { rcCompile: unknown }).rcCompile = useCompileStore;
+
 export function useEngineStatus(): EngineStatus {
   return useSyncExternalStore(
     (cb) => compiler.onStatus(cb),
@@ -81,7 +83,7 @@ export async function compileFiles(req: CompileRequest): Promise<CompileOutput |
   useCompileStore.getState().set(req.key, {
     running: false,
     // Keep showing the last good PDF when a compile fails.
-    output: output.pdf ? output : { ...output, pdf: prev?.output?.pdf },
+    output: output.pdf ? output : { ...output, pdf: prev?.output?.pdf, synctex: prev?.output?.synctex },
     pages: output.pdf ? pages : prev?.pages,
     inputKey,
     at: Date.now(),

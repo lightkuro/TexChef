@@ -162,3 +162,21 @@ body {
   height: 1px;
   width: auto;
 }
+
+.sync-hl {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+  outline: 1.5px solid color-mix(in oklab, var(--accent) 70%, transparent);
+  animation: sync-fade 2.6s ease-out forwards;
+}
+@keyframes sync-fade {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

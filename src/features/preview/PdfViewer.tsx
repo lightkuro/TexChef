@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Minus, Plus, Maximize2, Download } from 'lucide-react';
 import { openPdf, type LoadedPdf } from '@/compile/pdf';
+import type { SyncRect } from '@/compile/synctex';
 import { Button, Spinner, Tip } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
@@ -13,15 +14,47 @@ interface Props {
   emptyMessage?: React.ReactNode;
   running?: boolean;
   pages?: number;
+  /** Double-click on a page (coordinates in PDF points, top-left origin). */
+  onSyncClick?: (p: { page: number; x: number; y: number }) => void;
+  /** Boxes to flash (e.g. "locate cursor in PDF"); a new array re-triggers the flash and scroll. */
+  highlights?: SyncRect[];
+  /** Extra controls for the toolbar. */
+  actions?: React.ReactNode;
+}
+
+function drawHighlights(target: HTMLElement, rects: SyncRect[], scrollIntoView: boolean) {
+  target.querySelectorAll('.sync-hl').forEach((el) => el.remove());
+  let first: HTMLElement | null = null;
+  for (const r of rects) {
+    const wrap = target.querySelector<HTMLElement>(`[data-page="${r.page}"]`);
+    if (!wrap) continue;
+    const k = wrap.clientWidth / Number(wrap.dataset.pw);
+    const el = document.createElement('div');
+    el.className = 'sync-hl';
+    el.style.left = `${r.x * k - 2}px`;
+    el.style.top = `${r.y * k - 2}px`;
+    el.style.width = `${r.w * k + 4}px`;
+    el.style.height = `${r.h * k + 4}px`;
+    wrap.appendChild(el);
+    first ??= el;
+  }
+  if (scrollIntoView && first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
 /** Renders every page of a PDF to canvases, keeping the scroll position across recompiles. */
-export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMessage, running, pages }: Props) {
+export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMessage, running, pages, onSyncClick, highlights, actions }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState<'fit' | number>('fit');
   const [width, setWidth] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const highlightRef = useRef<{ rects: SyncRect[]; at: number } | null>(null);
+
+  useEffect(() => {
+    if (!highlights?.length) return;
+    highlightRef.current = { rects: highlights, at: Date.now() };
+    if (container.current) drawHighlights(container.current, highlights, true);
+  }, [highlights]);
 
   useEffect(() => {
     const el = scroller.current;
@@ -43,7 +76,7 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
         if (cancelled) return;
         const { doc } = loaded;
         const dpr = window.devicePixelRatio || 1;
-        const canvases: HTMLCanvasElement[] = [];
+        const pagesEls: HTMLElement[] = [];
         for (let i = 1; i <= doc.numPages; i++) {
           const page = await doc.getPage(i);
           const base = page.getViewport({ scale: 1 });
@@ -54,15 +87,24 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
           canvas.height = Math.floor(viewport.height);
           canvas.style.width = `${Math.floor(viewport.width / dpr)}px`;
           canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
-          canvas.className = 'pdf-page mx-auto mb-4 block';
-          canvas.dataset.page = String(i);
+          canvas.className = 'pdf-page block';
           await page.render({ canvas, viewport }).promise;
           if (cancelled) return;
-          canvases.push(canvas);
+          const wrap = document.createElement('div');
+          wrap.className = 'relative mx-auto mb-4';
+          wrap.style.width = canvas.style.width;
+          wrap.dataset.page = String(i);
+          wrap.dataset.pw = String(base.width);
+          wrap.dataset.ph = String(base.height);
+          wrap.appendChild(canvas);
+          pagesEls.push(wrap);
         }
         // Swap in all pages at once to avoid flicker.
         const scrollTop = scroller.current?.scrollTop ?? 0;
-        target.replaceChildren(...canvases);
+        target.replaceChildren(...pagesEls);
+        // Keep a highlight that is still fading in place across a re-render.
+        const h = highlightRef.current;
+        if (h && Date.now() - h.at < 2000) drawHighlights(target, h.rects, false);
         if (scroller.current) scroller.current.scrollTop = scrollTop;
         setError(null);
       } catch (e) {
@@ -99,6 +141,7 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
             </Button>
           </Tip>
           <div className="flex-1" />
+          {actions}
           {pages !== undefined && (
             <span className={cn('text-xs tabular-nums', pages > 1 ? 'text-muted' : 'text-ok')} data-testid="page-count">
               {pages} {pages === 1 ? 'page' : 'pages'}
@@ -114,7 +157,23 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
           )}
         </div>
       )}
-      <div ref={scroller} className="min-h-0 flex-1 overflow-auto px-4 pt-4" data-testid="pdf-viewer">
+      <div
+        ref={scroller}
+        className="min-h-0 flex-1 overflow-auto px-4 pt-4"
+        data-testid="pdf-viewer"
+        onDoubleClick={(e) => {
+          const wrap = (e.target as HTMLElement).closest<HTMLElement>('[data-page]');
+          if (!wrap || !onSyncClick) return;
+          const rect = wrap.getBoundingClientRect();
+          const pw = Number(wrap.dataset.pw);
+          const ph = Number(wrap.dataset.ph);
+          onSyncClick({
+            page: Number(wrap.dataset.page),
+            x: ((e.clientX - rect.left) / rect.width) * pw,
+            y: ((e.clientY - rect.top) / rect.height) * ph,
+          });
+        }}
+      >
         {!pdf && (
           <div className="flex h-full items-center justify-center text-sm text-muted">
             {running ? (

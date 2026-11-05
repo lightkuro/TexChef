@@ -5,6 +5,7 @@ focused variants from it** — and keep them linked.
 
 - **Compile in the browser.** TeX Live 2026 running as WebAssembly ([texlyre-busytex](https://github.com/TeXlyre/texlyre-busytex)); pdfLaTeX, XeLaTeX, LuaLaTeX, BibTeX. No compile server.
 - **Linked variants.** Build a variant by ticking sections/jobs/bullets or picking tags (`#backend`, `#ml`…) with a live PDF and page count. Later, **pull** master edits into a variant with a 3‑way merge, or **push** a reworded bullet back up.
+- **Source ↔ PDF sync (SyncTeX).** Double-click the PDF to jump to the source line; the locate button highlights the cursor's line in the PDF.
 - **Version history.** Every save is an immutable version; restore, branch from, download or compare any of them.
 - **Graphs.** A family tree of documents (master → variants → sub‑variants) and git‑style version swimlanes.
 - **Side‑by‑side compare & edit.** Any two documents (or versions); both sides editable, per‑change copy arrows, copy whole blocks across, PDFs side by side.
@@ -64,6 +65,7 @@ Other scripts:
 | `pnpm build` | Production build into `dist/` (~3 MB, without the TeX engine) |
 | `pnpm build:pages` | Build plus the gzipped, sharded TeX engine in `dist/core/busytex` (for Cloudflare Pages) |
 | `pnpm e2e http://localhost:5173` | Browser end‑to‑end checks with Playwright against a running dev server |
+| `pnpm e2e:engines http://localhost:5173` | Engine coverage: XeLaTeX + fontspec, LuaLaTeX, BibTeX, images, TikZ, moderncv (downloads the larger bundles) |
 
 Without Google configuration the app runs in **Local only** mode: fully functional, data stays in this browser.
 
@@ -159,5 +161,5 @@ e2e/           Playwright end-to-end checks
 
 ## Ideas for later
 
-SyncTeX click‑to‑source, a visual PDF diff overlay, offline PWA shell, a GitHub storage provider, and AI tailoring
+A visual PDF diff overlay, offline PWA shell, a GitHub storage provider, and AI tailoring
 (paste a job description → suggested tags/blocks and bullet rewrites with your own API key).
