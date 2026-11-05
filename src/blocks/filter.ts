@@ -63,7 +63,7 @@ export function filterTex(text: string, recipe: Recipe, opts: FilterOptions = {}
 // Whitespace or comments that are not block markers.
 const FILLER = String.raw`(?:[ \t]*(?:%(?![%\s]*@)[^\n]*)?\n)*[ \t]*`;
 const EMPTY_ENV_RE = new RegExp(
-  String.raw`^[ \t]*\\begin\{(itemize|enumerate|description)\}(?:\[[^\]\n]*\])?[ \t]*\n` + FILLER + String.raw`\\end\{\1\}[ \t]*(?:\n|$)`,
+  String.raw`^[ \t]*\\begin\{(itemize|enumerate|description|cvitems|cvhonors|cventries)\}(?:\[[^\]\n]*\])?[ \t]*\n` + FILLER + String.raw`\\end\{\1\}[ \t]*(?:\n|$)`,
   'gm',
 );
 const EMPTY_MACRO_LIST_RE = new RegExp(

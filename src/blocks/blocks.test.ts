@@ -120,6 +120,69 @@ describe('automark', () => {
     expect(automark(text).added).toBe(0);
   });
 
+  it('handles multi-line entry macros (Jake’s Resume style) and filters them cleanly', () => {
+    const src = [
+      '\\begin{document}',
+      '\\section{Experience}',
+      '  \\resumeSubHeadingListStart',
+      '    \\resumeSubheading',
+      '      {Research Assistant}{June 2020 -- Present}',
+      '      {State University}{College Town, TX}',
+      '      \\resumeItemListStart',
+      '        \\resumeItem{Built a REST API with FastAPI.}',
+      '        \\resumeItem{Wrote a data pipeline.}',
+      '      \\resumeItemListEnd',
+      '    \\resumeSubheading',
+      '      {IT Support}{2018 -- 2020}',
+      '      {Campus IT}{College Town, TX}',
+      '      \\resumeItemListStart',
+      '        \\resumeItem{Fixed printers.}',
+      '      \\resumeItemListEnd',
+      '  \\resumeSubHeadingListEnd',
+      '\\end{document}',
+    ].join('\n');
+    const marked = automark(src).text;
+    const p = parseBlocks(marked);
+    expect(p.issues).toEqual([]);
+    expect(p.byId.get('sec-experience')!.children.map((c) => c.id)).toEqual(['research-assistant', 'it-support']);
+    expect(p.byId.get('research-assistant')!.label).toBe('Research Assistant · June 2020 – Present · State University · College Town, TX');
+    expect(p.byId.get('research-assistant')!.children.map((c) => c.id)).toEqual(['research-assistant-1', 'research-assistant-2']);
+    // Dropping every IT Support bullet removes its now-empty item list too.
+    const all = p.all.map((b) => b.id).filter((id) => id !== 'it-support-1');
+    const out = filterTex(marked, { ...emptyRecipe(), include: all });
+    expect(getBlockText(out, 'it-support')).not.toContain('resumeItemListStart');
+    expect(out).toContain('\\resumeSubHeadingListEnd');
+  });
+
+  it('marks awesome-cv style entries whose bullets live inside an argument', () => {
+    const src = [
+      '\\begin{document}',
+      '\\cvsection{Experience}',
+      '\\begin{cventries}',
+      '  \\cventry',
+      '    {Engineer} % Job title',
+      '    {Northwind} % Organization',
+      '    {Remote} % Location',
+      '    {2022 - Now} % Date(s)',
+      '    {',
+      '      \\begin{cvitems}',
+      '        \\item {Shipped the thing.}',
+      '      \\end{cvitems}',
+      '    }',
+      '\\end{cventries}',
+      '\\end{document}',
+    ].join('\n');
+    const marked = automark(src).text;
+    const p = parseBlocks(marked);
+    expect(p.issues).toEqual([]);
+    expect(p.byId.get('sec-experience')!.children.map((c) => c.id)).toEqual(['engineer']);
+    expect(p.byId.get('engineer')!.children).toHaveLength(1);
+    expect(p.byId.get('engineer')!.label).toBe('Engineer · Northwind · Remote · 2022 - Now');
+    const out = filterTex(marked, { ...emptyRecipe(), include: ['sec-experience', 'engineer'] });
+    expect(out).not.toContain('cvitems');
+    expect(out).toContain('\\end{cventries}');
+  });
+
   it('marks plain itemize bullets under sections', () => {
     const src = [
       '\\begin{document}',

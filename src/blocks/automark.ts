@@ -53,6 +53,19 @@ function listDelta(line: string): number {
   return (s.match(LIST_OPEN_RE)?.length ?? 0) - (s.match(LIST_CLOSE_RE)?.length ?? 0);
 }
 
+/**
+ * A macro line plus following lines that continue its arguments, e.g. Jake's Resume style:
+ *   \resumeSubheading
+ *     {Role}{Dates}
+ *     {Company}{Place}
+ */
+export function joinArgumentLines(lines: string[], start: number, max = 4): string {
+  const strip = (l: string) => l.replace(/(?<!\\)%.*$/, '').trim();
+  let text = strip(lines[start]);
+  for (let j = start + 1; j < Math.min(lines.length, start + 1 + max) && /^\s*\{/.test(lines[j]); j++) text += strip(lines[j]);
+  return text;
+}
+
 export function automark(text: string): AutomarkResult {
   const lines = splitLines(text);
   const parsed = parseBlocks(text);
@@ -127,7 +140,7 @@ export function automark(text: string): AutomarkResult {
         }
       }
       end = trimBack(start, end);
-      const label = latexToLabel(lines[start]);
+      const label = latexToLabel(joinArgumentLines(lines, start));
       const id = uniqueId(slugify(label.split(' · ')[0] || 'entry'));
       marks.push({ start, end, id, kind: 'entry' });
       markItems(start + 1, end, id);

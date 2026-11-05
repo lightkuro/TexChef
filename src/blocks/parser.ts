@@ -120,7 +120,13 @@ function deriveLabel(lines: string[], from: number, to: number): string {
   for (let i = from; i < to; i++) {
     const raw = lines[i];
     if (!raw.trim() || raw.trim().startsWith('%')) continue;
-    const label = latexToLabel(raw);
+    // A bare macro whose arguments start on the next lines (\resumeSubheading⏎ {…}{…}).
+    const strip = (l: string) => l.replace(/(?<!\\)%.*$/, '').trim();
+    let text = strip(raw);
+    if (/^\\[A-Za-z@]+\*?$/.test(text)) {
+      for (let j = i + 1; j < Math.min(to, i + 5) && /^\s*\{/.test(lines[j]); j++) text += strip(lines[j]);
+    }
+    const label = latexToLabel(text);
     if (label) return label;
   }
   return '';
