@@ -1,14 +1,24 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { createBrowserRouter, RouterProvider, Outlet, useParams, useNavigate } from 'react-router';
 import { Toaster, toast } from 'sonner';
 import { AlertTriangle } from 'lucide-react';
-import { TooltipProvider, Button } from '@/components/ui';
+import { TooltipProvider, Button, Spinner } from '@/components/ui';
 import { Dashboard } from '@/features/dashboard/Dashboard';
-import { EditorPage } from '@/features/editor/EditorPage';
-import { VariantBuilder } from '@/features/variants/VariantBuilder';
-import { PullPage } from '@/features/variants/PullPage';
-import { ComparePage } from '@/features/compare/ComparePage';
-import { SettingsPage } from '@/features/settings/SettingsPage';
+
+// Heavier screens (CodeMirror, merge view) load on demand.
+const EditorPage = lazy(() => import('@/features/editor/EditorPage').then((m) => ({ default: m.EditorPage })));
+const VariantBuilder = lazy(() => import('@/features/variants/VariantBuilder').then((m) => ({ default: m.VariantBuilder })));
+const PullPage = lazy(() => import('@/features/variants/PullPage').then((m) => ({ default: m.PullPage })));
+const ComparePage = lazy(() => import('@/features/compare/ComparePage').then((m) => ({ default: m.ComparePage })));
+const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
+
+function Loading() {
+  return (
+    <div className="flex h-full items-center justify-center text-muted">
+      <Spinner />
+    </div>
+  );
+}
 import { repo, useDoc } from '@/app/repo';
 import { applyTheme, usePrefs } from '@/app/prefs';
 import { startSyncLoop } from '@/features/sync/controller';
@@ -79,7 +89,9 @@ function DocShell() {
     <div className="flex h-full flex-col">
       <DivergedBanner />
       <div className="min-h-0 flex-1">
-        <Outlet />
+        <Suspense fallback={<Loading />}>
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   );
@@ -99,7 +111,9 @@ function Root() {
   return (
     <TooltipProvider>
       <div className="h-full">
-        <Outlet />
+        <Suspense fallback={<Loading />}>
+          <Outlet />
+        </Suspense>
       </div>
       <Toaster position="bottom-right" richColors closeButton theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'} />
     </TooltipProvider>
