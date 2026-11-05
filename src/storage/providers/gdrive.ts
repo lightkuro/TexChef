@@ -28,7 +28,7 @@ export class DriveProvider implements SyncProvider {
   private folders?: Promise<{ root: string; data: string; packs: string; blobs: string }>;
   private indexFileId?: string;
   private blobIds = new Map<Hash, string>();
-  private docFolders = new Map<string, string>();
+  private docFolders = new Map<string, { id: string; name: string }>();
 
   constructor(private getToken: () => Promise<string>) {}
 
@@ -198,27 +198,33 @@ export class DriveProvider implements SyncProvider {
 
   async mirror(doc: DocMeta, files: Record<string, Uint8Array>, pdf?: Uint8Array): Promise<void> {
     const { root } = await this.ensureFolders();
-    let folderId = this.docFolders.get(doc.id);
-    if (!folderId) {
-      const found = await this.list(`mimeType='${FOLDER}' and trashed=false and '${root}' in parents and appProperties has { key='doc' and value='${doc.id}' }`);
-      folderId = found[0]?.id;
-      if (!folderId) {
-        folderId = (
-          await this.json<DriveFile>(`${API}/files?fields=id`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: doc.name, mimeType: FOLDER, parents: [root], appProperties: { doc: doc.id } }),
-          })
-        ).id;
-      } else if (found[0].name !== doc.name) {
-        await this.request(`${API}/files/${folderId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: doc.name }),
-        });
-      }
-      this.docFolders.set(doc.id, folderId);
+    let folder = this.docFolders.get(doc.id);
+    if (!folder) {
+      const found = (await this.list(`mimeType='${FOLDER}' and trashed=false and '${root}' in parents and appProperties has { key='doc' and value='${doc.id}' }`))[0];
+      folder = found
+        ? { id: found.id, name: found.name }
+        : {
+            id: (
+              await this.json<DriveFile>(`${API}/files?fields=id`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: doc.name, mimeType: FOLDER, parents: [root], appProperties: { doc: doc.id } }),
+              })
+            ).id,
+            name: doc.name,
+          };
+      this.docFolders.set(doc.id, folder);
     }
+    // Follow document renames (also after the folder id was cached).
+    if (folder.name !== doc.name) {
+      await this.request(`${API}/files/${folder.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: doc.name }),
+      });
+      folder.name = doc.name;
+    }
+    const folderId = folder.id;
     const existing = new Map((await this.list(`'${folderId}' in parents and trashed=false`)).map((f) => [f.name, f.id]));
     const wanted = new Map<string, Uint8Array>();
     for (const [path, data] of Object.entries(files)) wanted.set(path.replace(/\//g, ' ∕ '), data);

@@ -8,6 +8,7 @@ interface Prefs {
   graphMode: 'family' | 'versions';
   dashboardView: 'graph' | 'list';
   showAutosaves: boolean;
+  showArchived: boolean;
   set: (patch: Partial<Omit<Prefs, 'set'>>) => void;
 }
 
@@ -27,6 +28,7 @@ export const usePrefs = create<Prefs>((set, get) => ({
   graphMode: 'family',
   dashboardView: 'graph',
   showAutosaves: false,
+  showArchived: false,
   ...load(),
   set: (patch) => {
     set(patch);

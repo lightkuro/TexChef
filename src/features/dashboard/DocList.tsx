@@ -42,6 +42,7 @@ export function DocList({ docs }: { docs: DocMeta[] }) {
                 <Link to={`/doc/${doc.id}`} className="truncate text-sm font-medium hover:underline">
                   {doc.name}
                 </Link>
+                {doc.archived && <Badge>archived</Badge>}
                 {doc.recipe?.tags.map((t) => (
                   <Badge key={t} tone="accent">
                     #{t}

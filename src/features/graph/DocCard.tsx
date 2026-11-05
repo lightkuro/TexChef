@@ -27,6 +27,7 @@ export const DocCard = memo(function DocCard({ data, selected }: NodeProps<DocNo
       <div
         className={cn(
           'group overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow hover:shadow-md',
+          doc.archived && 'opacity-60',
           selected ? 'border-accent ring-2 ring-accent/30' : 'border-line',
         )}
         style={{ width: DOC_NODE_W }}
@@ -67,6 +68,7 @@ export const DocCard = memo(function DocCard({ data, selected }: NodeProps<DocNo
                 <AlertTriangle className="size-3" /> edited elsewhere
               </Badge>
             )}
+            {doc.archived && <Badge tone="neutral">archived</Badge>}
             {childCount > 0 && <Badge tone="neutral">{childCount} variant{childCount === 1 ? '' : 's'}</Badge>}
             {doc.recipe?.tags.map((t) => (
               <Badge key={t} tone="accent">

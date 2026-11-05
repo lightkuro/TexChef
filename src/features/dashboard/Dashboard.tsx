@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Plus, Upload, Network, List, GitCommitHorizontal, Download, CloudDownload, Search, Settings, ChefHat, FileText, Moon, Sun } from 'lucide-react';
+import { Plus, Upload, Network, List, GitCommitHorizontal, Download, CloudDownload, Search, Settings, ChefHat, FileText, Moon, Sun, Archive } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
@@ -52,19 +52,22 @@ export function Dashboard() {
   const view = usePrefs((s) => s.dashboardView);
   const graphMode = usePrefs((s) => s.graphMode);
   const showAutosaves = usePrefs((s) => s.showAutosaves);
+  const showArchived = usePrefs((s) => s.showArchived);
   const setPref = usePrefs((s) => s.set);
   const upload = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const sync = useSync();
 
+  const archivedCount = docs?.filter((d) => d.archived).length ?? 0;
   const filtered = useMemo(() => {
+    const visible = (docs ?? []).filter((d) => showArchived || !d.archived);
     const q = query.trim().toLowerCase();
-    if (!docs || !q) return docs ?? [];
-    const match = new Set(docs.filter((d) => d.name.toLowerCase().includes(q) || d.tags.some((t) => t.includes(q)) || d.recipe?.tags.some((t) => t.includes(q))).map((d) => d.id));
+    if (!q) return visible;
+    const match = new Set(visible.filter((d) => d.name.toLowerCase().includes(q) || d.tags.some((t) => t.includes(q)) || d.recipe?.tags.some((t) => t.includes(q))).map((d) => d.id));
     // Keep ancestors so the tree stays connected.
-    for (const d of docs) if (match.has(d.id)) for (let p = d.parent?.docId; p; p = docs.find((x) => x.id === p)?.parent?.docId) match.add(p);
-    return docs.filter((d) => match.has(d.id));
-  }, [docs, query]);
+    for (const d of visible) if (match.has(d.id)) for (let p = d.parent?.docId; p; p = visible.find((x) => x.id === p)?.parent?.docId) match.add(p);
+    return visible.filter((d) => match.has(d.id));
+  }, [docs, query, showArchived]);
 
   const importFiles = async (files: File[] | FileList) => {
     if (!files.length) return;
@@ -136,6 +139,11 @@ export function Dashboard() {
           <Download className="size-4" /> Export all PDFs
         </Button>
         <div className="flex-1" />
+        {archivedCount > 0 && (
+          <Button variant={showArchived ? 'secondary' : 'ghost'} size="sm" onClick={() => setPref({ showArchived: !showArchived })} data-testid="toggle-archived">
+            <Archive className="size-3.5" /> {showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
+          </Button>
+        )}
         {view === 'graph' && (
           <div className="flex items-center gap-2">
             {graphMode === 'versions' && (

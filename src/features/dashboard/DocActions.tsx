@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive } from 'lucide-react';
+import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive, Archive, ArchiveRestore } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DocMeta } from '@/core/model';
 import { db, repo } from '@/app/repo';
@@ -64,6 +64,15 @@ function useDocActions(doc: DocMeta) {
       },
     },
     { key: 'rename', label: 'Rename…', icon: <Pencil className="size-4" />, run: () => (setName(doc.name), setRenaming(true)) },
+    {
+      key: 'archive',
+      label: doc.archived ? 'Unarchive' : 'Archive',
+      icon: doc.archived ? <ArchiveRestore className="size-4" /> : <Archive className="size-4" />,
+      run: async () => {
+        await repo.updateDoc(doc.id, { archived: !doc.archived });
+        toast.success(doc.archived ? `Restored “${doc.name}”` : `Archived “${doc.name}”. Show archived documents from the dashboard toolbar.`);
+      },
+    },
     {
       key: 'pdf',
       label: 'Download PDF',

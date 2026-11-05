@@ -155,6 +155,20 @@ await step('dashboard graph shows master → variant', async () => {
   await page.getByTestId('graph-family').click();
 });
 
+await step('archive hides a document until "show archived" is on', async () => {
+  await page.getByTestId('view-list').click();
+  await page.getByLabel('Actions for Frontend resume').click();
+  await page.getByRole('menuitem', { name: 'Archive' }).click();
+  await page.getByTestId('toggle-archived').waitFor();
+  assert.equal(await page.getByTestId('doc-list').getByText('Frontend resume').count(), 0);
+  await page.getByTestId('toggle-archived').click();
+  await page.getByTestId('doc-list').getByText('Frontend resume').waitFor();
+  await page.getByLabel('Actions for Frontend resume').click();
+  await page.getByRole('menuitem', { name: 'Unarchive' }).click();
+  await page.getByTestId('toggle-archived').waitFor({ state: 'detached' });
+  await page.getByTestId('view-graph').click();
+});
+
 await step('compare side by side, copy a block across', async () => {
   const m = masterUrl.split('/doc/')[1];
   const v = variantUrl.split('/doc/')[1];

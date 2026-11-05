@@ -1,0 +1,159 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DriveProvider } from './gdrive';
+import { RCDatabase } from '@/storage/db';
+import { Repo, fileText } from '@/core/repo';
+import { SyncEngine } from '@/storage/sync/engine';
+
+/** A small in-memory imitation of the Drive v3 REST endpoints the provider uses. */
+class FakeDrive {
+  files = new Map<string, { id: string; name: string; mimeType?: string; parents: string[]; appProperties: Record<string, string>; data: Uint8Array; version: number; trashed: boolean }>();
+  next = 1;
+  calls: string[] = [];
+
+  private match(q: string) {
+    const conds: ((f: FakeDrive['files'] extends Map<string, infer F> ? F : never) => boolean)[] = [];
+    const s = q.replace(/appProperties has \{ key='([^']+)' and value='([^']+)' \}/g, (_m, k: string, v: string) => {
+      conds.push((f) => f.appProperties[k] === v);
+      return '';
+    });
+    for (const m of s.matchAll(/mimeType='([^']+)'/g)) conds.push((f) => f.mimeType === m[1]);
+    for (const m of s.matchAll(/'([^']+)' in parents/g)) conds.push((f) => f.parents.includes(m[1]));
+    for (const m of s.matchAll(/(?<![A-Za-z])name='([^']+)'/g)) conds.push((f) => f.name === m[1]);
+    if (/trashed=false/.test(s)) conds.push((f) => !f.trashed);
+    return [...this.files.values()].filter((f) => conds.every((c) => c(f)));
+  }
+
+  private meta(f: { id: string; name: string; version: number; appProperties: Record<string, string>; mimeType?: string }) {
+    return { id: f.id, name: f.name, version: String(f.version), appProperties: f.appProperties, mimeType: f.mimeType };
+  }
+
+  private async multipart(init: RequestInit) {
+    const type = (init.headers as Record<string, string>)['Content-Type'];
+    const boundary = /boundary=(.+)$/.exec(type)![1];
+    const bytes = new Uint8Array(await (init.body as Blob).arrayBuffer());
+    const text = new TextDecoder('latin1').decode(bytes);
+    const metaStart = text.indexOf('\r\n\r\n') + 4;
+    const metaEnd = text.indexOf(`\r\n--${boundary}`, metaStart);
+    const meta = JSON.parse(text.slice(metaStart, metaEnd));
+    const bodyStart = text.indexOf('\r\n\r\n', metaEnd) + 4;
+    const bodyEnd = text.lastIndexOf(`\r\n--${boundary}--`);
+    return { meta, data: bytes.slice(bodyStart, bodyEnd) };
+  }
+
+  fetch = async (input: string, init: RequestInit = {}): Promise<Response> => {
+    const url = new URL(input);
+    const method = init.method ?? 'GET';
+    this.calls.push(`${method} ${url.pathname}`);
+    const json = (v: unknown) => new Response(JSON.stringify(v), { headers: { 'Content-Type': 'application/json' } });
+    const idMatch = /\/files\/([^/]+)$/.exec(url.pathname);
+    if (url.pathname.endsWith('/about')) return json({ user: { displayName: 'Test', emailAddress: 't@example.com' } });
+    if (url.pathname === '/drive/v3/files' && method === 'GET') {
+      const all = this.match(url.searchParams.get('q') ?? '');
+      // Two results per page, to exercise pagination.
+      const start = Number(url.searchParams.get('pageToken') || 0);
+      const page = all.slice(start, start + 2);
+      return json({ files: page.map((f) => this.meta(f)), nextPageToken: start + 2 < all.length ? String(start + 2) : undefined });
+    }
+    if (url.pathname === '/drive/v3/files' && method === 'POST') {
+      const meta = JSON.parse(init.body as string);
+      const id = `f${this.next++}`;
+      this.files.set(id, { id, name: meta.name, mimeType: meta.mimeType, parents: meta.parents ?? [], appProperties: meta.appProperties ?? {}, data: new Uint8Array(), version: 1, trashed: false });
+      return json({ id });
+    }
+    if (url.pathname === '/upload/drive/v3/files' && method === 'POST') {
+      const { meta, data } = await this.multipart(init);
+      const id = `f${this.next++}`;
+      const f = { id, name: meta.name, mimeType: meta.mimeType, parents: meta.parents ?? [], appProperties: meta.appProperties ?? {}, data, version: 1, trashed: false };
+      this.files.set(id, f);
+      return json(this.meta(f));
+    }
+    if (idMatch) {
+      const f = this.files.get(idMatch[1]);
+      if (!f) return new Response('not found', { status: 404 });
+      if (method === 'DELETE') {
+        this.files.delete(f.id);
+        return new Response(null, { status: 204 });
+      }
+      if (method === 'PATCH' && url.pathname.startsWith('/upload/')) {
+        const { meta, data } = await this.multipart(init);
+        Object.assign(f, { name: meta.name ?? f.name, data, version: f.version + 1 });
+        return json(this.meta(f));
+      }
+      if (method === 'PATCH') {
+        Object.assign(f, JSON.parse(init.body as string), { version: f.version + 1 });
+        return json(this.meta(f));
+      }
+      if (url.searchParams.get('alt') === 'media') return new Response(f.data as BlobPart);
+      return json(this.meta(f));
+    }
+    return new Response(`unhandled ${method} ${url}`, { status: 500 });
+  };
+}
+
+let n = 0;
+function device() {
+  const repo = new Repo(new RCDatabase(`gdrive-${n++}`));
+  const provider = new DriveProvider(async () => 'token');
+  return { repo, provider, engine: new SyncEngine(repo, provider) };
+}
+
+describe('DriveProvider against a fake Drive API', () => {
+  let drive: FakeDrive;
+  beforeEach(() => {
+    drive = new FakeDrive();
+    vi.stubGlobal('fetch', drive.fetch);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('creates its folders once and syncs documents between two devices', async () => {
+    const A = device();
+    const B = device();
+    const doc = await A.repo.createDoc({ name: 'Master', files: { 'main.tex': { kind: 'text', text: 'hello' } } });
+    const photo = new Uint8Array(400 * 1024).map((_, i) => i % 251);
+    await A.repo.addBinaryFile(doc.id, 'photo.jpg', photo);
+    await A.repo.commitWork(doc.id, 'photo');
+    await A.engine.sync();
+    await B.engine.sync();
+    const folders = [...drive.files.values()].filter((f) => f.mimeType === 'application/vnd.google-apps.folder');
+    expect(folders.map((f) => f.name).sort()).toEqual(['.resumechef', 'ResumeChef', 'blobs', 'packs']);
+
+    B.repo.blobFetcher = (h) => B.provider.readBlob(h);
+    const work = await B.repo.getWork(doc.id);
+    expect(fileText(work.files, 'main.tex')).toBe('hello');
+    const ph = work.files['photo.jpg'];
+    expect(ph.kind).toBe('binary');
+    expect(await B.repo.getBlob((ph as { hash: string }).hash)).toEqual(photo);
+
+    // Edits flow back, across several packs (paginated listing).
+    for (let i = 0; i < 3; i++) {
+      await B.repo.writeWorkText(doc.id, 'main.tex', `edit ${i}`);
+      await B.repo.commitWork(doc.id, `edit ${i}`);
+      await B.engine.sync();
+    }
+    await A.engine.sync();
+    expect(fileText((await A.repo.getWork(doc.id)).files, 'main.tex')).toBe('edit 2');
+  });
+
+  it('refuses an index write when another device wrote first', async () => {
+    const A = device();
+    await A.repo.createDoc({ name: 'Doc', files: { 'main.tex': { kind: 'text', text: 'x' } } });
+    await A.engine.sync();
+    const snap = await A.provider.readIndex();
+    expect(snap.version).toBe('1');
+    expect(await A.provider.writeIndex(snap.index!, snap.version)).toBe('2');
+    expect(await A.provider.writeIndex(snap.index!, snap.version)).toBeNull();
+  });
+
+  it('keeps a readable mirror of each document and its PDF', async () => {
+    const A = device();
+    const doc = await A.repo.createDoc({ name: 'Resume', files: { 'main.tex': { kind: 'text', text: 'x' } } });
+    const enc = (s: string) => new TextEncoder().encode(s);
+    await A.provider.mirror(doc, { 'main.tex': enc('v1'), 'sections/a.tex': enc('a') }, enc('%PDF-1'));
+    await A.provider.mirror({ ...doc, name: 'Resume v2' }, { 'main.tex': enc('v2') });
+    const folder = [...drive.files.values()].find((f) => f.appProperties.doc === doc.id)!;
+    expect(folder.name).toBe('Resume v2');
+    const inside = [...drive.files.values()].filter((f) => f.parents.includes(folder.id));
+    expect(inside.map((f) => f.name).sort()).toEqual(['main.tex']);
+    expect(new TextDecoder().decode(inside[0].data)).toBe('v2');
+  });
+});

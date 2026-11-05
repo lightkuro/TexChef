@@ -18,7 +18,7 @@ interface TokenResponse {
 }
 
 interface TokenClient {
-  requestAccessToken(opts?: { prompt?: string; hint?: string }): void;
+  requestAccessToken(opts?: { prompt?: string; login_hint?: string }): void;
   callback: (r: TokenResponse) => void;
   error_callback?: (e: { type: string; message?: string }) => void;
 }
@@ -33,6 +33,7 @@ interface GoogleGlobal {
         error_callback?: (e: { type: string; message?: string }) => void;
       }): TokenClient;
       revoke(token: string, done?: () => void): void;
+      hasGrantedAllScopes(response: TokenResponse, ...scopes: string[]): boolean;
     };
   };
 }
@@ -138,14 +139,20 @@ export async function requestToken(opts: { prompt?: '' | 'consent' | 'select_acc
           reject(new Error(r.error_description || r.error || 'Sign-in failed'));
           return;
         }
+        // Google's consent screen lets people untick individual permissions.
+        if (!g.accounts.oauth2.hasGrantedAllScopes(r, DRIVE_SCOPE)) {
+          reject(new Error('ResumeChef needs the Google Drive permission to sync. Connect again and leave it ticked.'));
+          return;
+        }
         const t: StoredToken = { accessToken: r.access_token, expiresAt: Date.now() + r.expires_in * 1000, email: opts.hint ?? token?.email };
         store(t);
         setConnected(true);
         resolve(t);
       },
-      error_callback: (e) => reject(new Error(e.message || e.type || 'Sign-in was cancelled')),
+      error_callback: (e) =>
+        reject(new Error(e.type === 'popup_closed' ? 'Sign-in window was closed' : e.type === 'popup_failed_to_open' ? 'The sign-in popup was blocked. Allow popups for this site.' : e.message || e.type || 'Sign-in was cancelled')),
     });
-    client.requestAccessToken({ prompt: opts.prompt ?? '', hint: opts.hint });
+    client.requestAccessToken({ prompt: opts.prompt ?? '', login_hint: opts.hint });
   });
 }
 
