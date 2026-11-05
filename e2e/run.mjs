@@ -128,6 +128,8 @@ await step('dashboard graph shows master → variant', async () => {
   await page.getByTestId('graph-family').click();
   await page.getByTestId('doc-node-Master resume').waitFor();
   await page.getByTestId('doc-node-Frontend resume').waitFor();
+  // Edges render once React Flow has measured both nodes.
+  await page.locator('.react-flow__edge').first().waitFor();
   assert.equal(await page.locator('.react-flow__edge').count(), 1);
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}04-graph.png` });

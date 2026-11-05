@@ -1,9 +1,5 @@
-# Cloudflare Pages config (see README → Deploy).
+# Cloudflare Pages config, used by `wrangler pages deploy` (see README → Deploy).
+# Everything is static: the TeX engine is shipped as gzipped <25 MiB shards inside dist/.
 name = "resumechef"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-10-01"
-
-# R2 bucket holding the BusyTeX engine under the "busytex/" prefix (upload tex-assets/busytex/*).
-[[r2_buckets]]
-binding = "TEX_ASSETS"
-bucket_name = "resumechef-tex"

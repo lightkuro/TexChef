@@ -42,7 +42,10 @@ function texAssets(): Plugin {
   return {
     name: 'resumechef-tex-assets',
     configureServer: (server) => void server.middlewares.use(handler),
-    configurePreviewServer: (server) => void server.middlewares.use(handler),
+    // `vite preview` serves the sharded copy from dist/ when `pnpm build:pages` made one.
+    configurePreviewServer: (server) => {
+      if (!existsSync(fileURLToPath(new URL('./dist/core/busytex/shards.json', import.meta.url)))) server.middlewares.use(handler);
+    },
   };
 }
 

@@ -61,7 +61,8 @@ Other scripts:
 | --- | --- |
 | `pnpm test` | Unit tests (blocks, merge, versions, variants, sync, log parser) |
 | `pnpm typecheck` | TypeScript |
-| `pnpm build` | Production build into `dist/` (~3 MB) |
+| `pnpm build` | Production build into `dist/` (~3 MB, without the TeX engine) |
+| `pnpm build:pages` | Build plus the gzipped, sharded TeX engine in `dist/core/busytex` (for Cloudflare Pages) |
 | `pnpm e2e http://localhost:5173` | Browser end‑to‑end checks with Playwright against a running dev server |
 
 Without Google configuration the app runs in **Local only** mode: fully functional, data stays in this browser.
@@ -97,21 +98,39 @@ an hour and are kept in the tab's session storage; after that the app shows **Re
 
 **Import from Drive** (dashboard) opens Google Picker; picking a file is what grants a `drive.file` app access to it.
 
-## Deploy (Cloudflare Pages + R2)
+## Deploy (Cloudflare Pages, free plan)
 
-The app is static, but two engine files exceed Pages' 25 MiB per‑file limit, and the engine's Web Worker must be
-same‑origin. So the engine lives in an R2 bucket and `functions/core/busytex/[[path]].ts` streams it at `/core/busytex/*`.
+Everything is static, so the whole app fits in a free Pages project: no Workers/Functions, no R2, no paid features.
 
-1. Create an R2 bucket (default name in `wrangler.toml`: `resumechef-tex`) and upload `tex-assets/busytex/*` under the
-   prefix `busytex/` (e.g. `rclone copy tex-assets/busytex r2:resumechef-tex/busytex`, or the dashboard).
-2. Create a Pages project from this (private) repo: build command `pnpm build`, output directory `dist`.
-   Add the `VITE_GOOGLE_*` variables as build environment variables.
-3. In the Pages project settings, bind the bucket as **`TEX_ASSETS`** (Functions → R2 bucket bindings), or deploy with
-   `wrangler pages deploy` using `wrangler.toml`.
-4. Add the Pages URL to the OAuth client's authorized JavaScript origins.
+The engine's big files exceed Pages' 25 MiB per-file limit, so `pnpm build:pages` runs
+`scripts/shard-tex-assets.mjs`: every `.wasm`/`.data` file is gzipped and split into ≤24 MiB parts
+(`texlive-basic.data.gz.000`, `.001`, …) listed in `shards.json`, and `busytex_worker.js` is replaced by a small
+wrapper (`scripts/busytex-worker-shim.js`) that streams the parts back together and gunzips them in the browser.
+Result: 46 files, about 520 MB (from ~700 MB), largest 24 MiB. Gzip also makes the first visit lighter: about 80 MB
+instead of 125 MB for the engine core.
 
-R2's free tier (10 GB storage, free egress) covers this comfortably. Any host works if it serves `dist/` with SPA fallback
-and `/core/busytex/*` from the same origin (set `VITE_TEX_ASSETS_URL` to change the path).
+**Git-connected Pages project** (simplest):
+
+1. Cloudflare dashboard → Workers & Pages → Create → Pages → connect this repository.
+2. Build command `pnpm cf:build` (downloads the engine from the texlyre-busytex GitHub release, builds, shards);
+   output directory `dist`. Add the `VITE_GOOGLE_*` variables as build environment variables.
+3. Add the `*.pages.dev` URL (or your custom domain) to the OAuth client's authorized JavaScript origins.
+
+**Or deploy from your machine:**
+
+```bash
+pnpm tex:assets && pnpm build:pages
+```
+
+```bash
+npx wrangler pages deploy
+```
+
+Uploads are de-duplicated by content hash and the shards are deterministic, so after the first deploy only changed
+files are uploaded. Free-plan limits that matter here: 25 MiB per file and 20,000 files per deployment (we use ~50),
+500 builds per month; static requests and bandwidth are unlimited.
+
+To check the production setup locally, run `pnpm build:pages`, then `pnpm preview`; it serves the sharded copy.
 
 ## Project layout
 
@@ -124,7 +143,7 @@ src/
   storage/     Dexie database, sync engine (packs + index), Drive and in-memory providers
   features/    dashboard, editor, graph, compare, variants UI, history, sync, settings, import/export
   templates/   master resume, cover letter, article
-functions/     Cloudflare Pages Function serving the TeX engine from R2
+scripts/       engine sharding for Cloudflare Pages + the worker wrapper that reassembles shards
 e2e/           Playwright end-to-end checks
 ```
 
