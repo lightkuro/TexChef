@@ -1,0 +1,11 @@
+node_modules
+dist
+*.local
+.env
+.env.*
+!.env.example
+# BusyTeX WASM + TeX Live data (~700 MB). Fetch with `pnpm tex:assets`; host on R2 in production.
+public/core/
+e2e/out/
+.wrangler/
+*.tsbuildinfo

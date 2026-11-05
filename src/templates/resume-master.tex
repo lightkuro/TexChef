@@ -1,0 +1,148 @@
+%% ResumeChef master resume template.
+%% Uses only packages in the core TeX Live bundle, so the first compile is fast.
+%%
+%% Lines like "%% @block <id> tags=a,b" ... "%% @end" mark blocks (sections, jobs, bullets).
+%% Variants are built by picking blocks or tags; the markers are plain comments to LaTeX.
+\documentclass[10pt,letterpaper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{charter}
+\usepackage[margin=0.55in,top=0.5in,bottom=0.5in]{geometry}
+\usepackage{color}
+\usepackage{array}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{accent}{rgb}{0.62,0.22,0.05}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\tabcolsep}{0pt}
+\setlength{\leftmargini}{1.1em}
+\renewcommand{\labelitemi}{\textcolor{accent}{\small$\bullet$}}
+
+% ---- Building blocks -------------------------------------------------------
+\newcommand{\rcSection}[1]{%
+  \vspace{7pt}{\color{accent}\large\bfseries\MakeUppercase{#1}}\par
+  \vspace{-5pt}{\color{accent}\rule{\linewidth}{0.6pt}}\par\vspace{1pt}}
+% \rcEntry{Organization}{Dates}{Role}{Location}
+\newcommand{\rcEntry}[4]{%
+  \vspace{3pt}\begin{tabular*}{\linewidth}{@{}l@{\extracolsep{\fill}}r@{}}
+    \textbf{#1} & #2 \\
+    \textit{#3} & \textit{\small #4} \\
+  \end{tabular*}\par}
+% \rcProject{Name}{Stack}{Dates}
+\newcommand{\rcProject}[3]{%
+  \vspace{3pt}\begin{tabular*}{\linewidth}{@{}l@{\extracolsep{\fill}}r@{}}
+    \textbf{#1}\ \ {\small\textit{#2}} & #3 \\
+  \end{tabular*}\par}
+\newcommand{\rcItemListStart}{\begin{itemize}\setlength{\itemsep}{0.5pt}\setlength{\parsep}{0pt}\setlength{\topsep}{1pt}}
+\newcommand{\rcItemListEnd}{\end{itemize}\vspace{-2pt}}
+\newcommand{\rcItem}[1]{\item\small #1}
+\newcommand{\rcSkill}[2]{{\small\textbf{#1:} #2}\par}
+
+\begin{document}
+
+% ---- Header (always kept) --------------------------------------------------
+\begin{center}
+  {\LARGE\bfseries Jordan Rivera}\\[3pt]
+  \small Seattle, WA \ $\cdot$\ (555) 010-2030 \ $\cdot$\
+  \href{mailto:jordan@example.com}{jordan@example.com} \ $\cdot$\
+  \href{https://github.com/example}{github.com/example} \ $\cdot$\
+  \href{https://linkedin.com/in/example}{linkedin.com/in/example}
+\end{center}
+
+%% @block summary
+\rcSection{Summary}
+{\small Software engineer with 7 years building reliable backend platforms, data pipelines and
+product features. Comfortable owning systems end to end, from design docs to on-call.}
+%% @end
+
+%% @block sec-experience
+\rcSection{Experience}
+%% @block exp-northwind
+\rcEntry{Northwind Analytics}{Mar 2022 -- Present}{Senior Software Engineer}{Seattle, WA}
+\rcItemListStart
+  %% @block northwind-ingest tags=backend,data
+  \rcItem{Designed a streaming ingestion service (Go, Kafka) handling 40k events/s with p99 latency under 80\,ms.}
+  %% @end
+  %% @block northwind-k8s tags=infra,backend
+  \rcItem{Migrated 35 services to Kubernetes with Terraform modules, cutting deploy time from 40 to 6 minutes.}
+  %% @end
+  %% @block northwind-ml tags=ml,data
+  \rcItem{Shipped a churn-prediction model (Python, XGBoost) to production; feature store reused by 4 teams.}
+  %% @end
+  %% @block northwind-lead tags=lead
+  \rcItem{Led a team of 5 engineers; ran hiring loops and mentored two engineers to promotion.}
+  %% @end
+  %% @block northwind-ui tags=frontend
+  \rcItem{Rebuilt the customer dashboard in React and TypeScript, improving load time by 60\%.}
+  %% @end
+\rcItemListEnd
+%% @end
+%% @block exp-contoso
+\rcEntry{Contoso Cloud}{Jun 2019 -- Feb 2022}{Software Engineer}{Remote}
+\rcItemListStart
+  %% @block contoso-api tags=backend
+  \rcItem{Built REST and gRPC APIs in Java/Spring serving 2M requests/day for the billing platform.}
+  %% @end
+  %% @block contoso-oncall tags=infra
+  \rcItem{Introduced SLOs and alerting (Prometheus, Grafana); reduced pages by 45\% quarter over quarter.}
+  %% @end
+  %% @block contoso-frontend tags=frontend
+  \rcItem{Created a shared component library used across 6 internal web apps.}
+  %% @end
+\rcItemListEnd
+%% @end
+%% @block exp-intern tags=early-career
+\rcEntry{Fabrikam Labs}{Summer 2018}{Software Engineering Intern}{Portland, OR}
+\rcItemListStart
+  %% @block intern-tooling tags=backend
+  \rcItem{Automated test-data generation for the QA team, saving about 10 hours per release.}
+  %% @end
+\rcItemListEnd
+%% @end
+%% @end
+
+%% @block sec-projects
+\rcSection{Projects}
+%% @block proj-resumechef tags=frontend,backend
+\rcProject{ResumeChef}{TypeScript, React, WebAssembly}{2026}
+\rcItemListStart
+  %% @block proj-resumechef-1
+  \rcItem{Browser LaTeX editor that branches a master resume into role-focused variants.}
+  %% @end
+\rcItemListEnd
+%% @end
+%% @block proj-forecast tags=ml,data
+\rcProject{Open Forecast}{Python, PyTorch}{2024}
+\rcItemListStart
+  %% @block proj-forecast-1
+  \rcItem{Time-series forecasting library with 1.2k GitHub stars and 30 contributors.}
+  %% @end
+\rcItemListEnd
+%% @end
+%% @end
+
+%% @block sec-skills
+\rcSection{Skills}
+%% @block skills-languages
+\rcSkill{Languages}{Go, Python, TypeScript, Java, SQL}
+%% @end
+%% @block skills-backend tags=backend,infra
+\rcSkill{Backend \& Infra}{Kafka, PostgreSQL, Redis, Kubernetes, Terraform, AWS, GCP}
+%% @end
+%% @block skills-ml tags=ml,data
+\rcSkill{Data \& ML}{PyTorch, XGBoost, Spark, dbt, Airflow}
+%% @end
+%% @block skills-frontend tags=frontend
+\rcSkill{Frontend}{React, TypeScript, Vite, Tailwind CSS, Playwright}
+%% @end
+%% @end
+
+%% @block sec-education
+\rcSection{Education}
+%% @block edu-bs
+\rcEntry{University of Washington}{2015 -- 2019}{B.S. Computer Science}{Seattle, WA}
+%% @end
+%% @end
+
+\end{document}
