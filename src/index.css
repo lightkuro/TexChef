@@ -1,0 +1,164 @@
+@import 'tailwindcss';
+@import '@xyflow/react/dist/style.css';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg: #f7f5f2;
+  --panel: #ffffff;
+  --subtle: #f0ede8;
+  --border: #e2ddd5;
+  --fg: #1c1917;
+  --muted: #6f675e;
+  --accent: #c2410c;
+  --accent-hover: #9a3412;
+  --accent-fg: #ffffff;
+  --accent-soft: #fdeee5;
+  --danger: #c81e1e;
+  --danger-soft: #fde8e8;
+  --ok: #15803d;
+  --ok-soft: #e3f5e8;
+  --warn: #a16207;
+  --warn-soft: #fdf4dc;
+  --info: #1d4ed8;
+  --info-soft: #e5edff;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #121110;
+  --panel: #1a1917;
+  --subtle: #232120;
+  --border: #35322e;
+  --fg: #ede9e4;
+  --muted: #a29a90;
+  --accent: #f0782f;
+  --accent-hover: #f6955a;
+  --accent-fg: #1b0e06;
+  --accent-soft: #3a2417;
+  --danger: #f26b6b;
+  --danger-soft: #3d1c1c;
+  --ok: #4ade80;
+  --ok-soft: #173322;
+  --warn: #facc15;
+  --warn-soft: #3a3013;
+  --info: #7aa2ff;
+  --info-soft: #1d2745;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-subtle: var(--subtle);
+  --color-line: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  border-color: var(--border);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 30%, transparent);
+}
+
+/* CodeMirror */
+.cm-editor {
+  height: 100%;
+  font-size: 13px;
+  background: var(--panel);
+}
+.cm-editor.cm-focused {
+  outline: none;
+}
+.cm-scroller {
+  font-family: var(--font-mono);
+  line-height: 1.55;
+}
+.cm-gutters {
+  background: var(--subtle) !important;
+  border-right: 1px solid var(--border) !important;
+  color: var(--muted) !important;
+}
+.cm-activeLineGutter,
+.cm-activeLine {
+  background: color-mix(in oklab, var(--accent) 6%, transparent) !important;
+}
+.cm-block-marker {
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+.cm-mergeView {
+  height: 100%;
+  overflow: auto;
+}
+.cm-merge-a .cm-changedLine,
+.cm-merge-a .cm-deletedChunk {
+  background: color-mix(in oklab, var(--danger) 12%, transparent) !important;
+}
+.cm-merge-b .cm-changedLine,
+.cm-merge-b .cm-insertedLine {
+  background: color-mix(in oklab, var(--ok) 12%, transparent) !important;
+}
+.cm-conflict-marker {
+  background: color-mix(in oklab, var(--warn) 25%, transparent);
+}
+
+/* React Flow theming */
+.react-flow {
+  --xy-background-color: var(--bg);
+  --xy-edge-stroke: var(--muted);
+  --xy-minimap-background-color: var(--panel);
+  --xy-controls-button-background-color: var(--panel);
+  --xy-controls-button-color: var(--fg);
+  --xy-controls-button-border-color: var(--border);
+  --xy-controls-button-background-color-hover: var(--subtle);
+  --xy-attribution-background-color: transparent;
+}
+
+.pdf-page {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 4px 16px rgb(0 0 0 / 0.08);
+  background: white;
+}
+
+[data-separator] {
+  background: var(--border);
+  width: 1px;
+}
+[data-separator]:hover,
+[data-separator][data-separator-state='drag'] {
+  background: var(--accent);
+}
+[aria-orientation='horizontal'][data-separator] {
+  height: 1px;
+  width: auto;
+}
