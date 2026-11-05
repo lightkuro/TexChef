@@ -63,7 +63,7 @@ Other scripts:
 | `pnpm test` | Unit tests (blocks, merge, versions, variants, sync, log parser) |
 | `pnpm typecheck` | TypeScript |
 | `pnpm build` | Production build into `dist/` (~3 MB, without the TeX engine) |
-| `pnpm build:pages` | Build plus the gzipped, sharded TeX engine in `dist/core/busytex` (for Cloudflare Pages) |
+| `pnpm build:pages` | Build plus the gzipped, sharded TeX engine in `dist/core/busytex` (what gets deployed) |
 | `pnpm e2e http://localhost:5173` | Browser end‑to‑end checks with Playwright against a running dev server |
 | `pnpm e2e:engines http://localhost:5173` | Engine coverage: XeLaTeX + fontspec, LuaLaTeX, BibTeX, images, TikZ, moderncv (downloads the larger bundles) |
 
@@ -75,7 +75,7 @@ ResumeChef uses the Google Identity Services token flow from the browser — no 
 
 1. In [Google Cloud console](https://console.cloud.google.com/), create a project and **enable the Google Drive API** and the **Google Picker API**.
 2. **OAuth consent screen**: External, publishing status **Testing**. Add the scope `.../auth/drive.file` and add yourself and your friends as **Test users** (up to 100). `drive.file` is a non‑sensitive scope, so no verification is needed while you stay in Testing.
-3. **Credentials → Create OAuth client ID → Web application.** Authorized JavaScript origins: `http://localhost:5173` and your deployed origin (e.g. `https://resumechef.pages.dev`). No redirect URIs are needed.
+3. **Credentials → Create OAuth client ID → Web application.** Authorized JavaScript origins: `http://localhost:5173` and your deployed origin (`https://texchef.kurolight.dev`). No redirect URIs are needed.
 4. **Credentials → Create API key** (for Google Picker only). Restrict it to the Picker API and to your origins as HTTP referrers.
 5. Copy `.env.example` to `.env` and fill in:
 
@@ -100,23 +100,31 @@ an hour and are kept in the tab's session storage; after that the app shows **Re
 
 **Import from Drive** (dashboard) opens Google Picker; picking a file is what grants a `drive.file` app access to it.
 
-## Deploy (Cloudflare Pages, free plan)
+## Deploy (Cloudflare Workers static assets, free plan)
 
-Everything is static, so the whole app fits in a free Pages project: no Workers/Functions, no R2, no paid features.
+The app is fully static, so it deploys as an **assets-only Worker**: no Worker code runs, asset requests are free
+and unlimited, and no R2 or paid features are needed. Free-plan limits that matter: 25 MiB per file and 20,000
+files per deployment (we use ~70).
 
-The engine's big files exceed Pages' 25 MiB per-file limit, so `pnpm build:pages` runs
-`scripts/shard-tex-assets.mjs`: every `.wasm`/`.data` file is gzipped and split into ≤24 MiB parts
-(`texlive-basic.data.gz.000`, `.001`, …) listed in `shards.json`, and `busytex_worker.js` is replaced by a small
-wrapper (`scripts/busytex-worker-shim.js`) that streams the parts back together and gunzips them in the browser.
-Result: 46 files, about 520 MB (from ~700 MB), largest 24 MiB. Gzip also makes the first visit lighter: about 80 MB
-instead of 125 MB for the engine core.
+The engine's big files exceed 25 MiB, so `scripts/shard-tex-assets.mjs` gzips every `.wasm`/`.data` file and splits
+it into ≤24 MiB parts (`texlive-basic.data.gz.000`, `.001`, …) listed in `shards.json`; `busytex_worker.js` is
+replaced by a small wrapper (`scripts/busytex-worker-shim.js`) that streams the parts back together and gunzips them
+in the browser. Result: 46 engine files, about 520 MB (from ~700 MB). Gzip also makes the first visit lighter:
+about 80 MB instead of 125 MB for the engine core.
 
-**Git-connected Pages project** (simplest):
+**Git-connected Worker (Workers & Pages → Create → Import a repository):**
 
-1. Cloudflare dashboard → Workers & Pages → Create → Pages → connect this repository.
-2. Build command `pnpm cf:build` (downloads the engine from the texlyre-busytex GitHub release, builds, shards);
-   output directory `dist`. Add the `VITE_GOOGLE_*` variables as build environment variables.
-3. Add the `*.pages.dev` URL (or your custom domain) to the OAuth client's authorized JavaScript origins.
+1. Build command: `pnpm cf:build` (downloads the engine from the texlyre-busytex GitHub release, builds, shards).
+   Deploy command: `npx wrangler deploy` (the default). `wrangler.toml` serves `dist/` as static assets with
+   single-page-app fallback. Its build step (`scripts/ensure-site.mjs`) also completes `dist/` if the build command
+   was left at a plain `npm run build`, so a deploy never ships without the TeX engine.
+2. Settings → Build → **Variables and secrets** (build variables, not runtime ones — Vite bakes them in at build
+   time): `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID`.
+3. Settings → Domains & Routes → Add → **Custom domain** → `texchef.kurolight.dev`. If Cloudflare reports an
+   existing DNS record for that name, delete the record and add the domain again (Cloudflare creates its own).
+   To manage the domain from code instead, uncomment the `routes` line in `wrangler.toml`.
+4. In Google Cloud → Credentials → your OAuth client, add `https://texchef.kurolight.dev` to **Authorized JavaScript
+   origins** (and to the API key's allowed referrers as `https://texchef.kurolight.dev/*`).
 
 **Or deploy from your machine:**
 
@@ -125,12 +133,11 @@ pnpm tex:assets && pnpm build:pages
 ```
 
 ```bash
-npx wrangler pages deploy
+npx wrangler deploy
 ```
 
 Uploads are de-duplicated by content hash and the shards are deterministic, so after the first deploy only changed
-files are uploaded. Free-plan limits that matter here: 25 MiB per file and 20,000 files per deployment (we use ~50),
-500 builds per month; static requests and bandwidth are unlimited.
+files are uploaded.
 
 To check the production setup locally, run `pnpm build:pages`, then `pnpm preview`; it serves the sharded copy.
 
@@ -145,7 +152,7 @@ src/
   storage/     Dexie database, sync engine (packs + index), Drive and in-memory providers
   features/    dashboard, editor, graph, compare, variants UI, history, sync, settings, import/export
   templates/   master resume, cover letter, article
-scripts/       engine sharding for Cloudflare Pages + the worker wrapper that reassembles shards
+scripts/       engine sharding, the worker wrapper that reassembles shards, deploy helper
 e2e/           Playwright end-to-end checks
 ```
 

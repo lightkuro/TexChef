@@ -1,5 +1,19 @@
-# Cloudflare Pages config, used by `wrangler pages deploy` (see README → Deploy).
-# Everything is static: the TeX engine is shipped as gzipped <25 MiB shards inside dist/.
+# Cloudflare Workers config: a static-assets-only Worker (no Worker code runs, so asset requests
+# are free and unlimited). `npx wrangler deploy` uploads dist/, which holds the app and the TeX
+# engine split into gzipped parts under 25 MiB (see scripts/shard-tex-assets.mjs).
+# Workers Builds overrides `name` with the Worker connected in the dashboard.
 name = "resumechef"
-pages_build_output_dir = "dist"
 compatibility_date = "2026-10-01"
+
+[build]
+# Completes dist/ if the dashboard build command did not (no-op after `pnpm cf:build`).
+command = "node scripts/ensure-site.mjs"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+
+# Custom domain. Attaching it here fails the whole deploy if a DNS record already exists for the
+# hostname, so the domain is attached in the dashboard instead (Worker → Settings → Domains & Routes).
+# To manage it from this file, delete any existing DNS record for it, then uncomment:
+# routes = [{ pattern = "texchef.kurolight.dev", custom_domain = true }]
