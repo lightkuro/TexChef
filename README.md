@@ -73,11 +73,23 @@ Without Google configuration the app runs in **Local only** mode: fully function
 
 ResumeChef uses the Google Identity Services token flow from the browser — no backend and no client secret.
 
-1. In [Google Cloud console](https://console.cloud.google.com/), create a project and **enable the Google Drive API** and the **Google Picker API**.
-2. **OAuth consent screen**: External, publishing status **Testing**. Add the scope `.../auth/drive.file` and add yourself and your friends as **Test users** (up to 100). `drive.file` is a non‑sensitive scope, so no verification is needed while you stay in Testing.
-3. **Credentials → Create OAuth client ID → Web application.** Authorized JavaScript origins: `http://localhost:5173` and your deployed origin (`https://texchef.kurolight.dev`). No redirect URIs are needed.
-4. **Credentials → Create API key** (for Google Picker only). Restrict it to the Picker API and to your origins as HTTP referrers.
-5. Copy `.env.example` to `.env` and fill in:
+1. **Project.** In [Google Cloud console](https://console.cloud.google.com/), create a project (e.g. `resumechef`)
+   and note its **project number** (Dashboard / project settings) — that is `VITE_GOOGLE_APP_ID`.
+2. **APIs.** APIs & Services → Library: enable **Google Drive API** and **Google Picker API**.
+3. **Google Auth Platform** (left menu; formerly "OAuth consent screen"):
+   - **Branding:** app name (`ResumeChef`), support email, developer contact; under **Authorized domains** add
+     `kurolight.dev`.
+   - **Audience:** user type **External**, publishing status **Testing**; add yourself and friends as **Test users**
+     (up to 100).
+   - **Data Access:** Add or remove scopes → `.../auth/drive.file` ("See, edit, create and delete only the specific
+     Google Drive files you use with this app"). It is non‑sensitive, so no verification is needed in Testing.
+   - **Clients:** Create client → **Web application**. Authorized JavaScript origins: `https://texchef.kurolight.dev`
+     and `http://localhost:5173`. No redirect URIs. Copy the **Client ID** (the secret is not used).
+4. **API key** (Google Picker only): APIs & Services → Credentials → Create credentials → API key. Restrict it:
+   application restriction **Websites** with `https://texchef.kurolight.dev/*` and `http://localhost:5173/*`;
+   API restriction **Google Picker API**.
+5. Copy `.env.example` to `.env` for local development, and set the same three values as **build** variables in
+   Cloudflare (Worker → Settings → Build → Variables and secrets), then redeploy:
 
    ```
    VITE_GOOGLE_CLIENT_ID=<client id>.apps.googleusercontent.com
