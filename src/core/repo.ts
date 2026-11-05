@@ -145,6 +145,31 @@ export class Repo {
     return false;
   }
 
+  /** Nearest common ancestor of two commits (null if unrelated). */
+  async mergeBase(a: string, b: string): Promise<string | null> {
+    const ancestorsOfA = new Set<string>();
+    const stack = [a];
+    while (stack.length) {
+      const id = stack.pop()!;
+      if (ancestorsOfA.has(id)) continue;
+      ancestorsOfA.add(id);
+      const c = await this.getCommit(id);
+      if (c) stack.push(...c.parents);
+    }
+    // Breadth-first from b so the first hit is the nearest one.
+    const queue = [b];
+    const seen = new Set<string>();
+    while (queue.length) {
+      const id = queue.shift()!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      if (ancestorsOfA.has(id)) return id;
+      const c = await this.getCommit(id);
+      if (c) queue.push(...c.parents);
+    }
+    return null;
+  }
+
   /** Commits reachable from `from`, stopping at (and excluding) anything reachable from `stopAt`. */
   async commitsBetween(stopAt: string | null, from: string): Promise<Commit[]> {
     const excluded = new Set<string>();

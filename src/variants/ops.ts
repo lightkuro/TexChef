@@ -135,6 +135,25 @@ export async function planPull(repo: Repo, variantId: string, recipeOverride?: R
   return { files: out, conflictFiles, changedPaths, notes, parentHead: parent.head };
 }
 
+/** 3-way merge of whole projects (file by file). */
+export function mergeFileMaps(
+  ours: FileMap,
+  base: FileMap,
+  theirs: FileMap,
+  labels: { ours: string; theirs: string },
+): { files: FileMap; conflictFiles: { path: string; conflicts: number }[]; notes: string[] } {
+  const files: FileMap = {};
+  const conflictFiles: { path: string; conflicts: number }[] = [];
+  const notes: string[] = [];
+  const paths = new Set([...Object.keys(base), ...Object.keys(theirs), ...Object.keys(ours)]);
+  for (const path of [...paths].sort()) {
+    const r = mergeFile(path, ours[path], base[path], theirs[path], notes, labels.ours, labels.theirs);
+    if (r.file) files[path] = r.file;
+    if (r.conflicts) conflictFiles.push({ path, conflicts: r.conflicts });
+  }
+  return { files, conflictFiles, notes };
+}
+
 function sameFile(a?: WorkFile, b?: WorkFile): boolean {
   if (!a || !b) return a === b;
   if (a.kind === 'text' && b.kind === 'text') return a.text === b.text;
