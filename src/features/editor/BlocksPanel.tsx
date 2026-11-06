@@ -110,7 +110,7 @@ export function BlocksPanel({
                 <Tip content={`Copy this block into “${parent.name}”`}>
                   <button
                     className="rounded p-0.5 text-accent hover:bg-line"
-                    aria-label={`Push ${b.id} to parent`}
+                    aria-label={`Copy ${b.id} to original`}
                     onClick={(e) => {
                       e.stopPropagation();
                       void push(b);
@@ -187,8 +187,8 @@ export function BlocksPanel({
       <Dialog
         open={!!confirm}
         onOpenChange={(o) => !o && setConfirm(null)}
-        title="The parent changed this block too"
-        description={`“${parent?.name}” edited “${confirm?.label}” after this variant last synced. Pushing will replace the parent's version with yours.`}
+        title="The original changed this block too"
+        description={`“${confirm?.label}” was also changed in “${parent?.name}” since this variant last got updates. Copying will replace that version with yours.`}
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirm(null)}>
@@ -201,7 +201,7 @@ export function BlocksPanel({
                 setConfirm(null);
               }}
             >
-              Replace in parent
+              Replace in original
             </Button>
           </>
         }

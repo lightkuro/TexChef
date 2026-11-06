@@ -392,7 +392,7 @@ function defaultMessage(kind: CommitKind): string {
     case 'auto':
       return 'Autosave';
     case 'merge':
-      return 'Pulled changes from parent';
+      return 'Got updates from the original';
     default:
       return 'Saved version';
   }

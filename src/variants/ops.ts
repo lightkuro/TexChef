@@ -2,7 +2,7 @@ import type { FileMap, Repo } from '@/core/repo';
 import { isTexPath, type DocMeta, type Recipe, type WorkFile } from '@/core/model';
 import { filterTex } from '@/blocks/filter';
 import { parseBlocks, type Block } from '@/blocks/parser';
-import { getBlockText, upsertBlock } from '@/blocks/ops';
+import { blockAtLine, getBlockText, upsertBlock } from '@/blocks/ops';
 import { merge3 } from '@/core/merge';
 
 /** Apply a recipe to every .tex file of a project. */
@@ -42,11 +42,11 @@ export interface CreateVariantInput {
 
 export async function createVariant(repo: Repo, input: CreateVariantInput): Promise<DocMeta> {
   const parent = await repo.getDoc(input.parentId);
-  if (!parent) throw new Error('Parent document not found');
+  if (!parent) throw new Error('The original document was not found');
   if (!input.fromCommitId) await repo.commitWork(parent.id, 'Autosave before creating a variant', 'auto');
   const fresh = (await repo.getDoc(parent.id))!;
   const base = input.fromCommitId ?? fresh.head;
-  if (!base) throw new Error('Parent has no saved versions');
+  if (!base) throw new Error('The original has no saved versions yet');
   const parentFiles = await repo.readCommitFiles(base);
   const recipe: Recipe = { ...input.recipe, known: projectBlockIds(parentFiles) };
   return repo.createDoc({
@@ -107,9 +107,9 @@ export async function newParentBlocks(repo: Repo, variant: DocMeta): Promise<New
  */
 export async function planPull(repo: Repo, variantId: string, recipeOverride?: Recipe): Promise<PullPlan> {
   const variant = await repo.getDoc(variantId);
-  if (!variant?.parent) throw new Error('This document has no parent to pull from');
+  if (!variant?.parent) throw new Error('This document was not made from another one, so there is nothing to update from');
   const parent = await repo.getDoc(variant.parent.docId);
-  if (!parent?.head) throw new Error('Parent document is missing');
+  if (!parent?.head) throw new Error('The original document is missing');
   const recipe = recipeOverride ?? variant.recipe ?? { include: [], exclude: [], tags: [], known: [] };
   // A plain fork (recipe never set) keeps everything.
   const passthrough = !variant.recipe;
@@ -196,17 +196,68 @@ export async function applyPull(
   recipe?: Recipe,
 ): Promise<void> {
   const variant = await repo.getDoc(variantId);
-  if (!variant?.parent) throw new Error('No parent');
-  await repo.commitWork(variantId, 'Autosave before pull', 'auto');
+  if (!variant?.parent) throw new Error('This document was not made from another one');
+  await repo.commitWork(variantId, 'Autosave before getting updates', 'auto');
   await repo.setWorkFiles(variantId, files);
   const parent = await repo.getDoc(variant.parent.docId);
-  await repo.commitWork(variantId, `Pulled changes from “${parent?.name ?? 'parent'}”`, 'merge', [parentHead]);
+  await repo.commitWork(variantId, `Got updates from “${parent?.name ?? 'the original'}”`, 'merge', [parentHead]);
   const parentFiles = await repo.readCommitFiles(parentHead);
   const nextRecipe = recipe ?? variant.recipe;
   await repo.updateDoc(variantId, {
     parent: { docId: variant.parent.docId, baseCommitId: parentHead },
     recipe: nextRecipe ? { ...nextRecipe, known: projectBlockIds(parentFiles) } : undefined,
   });
+}
+
+/**
+ * Where the same piece of text sits in the original document, if it appears there exactly once
+ * (inside the same block when the text is in a block). Used by "also change it in the original".
+ */
+export function locateInOriginal(variantText: string, unitStart: number, unitText: string, originalText: string): number | undefined {
+  if (!unitText.trim()) return undefined;
+  const line = variantText.slice(0, unitStart).split('\n').length - 1;
+  const block = blockAtLine(variantText, line);
+  const unique = (from: number, to: number) => {
+    const scope = originalText.slice(from, to);
+    const first = scope.indexOf(unitText);
+    if (first < 0 || scope.indexOf(unitText, first + 1) >= 0) return undefined;
+    return from + first;
+  };
+  if (block) {
+    const b = parseBlocks(originalText).byId.get(block.id);
+    if (b) {
+      const lines = originalText.split('\n');
+      const from = lines.slice(0, b.startLine).join('\n').length;
+      const to = lines.slice(0, b.endLine + 1).join('\n').length;
+      const inBlock = unique(from, to);
+      if (inBlock !== undefined) return inBlock;
+    }
+  }
+  return unique(0, originalText.length);
+}
+
+/** Make the same text change in the variant's original, as a saved version there. */
+export async function applyTextToOriginal(
+  repo: Repo,
+  variantId: string,
+  path: string,
+  variantText: string,
+  unitStart: number,
+  oldText: string,
+  newText: string,
+): Promise<{ ok: boolean; name?: string }> {
+  const variant = await repo.getDoc(variantId);
+  if (!variant?.parent) return { ok: false };
+  const original = await repo.getDoc(variant.parent.docId);
+  const work = await repo.getWork(variant.parent.docId);
+  const file = work.files[path];
+  if (!original || file?.kind !== 'text') return { ok: false };
+  const at = locateInOriginal(variantText, unitStart, oldText, file.text);
+  if (at === undefined) return { ok: false };
+  await repo.commitWork(original.id, 'Autosave before a change from a variant', 'auto');
+  await repo.writeWorkText(original.id, path, file.text.slice(0, at) + newText + file.text.slice(at + oldText.length));
+  await repo.commitWork(original.id, `Text changed from “${variant.name}”`, 'push-up');
+  return { ok: true, name: original.name };
 }
 
 export interface PushResult {
@@ -224,7 +275,7 @@ export async function pushBlockToParent(
   force = false,
 ): Promise<PushResult> {
   const variant = await repo.getDoc(variantId);
-  if (!variant?.parent) return { ok: false, message: 'No parent document' };
+  if (!variant?.parent) return { ok: false, message: 'This document was not made from another one' };
   const parentId = variant.parent.docId;
   const ours = (await repo.getWork(variantId)).files;
   const located = projectBlocks(ours).find((x) => x.block.id === blockId);
@@ -233,7 +284,7 @@ export async function pushBlockToParent(
 
   const parentWork = await repo.getWork(parentId);
   const target = parentWork.files[located.file];
-  if (!target || target.kind !== 'text') return { ok: false, message: `${located.file} does not exist in the parent` };
+  if (!target || target.kind !== 'text') return { ok: false, message: `${located.file} does not exist in the original` };
 
   if (!force) {
     const baseText = await repo.readCommitText(variant.parent.baseCommitId, located.file);
@@ -241,14 +292,14 @@ export async function pushBlockToParent(
     const now = getBlockText(target.text, blockId);
     const mine = getBlockText(sourceText, blockId);
     if (before !== undefined && now !== undefined && now !== before && now !== mine) {
-      return { ok: false, parentChanged: true, message: 'The parent changed this block too.' };
+      return { ok: false, parentChanged: true, message: 'The original changed this block too.' };
     }
   }
   const updated = upsertBlock(target.text, sourceText, blockId);
-  if (updated === null) return { ok: false, message: 'Could not find where to put this block in the parent' };
-  if (updated === target.text) return { ok: true, message: 'Parent already has this version of the block' };
-  await repo.commitWork(parentId, 'Autosave before push', 'auto');
+  if (updated === null) return { ok: false, message: 'Could not find where to put this block in the original' };
+  if (updated === target.text) return { ok: true, message: 'The original already has this version of the block' };
+  await repo.commitWork(parentId, 'Autosave before copying from a variant', 'auto');
   await repo.writeWorkText(parentId, located.file, updated);
-  await repo.commitWork(parentId, `Pushed “${located.block.label}” from “${variant.name}”`, 'push-up');
-  return { ok: true, message: `Updated “${located.block.label}” in the parent` };
+  await repo.commitWork(parentId, `Copied “${located.block.label}” from “${variant.name}”`, 'push-up');
+  return { ok: true, message: `Updated “${located.block.label}” in “${(await repo.getDoc(parentId))?.name ?? 'the original'}”` };
 }

@@ -13,7 +13,7 @@ import { DiffView, type DiffViewHandle } from '@/features/compare/DiffView';
 import { Badge, Button, Checkbox, EmptyState, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
-/** Pull parent changes into a variant: choose new blocks, review the 3-way merge, resolve conflicts. */
+/** Get updates from the original into a variant: choose new blocks, review the combined text, resolve conflicts. */
 export function PullPage() {
   const { id } = useParams();
   const doc = useDoc(id);
@@ -75,11 +75,11 @@ export function PullPage() {
   }, [plan, edited]);
 
   if (doc === null) return <EmptyState title="Document not found" />;
-  if (doc && !doc.parent) return <EmptyState title="This document has no parent to pull from" />;
+  if (doc && !doc.parent) return <EmptyState title="This document was not made from another one, so there are no updates to get" />;
   if (!doc || !parent || !plan || !merged || !current || !path) {
     return (
       <div className="flex h-full items-center justify-center gap-2 text-muted">
-        <Spinner /> Preparing merge…
+        <Spinner /> Preparing updates…
       </div>
     );
   }
@@ -96,7 +96,7 @@ export function PullPage() {
     setBusy(true);
     try {
       await applyPull(repo, doc.id, merged, plan.parentHead, recipe);
-      toast.success(`Pulled changes from “${parent.name}”`);
+      toast.success(`Updated from “${parent.name}”`);
       navigate(`/doc/${doc.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -112,7 +112,7 @@ export function PullPage() {
         </Button>
         <GitPullRequestArrow className="size-4 text-accent" />
         <span className="text-sm">
-          Pull <b>{parent.name}</b> → <b>{doc.name}</b>
+          Get updates from <b>{parent.name}</b> into <b>{doc.name}</b>
         </span>
         {totalConflicts > 0 ? (
           <Badge tone="danger">
@@ -120,18 +120,18 @@ export function PullPage() {
           </Badge>
         ) : (
           <Badge tone="ok">
-            <CheckCircle2 className="size-3" /> Merges cleanly
+            <CheckCircle2 className="size-3" /> No conflicts
           </Badge>
         )}
         <div className="flex-1" />
-        <Link to="/help/pulling" className="text-xs text-muted underline hover:text-fg" target="_blank">
-          How pulling works
+        <Link to="/help/updates" className="text-xs text-muted underline hover:text-fg" target="_blank">
+          How updates work
         </Link>
         <Button variant="ghost" onClick={() => navigate(`/doc/${doc.id}`)}>
           Cancel
         </Button>
         <Button variant="primary" onClick={finish} disabled={busy || totalConflicts > 0} data-testid="finish-pull">
-          {busy ? <Spinner /> : <CheckCircle2 className="size-4" />} Finish pull
+          {busy ? <Spinner /> : <CheckCircle2 className="size-4" />} Apply updates
         </Button>
       </header>
       <div className="flex min-h-0 flex-1">
@@ -169,7 +169,7 @@ export function PullPage() {
           {conflicts.length > 0 && (
             <section className="mb-4">
               <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">Conflicts in {path}</h3>
-              <p className="mt-0.5 mb-2 text-xs text-muted">Both documents changed the same lines. Pick a side, or edit the right-hand text directly.</p>
+              <p className="mt-0.5 mb-2 text-xs text-muted">Both documents changed the same lines in different ways. Choose which to keep, or edit the text on the right.</p>
               {conflicts.map((c) => (
                 <div key={c.index} className="mb-2 rounded-lg border border-line p-2">
                   <button className="mb-1 text-xs font-medium hover:underline" onClick={() => diff.current?.gotoB(c.start + 1)}>
@@ -180,10 +180,10 @@ export function PullPage() {
                       Keep mine
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => choose(c.index, 'theirs')}>
-                      Use parent
+                      Use original’s
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => choose(c.index, 'both')}>
-                      Both
+                      Keep both
                     </Button>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export function PullPage() {
                   Keep mine for all
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setEdited({ ...edited, [path]: resolveAll(mergedText, 'theirs') })}>
-                  Use parent for all
+                  Use original’s for all
                 </Button>
               </div>
             </section>
@@ -212,7 +212,7 @@ export function PullPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="grid h-8 shrink-0 grid-cols-2 border-b border-line bg-panel text-xs font-medium">
             <div className="flex items-center px-3 text-muted">Now: {doc.name}</div>
-            <div className="flex items-center border-l border-line px-3">After pull (editable)</div>
+            <div className="flex items-center border-l border-line px-3">After updating (you can edit this)</div>
           </div>
           <div className="min-h-0 flex-1">
             <DiffView

@@ -63,7 +63,7 @@ export function syncNow(): Promise<void> {
       await mirrorChanged();
       useSync.getState().set({ state: 'idle', lastSync: Date.now() });
       if (report.diverged.length) {
-        toast.warning('A document was edited on another device too. Open it to merge the changes.');
+        toast.warning('A document was edited on another device too. Open it to combine the changes.');
       }
     } catch (e) {
       if (e instanceof NeedsSignIn) useSync.getState().set({ state: 'needs-signin', error: e.message });

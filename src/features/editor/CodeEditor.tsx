@@ -33,6 +33,8 @@ export interface CodeEditorHandle {
   /** Replace the whole document as one undoable change. */
   replaceAll(text: string): void;
   insertAtCursor(text: string): void;
+  /** Select a range and scroll it into view. */
+  select(from: number, to: number): void;
   view(): EditorView | null;
   focus(): void;
 }
@@ -242,6 +244,15 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
       const view = viewRef.current;
       if (!view) return;
       view.dispatch(view.state.replaceSelection(text));
+      view.focus();
+    },
+    select(from: number, to: number) {
+      const view = viewRef.current;
+      if (!view) return;
+      const len = view.state.doc.length;
+      const a = Math.max(0, Math.min(from, len));
+      const b = Math.max(a, Math.min(to, len));
+      view.dispatch({ selection: { anchor: a, head: b }, effects: EditorView.scrollIntoView(a, { y: 'center' }) });
       view.focus();
     },
     view: () => viewRef.current,

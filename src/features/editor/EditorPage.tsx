@@ -16,13 +16,15 @@ import {
   Play,
   LocateFixed,
   CircleHelp,
+  PencilLine,
   Save,
   Zap,
   ZapOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { EditorView } from '@codemirror/view';
 import { repo, useBehind, useDoc, useWork, usePreview } from '@/app/repo';
-import type { Engine } from '@/core/model';
+import { isTexPath, type Engine } from '@/core/model';
 import type { FileMap } from '@/core/repo';
 import { CodeEditor, type CodeEditorHandle } from './CodeEditor';
 import { FileTree } from './FileTree';
@@ -30,7 +32,7 @@ import { BlocksPanel } from './BlocksPanel';
 import { HistoryPanel } from '@/features/history/HistoryPanel';
 import { PdfViewer } from '@/features/preview/PdfViewer';
 import { ProblemsPanel } from '@/features/preview/ProblemsPanel';
-import { useAutoCompile, useEngineStatus } from '@/features/compile/useCompile';
+import { isUpToDate, useAutoCompile, useEngineStatus } from '@/features/compile/useCompile';
 import { downloadPdf, downloadProjectZip, downloadText } from '@/features/importexport/io';
 import { Badge, Button, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Select, Spinner, Tip } from '@/components/ui';
 import { EngineBanner } from '@/features/compile/EngineBanner';
@@ -39,6 +41,9 @@ import { cn, docColor, formatBytes } from '@/lib/utils';
 import { usePrefs } from '@/app/prefs';
 import { ColorDialog } from '@/features/dashboard/ColorDialog';
 import { decodeSynctex, parseSynctex, pdfToSource, sourceToPdf, type SyncData, type SyncRect } from '@/compile/synctex';
+import { usePdfEdit } from '@/features/pdfedit/usePdfEdit';
+import type { SourceChange } from '@/pdfedit/applyEdit';
+import { applyTextToOriginal } from '@/variants/ops';
 
 type SideTab = 'files' | 'blocks' | 'history';
 
@@ -60,8 +65,11 @@ export function EditorPage() {
   const pending = useRef(new Map<string, string>());
   const [, force] = useState(0);
   const preview = usePreview(id);
+  const [pdfEditing, setPdfEditing] = useState(false);
 
   const path = activePath && work?.files[activePath] ? activePath : doc?.mainFile ?? null;
+  const pathRef = useRef(path);
+  pathRef.current = path;
   const file = path && work ? work.files[path] : undefined;
   const text = path ? pending.current.get(path) ?? (file?.kind === 'text' ? file.text : '') : '';
 
@@ -79,7 +87,8 @@ export function EditorPage() {
     files,
     mainFile: doc?.mainFile,
     engine: doc?.engine,
-    auto: autoCompile,
+    // While editing on the PDF, keep the page still: the PDF updates when the user asks.
+    auto: autoCompile && !pdfEditing,
     savePreviewAs: id,
   });
   const pdf = entry?.output?.pdf ?? preview?.pdf;
@@ -146,6 +155,84 @@ export function EditorPage() {
     void compileNow();
   }, [compileNow, flush]);
 
+  // ---- Edit on the PDF --------------------------------------------------------------------
+  const readSources = useCallback(async () => {
+    await flush();
+    const out: Record<string, string> = {};
+    if (!id) return out;
+    const w = await repo.getWork(id);
+    for (const [p, f] of Object.entries(w.files)) if (f.kind === 'text' && isTexPath(p)) out[p] = f.text;
+    const view = editor.current?.view();
+    const active = pathRef.current;
+    if (view && active && out[active] !== undefined) out[active] = view.state.doc.toString();
+    return out;
+  }, [flush, id]);
+
+  const writeChange = useCallback(
+    async (p: string, change: SourceChange, oldText: string) => {
+      if (!id) return;
+      const view = p === pathRef.current ? editor.current?.view() : null;
+      if (view && view.state.doc.toString() === oldText) {
+        // Through the code editor, so Ctrl/⌘+Z there undoes it too.
+        view.dispatch({ changes: change, effects: EditorView.scrollIntoView(change.from, { y: 'center' }) });
+        await flush();
+      } else {
+        await flush();
+        await repo.writeWorkText(id, p, oldText.slice(0, change.from) + change.insert + oldText.slice(change.to));
+      }
+    },
+    [flush, id],
+  );
+
+  const showInSource = useCallback((p: string, from: number, to: number) => {
+    const switching = p !== pathRef.current;
+    if (switching) setActivePath(p);
+    setTimeout(() => editor.current?.select(from, to), switching ? 60 : 0);
+  }, []);
+
+  const pdfEdit = usePdfEdit({
+    enabled: pdfEditing,
+    pdf,
+    upToDate: !!id && !!doc && !!files && isUpToDate(id, files, doc.mainFile, doc.engine),
+    sync,
+    readSources,
+    writeChange,
+    showInSource,
+    original: parent
+      ? {
+          id: parent.id,
+          name: parent.name,
+          readText: async (p) => {
+            const f = (await repo.getWork(parent.id)).files[p];
+            return f?.kind === 'text' ? f.text : undefined;
+          },
+        }
+      : undefined,
+    applyToOriginal: async (p, variantText, at, oldText, newText) =>
+      !!id && (await applyTextToOriginal(repo, id, p, variantText, at, oldText, newText)).ok,
+    revertOriginal: async (p, oldText, newText) => {
+      if (!parent) return;
+      const f = (await repo.getWork(parent.id)).files[p];
+      if (f?.kind !== 'text') return;
+      const i = f.text.indexOf(newText);
+      if (i < 0 || f.text.indexOf(newText, i + 1) >= 0) return;
+      await repo.writeWorkText(parent.id, p, f.text.slice(0, i) + oldText + f.text.slice(i + newText.length));
+    },
+    onExit: () => stopPdfEditing(),
+  });
+
+  const startPdfEditing = () => {
+    setPdfEditing(true);
+    // Edit on a PDF that matches the text: catch up first if a compile is due.
+    if (id && doc && !isUpToDate(id, files, doc.mainFile, doc.engine) && !entry?.running) void compile();
+  };
+
+  const stopPdfEditing = () => {
+    setPdfEditing(false);
+    // With auto-compile on, the PDF catches up by itself once editing ends.
+    if (pdfEdit.pendingCount > 0 && !autoCompile) void compile();
+  };
+
   if (doc === null) {
     return (
       <EmptyState title="Document not found">
@@ -206,7 +293,7 @@ export function EditorPage() {
             </Link>
             {behind ? (
               <Button size="sm" variant="primary" className="ml-1 h-6" onClick={() => navigate(`/doc/${doc.id}/pull`)} data-testid="pull-button">
-                <GitPullRequestArrow className="size-3.5" /> Pull {behind} update{behind === 1 ? '' : 's'}
+                <GitPullRequestArrow className="size-3.5" /> Get {behind} update{behind === 1 ? '' : 's'}
               </Button>
             ) : (
               <span className="ml-1 text-ok">up to date</span>
@@ -338,7 +425,37 @@ export function EditorPage() {
             running={entry?.running}
             pages={pages}
             highlights={highlights}
-            onSyncClick={({ page, x, y }) => {
+            pageOverlay={pdfEditing ? pdfEdit.renderPage : undefined}
+            banner={
+              pdfEditing ? (
+                <div className="flex shrink-0 items-center gap-2 border-b border-line bg-accent-soft px-3 py-1.5 text-xs" data-testid="pdf-edit-banner">
+                  <PencilLine className="size-3.5 shrink-0 text-accent" />
+                  <span className="min-w-0 flex-1">
+                    {!pdf ? (
+                      'Compile once to see the PDF, then click any text in it to change it.'
+                    ) : pdfEdit.pendingCount > 0 ? (
+                      <>
+                        <b>
+                          {pdfEdit.pendingCount} change{pdfEdit.pendingCount === 1 ? '' : 's'}
+                        </b>{' '}
+                        not in the PDF yet.
+                      </>
+                    ) : (
+                      'Click any text in the PDF to change it.'
+                    )}
+                  </span>
+                  {pdfEdit.pendingCount > 0 && (
+                    <Button size="sm" variant="primary" className="h-6" onClick={compile} disabled={entry?.running} data-testid="pdf-edit-update">
+                      {entry?.running ? <Spinner /> : <Play className="size-3" />} Update PDF
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="h-6" onClick={stopPdfEditing} data-testid="pdf-edit-done">
+                    Done
+                  </Button>
+                </div>
+              ) : null
+            }
+            onSyncClick={pdfEditing ? undefined : ({ page, x, y }) => {
               if (!sync) {
                 toast.info('Compile once to enable jumping from the PDF to the source.');
                 return;
@@ -349,11 +466,25 @@ export function EditorPage() {
               setTimeout(() => editor.current?.goto(hit.line), hit.file !== path ? 60 : 0);
             }}
             actions={
+              <>
+              <Tip content={pdfEditing ? 'Stop editing on the PDF' : 'Click text in the PDF to change it'}>
+                <Button
+                  size="sm"
+                  variant={pdfEditing ? 'primary' : 'ghost'}
+                  className="h-7 gap-1 px-2 text-xs"
+                  onClick={() => (pdfEditing ? stopPdfEditing() : startPdfEditing())}
+                  aria-pressed={pdfEditing}
+                  data-testid="pdf-edit-toggle"
+                >
+                  <PencilLine className="size-3.5" /> Edit text
+                </Button>
+              </Tip>
               <Tip content="Show the cursor's line in the PDF (double-click the PDF to jump back to the source)">
                 <Button size="icon-sm" variant="ghost" onClick={locateInPdf} aria-label="Locate in PDF" data-testid="locate-in-pdf">
                   <LocateFixed className="size-3.5" />
                 </Button>
               </Tip>
+              </>
             }
             onDownload={() => pdf && downloadPdf(doc.name, pdf)}
             emptyMessage={output && !output.ok ? 'Compilation failed — see problems below.' : 'Compile to see the PDF'}

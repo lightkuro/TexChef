@@ -65,18 +65,18 @@ function DivergedBanner() {
         className="h-6"
         onClick={async () => {
           const r = await mergeDivergedHead(repo, doc.id, other);
-          if (r.conflicts) toast.warning(`Merged with ${r.conflicts} conflict${r.conflicts === 1 ? '' : 's'}. Look for <<<<<<< markers in the editor.`);
-          else toast.success('Merged changes from the other device');
+          if (r.conflicts) toast.warning(`Combined, with ${r.conflicts} conflict${r.conflicts === 1 ? '' : 's'}: lines changed differently on each device. Look for <<<<<<< markers in the editor and keep the text you want.`);
+          else toast.success('Combined the changes from both devices');
           navigate(`/doc/${doc.id}`);
         }}
       >
-        Merge them
+        Combine both
       </Button>
       <Button size="sm" variant="ghost" className="h-6" onClick={() => navigate(`/compare?left=${doc.id}&right=${doc.id}@${other}`)}>
         Compare
       </Button>
       <Button size="sm" variant="ghost" className="h-6" onClick={() => discardDivergedHead(repo, doc.id, other)}>
-        Keep mine
+        Keep this one
       </Button>
     </div>
   );

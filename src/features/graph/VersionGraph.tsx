@@ -176,7 +176,7 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
               <GitCompare className="size-3.5" /> Compare
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate(`/doc/${selDoc.id}/new-variant?from=${selected.id}`)}>
-              <GitBranch className="size-3.5" /> Branch here
+              <GitBranch className="size-3.5" /> New variant from here
             </Button>
             <Button
               size="sm"

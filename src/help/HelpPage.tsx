@@ -3,17 +3,23 @@ import { Link, NavLink, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
-import { TOPICS } from './topics';
+import { TOPIC_ALIASES, TOPICS } from './topics';
 
 /** Feature guide: one page per topic with a sidebar. */
 export function HelpPage() {
-  const { topic } = useParams();
+  const { topic: raw } = useParams();
+  const topic = raw ? (TOPIC_ALIASES[raw] ?? raw) : undefined;
   const index = Math.max(0, TOPICS.findIndex((t) => t.id === topic));
   const current = TOPICS[index];
   const prev = TOPICS[index - 1];
   const next = TOPICS[index + 1];
   const scroller = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Old addresses (/help/pulling) move to the current one.
+  useEffect(() => {
+    if (raw && topic !== raw) navigate(`/help/${topic}`, { replace: true });
+  }, [raw, topic, navigate]);
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });

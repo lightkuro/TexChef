@@ -66,7 +66,7 @@ export function FamilyGraph({ docs }: { docs: DocMeta[] }) {
           source: d.parent!.docId,
           target: d.id,
           type: 'smoothstep',
-          label: n > 0 ? `${n} update${n === 1 ? '' : 's'} to pull` : d.recipe?.tags.length ? d.recipe.tags.map((t) => `#${t}`).join(' ') : undefined,
+          label: n > 0 ? `${n} update${n === 1 ? '' : 's'} to get` : d.recipe?.tags.length ? d.recipe.tags.map((t) => `#${t}`).join(' ') : undefined,
           labelStyle: { fontSize: 11, fill: n > 0 ? 'var(--warn)' : 'var(--muted)' },
           labelBgStyle: { fill: 'var(--panel)' },
           style: { stroke: color, strokeWidth: 2, strokeDasharray: n > 0 ? '6 4' : undefined },

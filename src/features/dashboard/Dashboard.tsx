@@ -249,8 +249,8 @@ function Welcome({ onNew, onUpload }: { onNew: () => void; onUpload: () => void 
       <ol className="mt-10 grid w-full gap-3 text-left text-sm sm:grid-cols-3">
         {[
           ['Write the master', 'Everything you have done, split into blocks with tags like #backend or #ml.'],
-          ['Branch variants', 'Tick blocks or pick tags; see the PDF and page count live.'],
-          ['Keep them in sync', 'Pull master edits with a 3-way merge; compare any two side by side.'],
+          ['Make variants', 'Tick blocks or pick tags; see the PDF and page count live.'],
+          ['Keep them in sync', 'Bring master edits into every variant with one click; compare any two side by side.'],
         ].map(([t, d], i) => (
           <li key={t} className="rounded-xl border border-line bg-panel p-4">
             <div className="text-xs font-semibold text-accent">Step {i + 1}</div>

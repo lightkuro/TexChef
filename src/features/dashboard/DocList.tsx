@@ -50,7 +50,7 @@ export function DocList({ docs }: { docs: DocMeta[] }) {
                 ))}
                 {n > 0 && (
                   <Badge tone="warn">
-                    <GitPullRequestArrow className="size-3" /> {n} behind
+                    <GitPullRequestArrow className="size-3" /> {n} update{n === 1 ? '' : 's'}
                   </Badge>
                 )}
                 {(doc.divergedHeads?.length ?? 0) > 0 && (

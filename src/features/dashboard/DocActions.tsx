@@ -45,14 +45,14 @@ function useDocActions(doc: DocMeta) {
     { key: 'variant', label: 'New variant…', icon: <GitBranch className="size-4" />, run: () => navigate(`/doc/${doc.id}/new-variant`) },
     {
       key: 'pull',
-      label: 'Pull from parent',
+      label: 'Get updates from original',
       icon: <GitPullRequestArrow className="size-4" />,
       run: () => navigate(`/doc/${doc.id}/pull`),
       disabled: !doc.parent,
     },
     {
       key: 'compare',
-      label: doc.parent ? 'Compare with parent' : 'Compare side by side…',
+      label: doc.parent ? 'Compare with original' : 'Compare side by side…',
       icon: <GitCompare className="size-4" />,
       run: () => navigate(`/compare?left=${doc.id}${doc.parent ? `&right=${doc.parent.docId}` : ''}`),
     },

@@ -213,7 +213,7 @@ export class SyncEngine {
 export async function mergeDivergedHead(repo: Repo, docId: string, otherHead: string): Promise<{ conflicts: number }> {
   const doc = await repo.getDoc(docId);
   if (!doc?.head) throw new Error('Document not found');
-  await repo.commitWork(docId, 'Autosave before merge', 'auto');
+  await repo.commitWork(docId, 'Autosave before combining', 'auto');
   const head = (await repo.getDoc(docId))!.head!;
   const base = await repo.mergeBase(head, otherHead);
   const ours = await repo.readCommitFiles(head);
@@ -221,7 +221,7 @@ export async function mergeDivergedHead(repo: Repo, docId: string, otherHead: st
   const baseFiles = base ? await repo.readCommitFiles(base) : {};
   const m = mergeFileMaps(ours, baseFiles, theirs, { ours: 'this device', theirs: 'other device' });
   await repo.setWorkFiles(docId, m.files);
-  await repo.commitWork(docId, 'Merged changes from another device', 'merge', [otherHead]);
+  await repo.commitWork(docId, 'Combined changes from another device', 'merge', [otherHead]);
   const fresh = (await repo.getDoc(docId))!;
   await repo.updateDoc(docId, { divergedHeads: (fresh.divergedHeads ?? []).filter((h) => h !== otherHead) });
   return { conflicts: m.conflictFiles.reduce((n, f) => n + f.conflicts, 0) };

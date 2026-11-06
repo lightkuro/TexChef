@@ -61,7 +61,7 @@ export const DocCard = memo(function DocCard({ data, selected }: NodeProps<DocNo
           <div className="flex flex-wrap items-center gap-1">
             {behind > 0 && (
               <Badge tone="warn">
-                <GitPullRequestArrow className="size-3" /> {behind} behind
+                <GitPullRequestArrow className="size-3" /> {behind} update{behind === 1 ? '' : 's'}
               </Badge>
             )}
             {(doc.divergedHeads?.length ?? 0) > 0 && (

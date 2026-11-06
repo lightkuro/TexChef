@@ -4,7 +4,8 @@ A browser LaTeX editor (in the spirit of Overleaf) built around one idea: **writ
 focused variants from it** — and keep them linked.
 
 - **Compile in the browser.** TeX Live 2026 running as WebAssembly ([texlyre-busytex](https://github.com/TeXlyre/texlyre-busytex)); pdfLaTeX, XeLaTeX, LuaLaTeX, BibTeX. No compile server.
-- **Linked variants.** Build a variant by ticking sections/jobs/bullets or picking tags (`#backend`, `#ml`…) with a live PDF and page count. Later, **pull** master edits into a variant with a 3‑way merge, or **push** a reworded bullet back up.
+- **Linked variants.** Build a variant by ticking sections/jobs/bullets or picking tags (`#backend`, `#ml`…) with a live PDF and page count. Later, **get updates** from the original (master edits are combined with a 3‑way merge), or **copy** a reworded bullet back to the original.
+- **Edit on the PDF.** Turn on *Edit text* and click any sentence in the PDF to change it as plain text; texChef finds the LaTeX behind it (SyncTeX + text matching), rewrites only the changed characters, escapes `& % $ # _`, and keeps formatting. Optionally makes the same change in the variant's original.
 - **Source ↔ PDF sync (SyncTeX).** Double-click the PDF to jump to the source line; the locate button highlights the cursor's line in the PDF.
 - **Version history.** Every save is an immutable version; restore, branch from, download or compare any of them.
 - **Graphs.** A family tree of documents (master → variants → sub‑variants) and git‑style version swimlanes.
@@ -31,8 +32,10 @@ Blocks are marked with LaTeX comments, so the compiler ignores them:
 
 - Blocks nest and need ids that are unique in the project. `tags=` is optional; `title="…"` overrides the label.
 - A variant keeps a *recipe*: blocks you ticked, or tags you picked (tag mode keeps untagged structure plus matching blocks), with per‑block overrides.
-- **Pull from parent** re‑applies the recipe to the parent's old and new versions and 3‑way merges the difference into the variant, so your rewording survives. Blocks that are new in the parent are offered for inclusion. Conflicts are shown side by side.
-- **Push block to parent** copies one block (matched by id) into the parent and records it as a version there.
+- **Get updates** (called *pull* in the code) re‑applies the recipe to the original's old and new versions and 3‑way merges the difference into the variant, so your rewording survives. Blocks that are new in the original are offered for inclusion. Conflicts are shown side by side.
+- **Copy to original** (called *push* in the code) copies one block (matched by id) into the original and records it as a version there.
+
+The UI says *original* for what the code calls the *parent* document.
 - Item lists left empty by filtering are removed automatically so LaTeX doesn't fail with "missing \item".
 - Already have a resume? Upload it and press **Auto‑mark** in the Blocks panel: it wraps sections, entries (`\resumeSubheading`, `\cventry`, `\subsection`, …) and bullets (`\item`, `\resumeItem`) in blocks. Undo with Ctrl/⌘+Z.
 
@@ -175,7 +178,8 @@ To check the production setup locally, run `pnpm build:pages`, then `pnpm previe
 src/
   core/        versions: model, repo (commits, working copies, merge base), 3-way text merge, hashing
   blocks/      %% @block parser, recipe filter, auto-mark, block copy/compare
-  variants/    create variant, pull from parent, push block to parent
+  variants/    create variant, get updates (pull), copy block to original (push)
+  pdfedit/     edit on the PDF: LaTeX → plain text projection, PDF text → source matching, edit write-back
   compile/     BusyTeX wrapper, TeX bundle planner, log parser, pdf.js helpers
   storage/     Dexie database, sync engine (packs + index), Drive and in-memory providers
   features/    dashboard, editor, graph, compare, variants UI, history, sync, settings, import/export

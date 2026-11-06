@@ -17,7 +17,7 @@ export function merge3(
   ours: string,
   base: string,
   theirs: string,
-  labels: { ours: string; theirs: string } = { ours: 'this document', theirs: 'parent' },
+  labels: { ours: string; theirs: string } = { ours: 'this document', theirs: 'original' },
 ): TextMerge {
   if (ours === theirs) return { text: ours, conflicts: 0 };
   if (base === theirs) return { text: ours, conflicts: 0 };

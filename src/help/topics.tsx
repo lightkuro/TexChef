@@ -8,6 +8,9 @@ export interface Topic {
   body: () => ReactNode;
 }
 
+/** Old topic addresses that still work. */
+export const TOPIC_ALIASES: Record<string, string> = { pulling: 'updates', pushing: 'copy-to-original' };
+
 export const TOPICS: Topic[] = [
   {
     id: 'getting-started',
@@ -17,8 +20,9 @@ export const TOPICS: Topic[] = [
       <>
         <P>
           texChef is a LaTeX editor that runs entirely in your browser. It is built around one idea: write <b>one long master resume</b> with
-          everything you have ever done, then make <b>variants</b> of it (shorter, or focused on a kind of role) that stay linked to the master. When
-          you fix a typo or add a job in the master, each variant can pull that change in, without losing the edits you made in the variant.
+          everything you have ever done, then make <b>variants</b> of it (shorter, or focused on a kind of role) that stay linked to it. When you fix
+          a typo or add a job in the master, each variant can bring that change in with one click, without losing the edits you made in the
+          variant.
         </P>
         <P>It is also a normal LaTeX editor: you can write letters, papers or anything else, with several files, images and bibliographies.</P>
         <H2>A five-minute tour</H2>
@@ -28,8 +32,11 @@ export const TOPICS: Topic[] = [
               On the home page, click <b>New document</b> and pick <b>Master resume</b>. It opens in the editor and compiles to a PDF on the right.
             </>,
             <>
-              Edit the text in the middle. The PDF updates after you pause typing. Click <b>Save version</b> (<Kbd>Ctrl/⌘ S</Kbd>) whenever you reach
-              a point you may want to come back to.
+              Edit the text in the middle, or click <b>Edit text</b> above the PDF and click any sentence in the PDF to change it there. See{' '}
+              <HelpLink to="edit-on-pdf">Editing on the PDF</HelpLink>.
+            </>,
+            <>
+              Click <b>Save version</b> (<Kbd>Ctrl/⌘ S</Kbd>) whenever you reach a point you may want to come back to.
             </>,
             <>
               Look at the <b>Blocks</b> panel on the left. The template is split into blocks (sections, jobs, bullets), and some have tags such as{' '}
@@ -41,7 +48,7 @@ export const TOPICS: Topic[] = [
             </>,
             <>
               Go back to the master (the “variant of …” link at the top), change your phone number and save. Open the variant again: it says{' '}
-              <b>Pull 1 update</b>. Click it to bring the change in. See <HelpLink to="pulling">Pulling updates (how merges work)</HelpLink>.
+              <b>Get 1 update</b>. Click it to bring the change in. See <HelpLink to="updates">Getting updates from the original</HelpLink>.
             </>,
             <>
               Back on the home page, the <b>Graph</b> shows how documents relate, and <b>Versions</b> shows every saved version over time. See{' '}
@@ -58,14 +65,102 @@ export const TOPICS: Topic[] = [
           head={['Word', 'Meaning']}
           rows={[
             [<b>Document</b>, 'A LaTeX project: one or more files that compile to one PDF.'],
-            [<b>Master</b>, 'Any document you make variants from. Usually your full resume.'],
-            [<b>Variant</b>, 'A document made from another one (its parent) by picking some of its blocks. It stays linked to its parent.'],
+            [<b>Master</b>, 'The document you make variants from. Usually your full resume.'],
+            [<b>Variant</b>, 'A document made from another one by picking some of its blocks. It stays linked to the document it came from.'],
+            [<b>Original</b>, 'The document a variant was made from. For most variants that is your master; a variant of a variant has that variant as its original.'],
             [<b>Block</b>, 'A marked piece of a document (a section, a job, a bullet) that variants can keep or leave out.'],
-            [<b>Version</b>, 'A saved snapshot of a document. You can compare, restore or branch from any version.'],
-            [<b>Pull</b>, 'Bring the parent’s newer changes into a variant.'],
-            [<b>Push</b>, 'Copy one block from a variant back into its parent.'],
+            [<b>Version</b>, 'A saved snapshot of a document. You can compare, restore, or start a new variant from any version.'],
+            [<b>Updates</b>, 'Changes made in the original since the variant last caught up. Get updates brings them into the variant.'],
+            [<b>Copy to original</b>, 'Send an improvement made in a variant back to its original.'],
+            [<b>Conflict</b>, 'A line that was changed differently in the variant and in the original. You choose which to keep.'],
           ]}
         />
+      </>
+    ),
+  },
+  {
+    id: 'edit-on-pdf',
+    title: 'Editing on the PDF',
+    summary: 'Click text in the PDF to change it, without hunting through the LaTeX.',
+    body: () => (
+      <>
+        <P>
+          For small fixes (a typo, a date, a number in a bullet) you do not need to find the line in the LaTeX. Click <b>Edit text</b> in the bar
+          above the PDF, then click the words you want to change.
+        </P>
+        <Steps
+          items={[
+            <>
+              Click <b>Edit text</b>. Text under the mouse is outlined; the PDF stops recompiling while you edit, so nothing moves under your cursor.
+            </>,
+            <>
+              Click a sentence. A box opens under it with the text as plain words: no backslashes or braces. The matching piece of the PDF is
+              highlighted, and the box shows which file and line it comes from.
+            </>,
+            <>
+              Change the text and press <Kbd>Enter</Kbd> (or <b>Save</b>). <Kbd>Esc</Kbd> cancels.
+            </>,
+            <>
+              Changed spots get an orange <b>edited</b> outline. Keep clicking and editing; when you are ready, click <b>Update PDF</b>, or{' '}
+              <b>Done</b> to leave edit mode (with auto-compile on, the PDF then updates by itself).
+            </>,
+          ]}
+        />
+        <H2>What gets changed</H2>
+        <P>
+          texChef only rewrites the characters you changed. Formatting around them stays as it was, and characters LaTeX treats specially are
+          written the way LaTeX needs them:
+        </P>
+        <Grid cols={2}>
+          <Lines title="You type" lines={[['changed', 'Grew revenue 25% & cut costs – Q1_2024']]} />
+          <Lines title="Saved in the LaTeX" lines={[['changed', 'Grew revenue 25\\% \\& cut costs -- Q1\\_2024']]} />
+        </Grid>
+        <Grid cols={2}>
+          <Lines title="Before" subtitle="“Kubernetes” is bold in the source" lines={[['same', 'Migrated 35 services to \\textbf{Kubernetes}']]} />
+          <Lines title="After typing “42” and “K8s”" subtitle="bold is kept" lines={[['changed', 'Migrated 42 services to \\textbf{K8s}']]} />
+        </Grid>
+        <H2>How much text the box shows</H2>
+        <UL>
+          <li>
+            Text inside a command such as <C>{'\\rcItem{…}'}</C> or <C>{'\\section{…}'}</C>: the whole of it, even when it wraps onto two lines in the
+            PDF.
+          </li>
+          <li>
+            A line of a table-like heading (company on the left, dates on the right): just the part you clicked, because they are separate pieces
+            in the LaTeX.
+          </li>
+          <li>
+            A list item or a paragraph: the text up to the next item, line break (<C>\\</C>) or blank line.
+          </li>
+        </UL>
+        <H2>The LaTeX tab</H2>
+        <P>
+          The box has <b>Text</b> and <b>LaTeX</b> tabs. Switch to LaTeX to make a word bold, fix a link address, or change math. Save there with{' '}
+          <Kbd>Ctrl/⌘ Enter</Kbd>. texChef will not save LaTeX whose <C>{'{'}</C> and <C>{'}'}</C> don’t match. In the Text tab, link
+          addresses are hidden and math is shown as written; a note in the box says so.
+        </P>
+        <H2>In a variant: change the original too</H2>
+        <P>
+          When you edit a variant and the same text appears in its original, the box offers <b>Also change it in “…”</b>. Tick it to fix a typo in
+          both at once. The original gets a new version named “Text changed from ‘your variant’”. The variant will then show an update, which comes
+          in cleanly because both already have the same text.
+        </P>
+        <H2>Undo</H2>
+        <UL>
+          <li>
+            Each change shows a message with <b>Undo</b> for a few seconds.
+          </li>
+          <li>
+            The change is also made in the code editor, so <Kbd>Ctrl/⌘ Z</Kbd> there undoes it like any other edit.
+          </li>
+          <li>
+            Click an <b>edited</b> outline to open that change again.
+          </li>
+        </UL>
+        <Note kind="info">
+          Some text in the PDF is not typed in your document: section names written in capitals by the template, labels such as “Phone:”, page
+          numbers, dates from <C>\today</C>. Clicking it explains that and offers <b>Show in source</b>, which opens the line that produces it.
+        </Note>
       </>
     ),
   },
@@ -135,16 +230,16 @@ export const TOPICS: Topic[] = [
     body: () => (
       <>
         <P>
-          A variant is a new document made from another document (its <b>parent</b>) by keeping some of its blocks. After you create it, it is a
-          normal document: you can reword anything in it. It remembers which blocks you picked (its <b>recipe</b>) so that later changes in the
-          parent can be pulled in.
+          A variant is a new document made from another document (its <b>original</b>) by keeping some of its blocks. After you create it, it is a
+          normal document: you can reword anything in it. It remembers which blocks and tags you picked, so later changes in the original can be
+          brought in, filtered the same way.
         </P>
         <H2>Creating a variant</H2>
         <Steps
           items={[
             <>
               Open the master and click <b>New variant</b> (or right-click a document in the graph). To start from an older state, use{' '}
-              <b>Branch here</b> on a version in the History panel or the Versions graph.
+              <b>New variant from here</b> on a version in the History panel or the Versions graph.
             </>,
             <>
               Either click <b>tags</b> under “Focus by tag”, or tick and untick <b>blocks</b> in the list. You can combine both: tags choose the
@@ -175,7 +270,7 @@ export const TOPICS: Topic[] = [
                 You can also tick a block that does not match.
               </>,
             ],
-            ['Any', 'its parent block is kept too. Unticking a job removes all of its bullets.'],
+            ['Any', 'the block around it is kept too. Unticking a job removes all of its bullets.'],
           ]}
         />
         <P>
@@ -188,53 +283,53 @@ export const TOPICS: Topic[] = [
         </Note>
         <H2>Variants of variants</H2>
         <P>
-          A variant can have its own variants: for example <i>Master → Backend → Backend (Staff, 1 page)</i>. Each one pulls from its own parent.
-          The family graph on the home page shows the whole tree.
+          A variant can have its own variants: for example <i>Master → Backend → Backend (Staff, 1 page)</i>. Each one gets updates from the document
+          it was made from. The family graph on the home page shows the whole tree.
         </P>
         <H3>Duplicate vs. variant</H3>
         <P>
-          <b>Duplicate</b> (document menu) makes a full copy that is still linked to the original but keeps <i>everything</i>: when you pull, all of
-          the parent’s changes come in, with nothing filtered out.
+          <b>Duplicate</b> (document menu) makes a full copy that is still linked to the original but keeps <i>everything</i>: when you get updates,
+          all of the original’s changes come in, with nothing filtered out.
         </P>
       </>
     ),
   },
   {
-    id: 'pulling',
-    title: 'Pulling updates (how merges work)',
-    summary: 'Bring the parent’s changes into a variant without losing your own edits.',
+    id: 'updates',
+    title: 'Getting updates from the original',
+    summary: 'Bring the original’s changes into a variant without losing your own edits.',
     body: () => (
       <>
         <P>
-          When the parent of a variant changes, the variant shows <b>Pull N updates</b> in its header and a “behind” badge in the graph. Pulling
-          brings those changes in. It is called a <b>merge</b> because texChef combines two sets of changes: the ones made in the parent and the
-          ones you made in the variant.
+          When the original of a variant changes, the variant shows <b>Get N updates</b> in its header and an <b>updates</b> badge in the graph.
+          Getting updates brings those changes in. texChef <b>combines</b> two sets of changes: the ones made in the original and the ones you made in
+          the variant. (Developers call this a <i>merge</i>.)
         </P>
         <H2>The three versions texChef compares</H2>
-        <P>To merge, texChef looks at three versions of the text, line by line:</P>
+        <P>To combine them, texChef looks at three versions of the text, line by line:</P>
         <OL>
           <li>
-            <b>Base</b>: the parent as it was the last time this variant was in sync with it (when you created it, or at your last pull), with your
-            recipe applied.
+            <b>Starting point</b>: the original as it was the last time this variant caught up with it (when you created it, or the last time you got
+            updates), filtered to the blocks you picked.
           </li>
           <li>
-            <b>Parent now</b>: the parent as it is today, with the same recipe applied.
+            <b>Original now</b>: the original as it is today, filtered the same way.
           </li>
           <li>
             <b>Your variant now</b>, including any rewording you did in it.
           </li>
         </OL>
         <P>
-          Comparing <i>base → parent now</i> tells texChef what the parent changed. Comparing <i>base → your variant</i> tells it what you changed.
-          It then applies both.
+          Comparing <i>starting point → original now</i> tells texChef what the original changed. Comparing <i>starting point → your variant</i>{' '}
+          tells it what you changed. It then applies both.
         </P>
-        <H2>Example 1: a clean merge</H2>
+        <H2>Example 1: no conflict</H2>
         <P>You changed your phone number in the master, and separately reworded a bullet in the Frontend variant.</P>
         <Legend />
         <Grid cols={3}>
           <Lines
-            title="Base"
-            subtitle="master when you last synced"
+            title="Starting point"
+            subtitle="master when the variant last caught up"
             lines={[
               ['same', 'Jordan Rivera · (555) 010-2030'],
               ['same', 'Rebuilt the dashboard, 60% faster'],
@@ -244,7 +339,7 @@ export const TOPICS: Topic[] = [
           />
           <Lines
             title="Master now"
-            subtitle="what the parent changed"
+            subtitle="what the original changed"
             lines={[
               ['changed', 'Jordan Rivera · (555) 999-0000'],
               ['same', 'Rebuilt the dashboard, 60% faster'],
@@ -265,7 +360,7 @@ export const TOPICS: Topic[] = [
         </Grid>
         <P>The two changes touch different lines, so both are kept automatically:</P>
         <Lines
-          title="After the pull"
+          title="After getting updates"
           className="md:max-w-md"
           lines={[
             ['changed', 'Jordan Rivera · (555) 999-0000   ← from master'],
@@ -278,12 +373,12 @@ export const TOPICS: Topic[] = [
         <Table
           head={['What happened to a line', 'Result']}
           rows={[
-            ['Changed only in the parent', 'The parent’s new text is used.'],
+            ['Changed only in the original', 'The original’s new text is used.'],
             ['Changed only in your variant', 'Your text is kept.'],
             ['Changed the same way in both', 'Kept once (no conflict).'],
             ['Changed differently in both', <b>Conflict: you choose.</b>],
-            ['Added in the parent inside a block you kept', 'Added to the variant.'],
-            ['Changed in the parent inside a block your variant leaves out', 'Ignored: the block is filtered out, so the variant never sees it.'],
+            ['Added in the original inside a block you kept', 'Added to the variant.'],
+            ['Changed in the original inside a block your variant leaves out', 'Ignored: the variant doesn’t include that block.'],
           ]}
         />
         <H2>Example 2: a conflict</H2>
@@ -292,7 +387,7 @@ export const TOPICS: Topic[] = [
           one you want, so it shows both, between conflict markers:
         </P>
         <Lines
-          title="After the pull (needs a decision)"
+          title="After getting updates (needs a decision)"
           className="md:max-w-xl"
           lines={[
             ['same', 'Jordan Rivera · (555) 999-0000'],
@@ -304,78 +399,85 @@ export const TOPICS: Topic[] = [
             ['same', 'Built a shared React component library'],
           ]}
         />
-        <P>On the pull page each conflict has three buttons:</P>
+        <P>On the updates page each conflict has three buttons:</P>
         <UL>
           <li>
             <b>Keep mine</b>: keep the variant’s line (“much faster for 2M users”).
           </li>
           <li>
-            <b>Use parent</b>: take the master’s line (“70% faster”).
+            <b>Use original’s</b>: take the master’s line (“70% faster”).
           </li>
           <li>
-            <b>Both</b>: keep both lines, then edit them in the right-hand pane.
+            <b>Keep both</b>: keep both lines, then edit them in the right-hand pane.
           </li>
         </UL>
         <P>
-          You can also edit the right-hand side (“After pull”) directly, for example to write “Rebuilt the dashboard, 70% faster for 2M users”.
-          <b> Finish pull</b> becomes available when no conflicts are left.
+          You can also edit the right-hand side (“After updating”) directly, for example to write “Rebuilt the dashboard, 70% faster for 2M users”.
+          <b> Apply updates</b> becomes available when no conflicts are left.
         </P>
-        <H2>New blocks in the parent</H2>
+        <H2>New blocks in the original</H2>
         <P>
-          If the parent gained blocks since you last synced (say, a new job or bullet), the pull page lists them under <b>New in …</b> with a
-          checkbox. If your variant was made with tags, blocks matching your tags are ticked for you. If it was made by ticking blocks, new blocks
-          are unticked, so a focused variant does not grow by surprise.
+          If the original gained blocks since the variant last caught up (say, a new job or bullet), the updates page lists them under{' '}
+          <b>New in …</b> with a checkbox. If your variant was made with tags, blocks matching your tags are ticked for you. If it was made by ticking
+          blocks, new blocks are unticked, so a focused variant does not grow by surprise.
         </P>
-        <H2>What happens when you finish</H2>
+        <H2>What happens when you apply them</H2>
         <UL>
           <li>Unsaved edits in the variant are saved first, so nothing is lost.</li>
           <li>
-            The result is saved as a <b>merge</b> version. In the Versions graph it has two arrows: one from the variant’s previous version and one
-            (dashed) from the parent’s version it was merged with.
+            The result is saved as a new version. In the Versions graph it has two arrows: one from the variant’s previous version and one (dashed)
+            from the original’s version the updates came from.
           </li>
-          <li>The variant is now “up to date” and the parent’s current version becomes the new base for the next pull.</li>
+          <li>The variant is now “up to date”, and the original’s current version becomes the new starting point for next time.</li>
         </UL>
         <Note kind="tip">
-          Not sure? Use <b>Compare</b> first to see the parent and the variant side by side, or pull and look at the result: every pull is a version
-          in History, so you can always restore the variant as it was before.
+          Not sure? Use <b>Compare</b> first to see the original and the variant side by side, or apply the updates and look at the result: every
+          update is a version in History, so you can always restore the variant as it was before.
         </Note>
-        <H3>Merges between devices</H3>
+        <H3>Combining edits from two devices</H3>
         <P>
-          The same three-way merge is used when one document was edited on two devices before they synced. See{' '}
+          The same three-way comparison is used when one document was edited on two devices before they synced. See{' '}
           <HelpLink to="sync">Google Drive and devices</HelpLink>.
         </P>
       </>
     ),
   },
   {
-    id: 'pushing',
-    title: 'Pushing a block to the parent',
-    summary: 'Copy an improvement made in a variant back into the master.',
+    id: 'copy-to-original',
+    title: 'Copying changes back to the original',
+    summary: 'Send an improvement made in a variant back to the master.',
     body: () => (
       <>
         <P>
-          Sometimes you improve a bullet while tailoring a variant and want the master to have it too. In the variant’s <b>Blocks</b> panel, blocks
-          that differ from the parent are marked <b>edited</b> (or <b>new</b> if the parent does not have them). Hover one and click the{' '}
-          <b>push</b> arrow.
+          Sometimes you improve a bullet while tailoring a variant and want the master to have it too. There are two ways to send it back.
+        </P>
+        <H2>A whole block</H2>
+        <P>
+          In the variant’s <b>Blocks</b> panel, blocks that differ from the original are marked <b>edited</b> (or <b>new</b> if the original does
+          not have them). Hover one and click the <b>Copy to original</b> arrow.
         </P>
         <Steps
           items={[
-            <>texChef finds the block with the same id in the parent and replaces it with your version (or adds it next to its neighbours).</>,
+            <>texChef finds the block with the same id in the original and replaces it with your version (or adds it next to its neighbours).</>,
             <>
-              The parent gets a new version named “Pushed ‘…’ from ‘your variant’”, so it is easy to find and undo in History.
+              The original gets a new version named “Copied ‘…’ from ‘your variant’”, so it is easy to find and undo in History.
             </>,
             <>
-              The next pull into the variant is clean: both sides now have the same text, which counts as “changed the same way in both”.
+              The next update into the variant has no conflict: both sides now have the same text, which counts as “changed the same way in both”.
             </>,
           ]}
         />
         <Note kind="warn">
-          If the parent also changed that block since your last pull, texChef asks before replacing it, so you do not overwrite someone else’s (or
-          your own earlier) edit by accident.
+          If the original also changed that block since the variant last caught up, texChef asks before replacing it, so you do not overwrite an
+          earlier edit by accident.
         </Note>
+        <H2>A piece of text, from the PDF</H2>
         <P>
-          You can copy blocks between <i>any</i> two documents, not just variant and parent, from the <HelpLink to="compare">Compare</HelpLink>{' '}
-          view.
+          When you <HelpLink to="edit-on-pdf">edit on the PDF</HelpLink> in a variant, tick <b>Also change it in “…”</b> to make the same change in
+          the original. This changes only that text, not the whole block.
+        </P>
+        <P>
+          You can copy blocks between <i>any</i> two documents from the <HelpLink to="compare">Compare</HelpLink> view.
         </P>
       </>
     ),
@@ -387,7 +489,7 @@ export const TOPICS: Topic[] = [
     body: () => (
       <>
         <P>
-          Open it from a document menu (<b>Compare with parent</b>), the editor’s <b>⌄</b> menu, or the compare button on any version. At the top
+          Open it from a document menu (<b>Compare with original</b>), the editor’s <b>⌄</b> menu, or the compare button on any version. At the top
           you choose the <b>Left</b> and <b>Right</b> document, and for each one either <b>Current (editable)</b> or any saved version.
         </P>
         <UL>
@@ -418,7 +520,7 @@ export const TOPICS: Topic[] = [
   {
     id: 'history',
     title: 'Versions and history',
-    summary: 'Save, restore, branch from and download any version.',
+    summary: 'Save, restore, start a variant from, and download any version.',
     body: () => (
       <>
         <P>
@@ -429,7 +531,9 @@ export const TOPICS: Topic[] = [
           rows={[
             [<b>Saved version</b>, <>When you click <b>Save version</b> or press <Kbd>Ctrl/⌘ S</Kbd> (optionally with a message).</>],
             [<b>Autosave</b>, 'After a minute without typing, and when you leave the page. Hidden by default; tick “autosaves” to see them.'],
-            [<b>Variant / merge / push</b>, 'When you create a variant, pull from the parent, or a block is pushed into this document.'],
+            [<b>Variant created</b>, 'The first version of a variant.'],
+            [<b>Updates</b>, 'When you get updates from the original, or combine edits from two devices.'],
+            [<b>From a variant</b>, 'When a block or a piece of text was copied in from one of this document’s variants.'],
             [<b>Restore</b>, 'When you restore an older version.'],
           ]}
         />
@@ -443,7 +547,7 @@ export const TOPICS: Topic[] = [
             history.
           </li>
           <li>
-            <b>Branch here</b>: make a variant from that version.
+            <b>New variant from here</b>: make a variant from that version.
           </li>
           <li>
             <b>Download</b> it as a .zip.
@@ -464,22 +568,25 @@ export const TOPICS: Topic[] = [
         <H2>Documents graph</H2>
         <UL>
           <li>Each card is a document, with a thumbnail of its first page and its page count.</li>
-          <li>Arrows go from a parent to its variants; the label shows the tags the variant was made with.</li>
+          <li>Arrows go from an original to its variants; the label shows the tags the variant was made with.</li>
           <li>
-            A dashed arrow and a <b>behind</b> badge mean the variant has updates to pull.
+            A dashed arrow and an <b>updates</b> badge mean the original has changes the variant hasn’t brought in yet.
           </li>
           <li>
             <b>edited elsewhere</b> means another device changed it too (see <HelpLink to="sync">sync</HelpLink>).
           </li>
-          <li>Click a card to open it; right-click it (or use ⋯) for every action: new variant, compare, pull, duplicate, color, archive, delete.</li>
+          <li>
+            Click a card to open it; right-click it (or use ⋯) for every action: new variant, compare, get updates, duplicate, color, archive,
+            delete.
+          </li>
         </UL>
         <H2>Versions graph</H2>
         <UL>
           <li>Each row (lane) is a document; each dot is a version, oldest on the left. The icon in the dot shows its kind.</li>
           <li>
-            A dashed arrow between lanes shows where a variant was created from its parent, or where a pull merged the parent’s version into it.
+            A dashed arrow between lanes shows where a variant was made from its original, or where updates from the original were brought in.
           </li>
-          <li>Click a dot for details and actions: open, compare, branch here, restore.</li>
+          <li>Click a dot for details and actions: open, compare, new variant from here, restore.</li>
         </UL>
         <H2>Colors and archiving</H2>
         <P>
@@ -575,6 +682,9 @@ export const TOPICS: Topic[] = [
           <li>
             The <b>◎</b> button above the PDF highlights where the line under your cursor appears in the PDF.
           </li>
+          <li>
+            <b>Edit text</b> lets you change text by clicking it in the PDF. See <HelpLink to="edit-on-pdf">Editing on the PDF</HelpLink>.
+          </li>
         </UL>
       </>
     ),
@@ -617,15 +727,15 @@ texChef/
         </P>
         <UL>
           <li>
-            <b>Merge them</b>: combines both sets of changes with the same three-way merge as{' '}
-            <HelpLink to="pulling">pulling</HelpLink>. If the same lines were changed differently, conflict markers (<C>{'<<<<<<<'}</C>,{' '}
-            <C>=======</C>, <C>{'>>>>>>>'}</C>) are left in the text for you to tidy up in the editor.
+            <b>Combine both</b>: keeps both sets of changes, the same way as <HelpLink to="updates">getting updates</HelpLink>. If the same lines
+            were changed differently, both versions are left in the text between conflict markers (<C>{'<<<<<<<'}</C>, <C>=======</C>,{' '}
+            <C>{'>>>>>>>'}</C>) for you to tidy up in the editor.
           </li>
           <li>
             <b>Compare</b>: look at both first.
           </li>
           <li>
-            <b>Keep mine</b>: keep this device’s version; the other one stays available in history.
+            <b>Keep this one</b>: keep this device’s version; the other one stays available in history.
           </li>
         </UL>
       </>
@@ -643,17 +753,20 @@ texChef/
             [<Kbd>Ctrl/⌘ S</Kbd>, 'Save a version'],
             [<Kbd>Ctrl/⌘ Enter</Kbd>, 'Compile now'],
             [<Kbd>Ctrl/⌘ F</Kbd>, 'Find and replace in the editor'],
-            [<Kbd>Ctrl/⌘ Z</Kbd>, 'Undo (also undoes Auto-mark)'],
+            [<Kbd>Ctrl/⌘ Z</Kbd>, 'Undo (also undoes Auto-mark and edits made on the PDF)'],
             [<Kbd>Tab</Kbd>, 'Indent; also accepts a suggestion'],
             [<Kbd>\</Kbd>, 'Start typing a command to get suggestions'],
             [<C>%% @</C>, 'Suggests a block snippet'],
             ['Double-click the PDF', 'Jump to the source line'],
+            [<>Edit text, then click the PDF</>, 'Change that text in place'],
+            [<Kbd>Enter</Kbd>, 'Save an edit made on the PDF (Ctrl/⌘ Enter in the LaTeX tab)'],
+            [<Kbd>Esc</Kbd>, 'Close the edit box; press again to stop editing on the PDF'],
           ]}
         />
         <H2>Tips</H2>
         <UL>
           <li>Keep one master with everything; make a variant per kind of role, and per application only when you need to tailor further.</li>
-          <li>Fix shared things (contact details, dates, typos) in the master, then pull into the variants.</li>
+          <li>Fix shared things (contact details, dates, typos) in the master, then get updates in the variants.</li>
           <li>Use the page-count badge in the variant builder to land on exactly one page.</li>
           <li>Archive variants for applications you are done with instead of deleting them.</li>
           <li>The palette button at the top right switches between light and dark and six color themes.</li>

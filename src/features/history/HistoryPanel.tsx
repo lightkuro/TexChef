@@ -99,7 +99,7 @@ export function HistoryPanel({ doc, dirty }: { doc: DocMeta; dirty: boolean }) {
                 </Button>
               </Tip>
               <Tip content="New variant from this version">
-                <Button size="icon-sm" variant="ghost" aria-label="Branch" onClick={() => navigate(`/doc/${doc.id}/new-variant?from=${c.id}`)}>
+                <Button size="icon-sm" variant="ghost" aria-label="New variant from this version" onClick={() => navigate(`/doc/${doc.id}/new-variant?from=${c.id}`)}>
                   <GitBranch className="size-3.5" />
                 </Button>
               </Tip>

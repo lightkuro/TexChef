@@ -39,6 +39,36 @@ const pdfText = () =>
     return latest ? pdfText(latest.output.pdf) : '';
   });
 
+/** Where a piece of PDF text is on screen (page coordinates), from the PDF the editor for `key` shows. */
+const pdfPoint = (key, needle) =>
+  page.evaluate(
+    async ([key, needle]) => {
+      const { openPdf } = await import('/src/compile/pdf.ts');
+      const pdf = window.rcCompile.getState().entries[key]?.output?.pdf;
+      if (!pdf) return null;
+      const { doc, destroy } = await openPdf(pdf);
+      try {
+        for (let n = 1; n <= doc.numPages; n++) {
+          const pg = await doc.getPage(n);
+          const vp = pg.getViewport({ scale: 1 });
+          const it = (await pg.getTextContent()).items.find((i) => i.str?.includes(needle));
+          if (!it) continue;
+          const [, , , size, x0, base] = it.transform;
+          const x = x0 + (it.width * (it.str.indexOf(needle) + needle.length / 2)) / it.str.length;
+          const y = vp.height - base - size * 0.3;
+          const r = document.querySelector(`[data-testid=pdf-viewer] [data-page="${n}"]`).getBoundingClientRect();
+          return { x: r.left + (x / vp.width) * r.width, y: r.top + (y / vp.height) * r.height };
+        }
+        return null;
+      } finally {
+        destroy();
+      }
+    },
+    [key, needle],
+  );
+
+const workText = (id) => page.evaluate(async (id) => (await window.rc.repo.getWork(id)).files['main.tex'].text, id);
+
 let masterUrl;
 let variantUrl;
 
@@ -135,9 +165,10 @@ await step('edit master, then pull the update into the variant', async () => {
     await repo.commitWork(masterId, 'Update numbers', 'save');
   }, masterUrl.split('/doc/')[1]);
   await page.getByTestId('pull-button').waitFor({ timeout: 10_000 });
+  assert.match(await page.getByTestId('pull-button').textContent(), /Get 1 update/);
   await page.getByTestId('pull-button').click();
   await page.getByTestId('pull-page').waitFor();
-  await page.getByText('Merges cleanly').waitFor();
+  await page.getByText('No conflicts').waitFor();
   await page.screenshot({ path: `${OUT}03-pull.png` });
   await page.getByTestId('finish-pull').click();
   await page.getByTestId('editor-page').waitFor();
@@ -149,6 +180,46 @@ await step('edit master, then pull the update into the variant', async () => {
   assert.match(text, /75\\%/);
   assert.match(text, /444-1212/);
   assert.doesNotMatch(text, /streaming ingestion/);
+});
+
+await step('edit text on the PDF (and in the original too)', async () => {
+  const v = variantUrl.split('/doc/')[1];
+  const m = masterUrl.split('/doc/')[1];
+  await page.getByTestId('pdf-edit-toggle').click();
+  await page.getByTestId('pdf-edit-banner').getByText('Click any text in the PDF').waitFor();
+  // Turning editing on brings the PDF up to date with the text first.
+  await page.waitForFunction(
+    async (v) => {
+      const e = window.rcCompile.getState().entries[v];
+      if (!e?.output?.pdf || e.running) return false;
+      const { pdfText } = await import('/src/compile/pdf.ts');
+      return /75%/.test(await pdfText(e.output.pdf));
+    },
+    v,
+    { timeout: 60_000, polling: 500 },
+  );
+  const at = await pdfPoint(v, 'customer dashboard');
+  assert.ok(at, 'bullet found in the PDF');
+  await page.mouse.click(at.x, at.y);
+  const input = page.getByTestId('pdf-edit-input');
+  await input.waitFor();
+  assert.equal(await input.inputValue(), 'Rebuilt the customer dashboard in React and TypeScript, improving load time by 75%.');
+  await input.fill('Rebuilt the customer dashboard in React & TypeScript, improving load time by 80%.');
+  await page.getByLabel('Also change it in Master resume').click();
+  await page.screenshot({ path: `${OUT}08-edit-on-pdf.png` });
+  await page.keyboard.press('Enter');
+  await page.getByTestId('pdf-edit-pending').first().waitFor();
+  await page.getByTestId('pdf-edit-banner').getByText('1 change').waitFor();
+  const want = /\\rcItem\{Rebuilt the customer dashboard in React \\& TypeScript, improving load time by 80\\%\.\}/;
+  await page.waitForFunction(async (v) => /80\\%/.test((await window.rc.repo.getWork(v)).files['main.tex'].text), v);
+  assert.match(await workText(v), want);
+  assert.match(await workText(m), want);
+  await page.getByTestId('pdf-edit-update').click();
+  await page.getByTestId('pdf-edit-pending').first().waitFor({ state: 'detached', timeout: 60_000 });
+  await page.getByTestId('pdf-edit-banner').getByText('Click any text in the PDF').waitFor();
+  assert.match(await pdfText(), /React & TypeScript, improving\s+load\s+time\s+by\s+80%/);
+  await page.getByTestId('pdf-edit-done').click();
+  await page.getByTestId('pdf-edit-banner').waitFor({ state: 'detached' });
 });
 
 await step('dashboard graph shows master → variant', async () => {
@@ -185,8 +256,12 @@ await step('document color label shows on the graph card', async () => {
 await step('help pages explain the features', async () => {
   await page.getByTestId('help-link').click();
   await page.getByRole('heading', { name: 'A five-minute tour' }).waitFor();
-  await page.getByRole('link', { name: 'Pulling updates (how merges work)' }).first().click();
+  await page.getByRole('link', { name: 'Getting updates from the original' }).first().click();
   await page.getByRole('heading', { name: 'Example 2: a conflict' }).waitFor();
+  await page.goto(`${BASE}/help/pulling`);
+  await page.getByRole('heading', { name: 'Getting updates from the original', level: 1 }).waitFor();
+  await page.getByRole('link', { name: 'Editing on the PDF' }).first().click();
+  await page.getByRole('heading', { name: 'The LaTeX tab' }).waitFor();
   await page.screenshot({ path: `${OUT}07-help-pulling.png`, fullPage: false });
   await page.goto(BASE);
 });

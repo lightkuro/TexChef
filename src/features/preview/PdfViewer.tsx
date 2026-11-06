@@ -1,9 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Minus, Plus, Maximize2, Download } from 'lucide-react';
+import { Util } from 'pdfjs-dist';
 import { openPdf, type LoadedPdf } from '@/compile/pdf';
 import type { SyncRect } from '@/compile/synctex';
+import type { PdfTextItem } from '@/pdfedit/locate';
 import { Button, Spinner, Tip } from '@/components/ui';
 import { cn } from '@/lib/utils';
+
+/** What an overlay needs to draw on a page: sizes in PDF points, `k` = CSS pixels per point. */
+export interface PageInfo {
+  page: number;
+  pw: number;
+  ph: number;
+  k: number;
+  items: PdfTextItem[];
+}
 
 interface Props {
   pdf?: Uint8Array;
@@ -20,6 +31,20 @@ interface Props {
   highlights?: SyncRect[];
   /** Extra controls for the toolbar. */
   actions?: React.ReactNode;
+  /** A strip shown under the toolbar. */
+  banner?: React.ReactNode;
+  /** Drawn over each page (positioned absolutely over it). */
+  pageOverlay?: (page: PageInfo) => React.ReactNode;
+}
+
+interface RenderedPage {
+  page: number;
+  pw: number;
+  ph: number;
+  cssW: number;
+  cssH: number;
+  canvas: HTMLCanvasElement;
+  items: PdfTextItem[];
 }
 
 function drawHighlights(target: HTMLElement, rects: SyncRect[], scrollIntoView: boolean) {
@@ -41,14 +66,38 @@ function drawHighlights(target: HTMLElement, rects: SyncRect[], scrollIntoView: 
   if (scrollIntoView && first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
+/** Text runs of a page in PDF points (top-left origin); rotated text is skipped. */
+async function textItems(page: Awaited<ReturnType<LoadedPdf['doc']['getPage']>>, transform: number[]): Promise<PdfTextItem[]> {
+  const tc = await page.getTextContent();
+  const out: PdfTextItem[] = [];
+  for (const it of tc.items) {
+    if (!('str' in it) || !it.str.trim()) continue;
+    const m = Util.transform(transform, it.transform);
+    if (Math.abs(m[1]) > 0.01 || Math.abs(m[2]) > 0.01) continue;
+    const size = Math.abs(m[3]);
+    if (!size) continue;
+    const style = tc.styles[it.fontName];
+    const ascent = style?.ascent || 0.8;
+    const descent = style?.descent || -0.2;
+    out.push({ str: it.str, x: m[4], w: it.width, base: m[5], y: m[5] - size * ascent, h: size * (ascent - descent) });
+  }
+  return out;
+}
+
+function CanvasSlot({ canvas }: { canvas: HTMLCanvasElement }) {
+  return <div ref={(el) => void (el && el.firstChild !== canvas && el.replaceChildren(canvas))} />;
+}
+
 /** Renders every page of a PDF to canvases, keeping the scroll position across recompiles. */
-export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMessage, running, pages, onSyncClick, highlights, actions }: Props) {
+export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMessage, running, pages, onSyncClick, highlights, actions, banner, pageOverlay }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState<'fit' | number>('fit');
   const [width, setWidth] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [rendered, setRendered] = useState<RenderedPage[]>([]);
   const highlightRef = useRef<{ rects: SyncRect[]; at: number } | null>(null);
+  const scrollTopRef = useRef(0);
 
   useEffect(() => {
     if (!highlights?.length) return;
@@ -66,17 +115,16 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
   }, []);
 
   useEffect(() => {
-    if (!pdf || !container.current || width === 0) return;
+    if (!pdf || width === 0) return;
     let cancelled = false;
     let loaded: LoadedPdf | undefined;
-    const target = container.current;
     (async () => {
       try {
         loaded = await openPdf(pdf);
         if (cancelled) return;
         const { doc } = loaded;
         const dpr = window.devicePixelRatio || 1;
-        const pagesEls: HTMLElement[] = [];
+        const out: RenderedPage[] = [];
         for (let i = 1; i <= doc.numPages; i++) {
           const page = await doc.getPage(i);
           const base = page.getViewport({ scale: 1 });
@@ -85,27 +133,19 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
           const canvas = document.createElement('canvas');
           canvas.width = Math.floor(viewport.width);
           canvas.height = Math.floor(viewport.height);
-          canvas.style.width = `${Math.floor(viewport.width / dpr)}px`;
-          canvas.style.height = `${Math.floor(viewport.height / dpr)}px`;
+          const cssW = Math.floor(viewport.width / dpr);
+          const cssH = Math.floor(viewport.height / dpr);
+          canvas.style.width = `${cssW}px`;
+          canvas.style.height = `${cssH}px`;
           canvas.className = 'pdf-page block';
           await page.render({ canvas, viewport }).promise;
+          const items = await textItems(page, base.transform).catch(() => []);
           if (cancelled) return;
-          const wrap = document.createElement('div');
-          wrap.className = 'relative mx-auto mb-4';
-          wrap.style.width = canvas.style.width;
-          wrap.dataset.page = String(i);
-          wrap.dataset.pw = String(base.width);
-          wrap.dataset.ph = String(base.height);
-          wrap.appendChild(canvas);
-          pagesEls.push(wrap);
+          out.push({ page: i, pw: base.width, ph: base.height, cssW, cssH, canvas, items });
         }
         // Swap in all pages at once to avoid flicker.
-        const scrollTop = scroller.current?.scrollTop ?? 0;
-        target.replaceChildren(...pagesEls);
-        // Keep a highlight that is still fading in place across a re-render.
-        const h = highlightRef.current;
-        if (h && Date.now() - h.at < 2000) drawHighlights(target, h.rects, false);
-        if (scroller.current) scroller.current.scrollTop = scrollTop;
+        scrollTopRef.current = scroller.current?.scrollTop ?? 0;
+        setRendered(out);
         setError(null);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -117,6 +157,14 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
       cancelled = true;
     };
   }, [pdf, width, zoom]);
+
+  useLayoutEffect(() => {
+    if (!rendered.length) return;
+    if (scroller.current) scroller.current.scrollTop = scrollTopRef.current;
+    // Keep a highlight that is still fading in place across a re-render.
+    const h = highlightRef.current;
+    if (h && container.current && Date.now() - h.at < 2000) drawHighlights(container.current, h.rects, false);
+  }, [rendered]);
 
   const currentScale = typeof zoom === 'number' ? zoom : 1;
 
@@ -157,6 +205,7 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
           )}
         </div>
       )}
+      {banner}
       <div
         ref={scroller}
         className="min-h-0 flex-1 overflow-auto px-4 pt-4"
@@ -186,7 +235,14 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
           </div>
         )}
         {error && <div className="mb-2 rounded-md bg-danger-soft p-2 text-xs text-danger">Could not render PDF: {error}</div>}
-        <div ref={container} className={cn(!pdf && 'hidden')} />
+        <div ref={container} className={cn('pb-4', !pdf && 'hidden')}>
+          {rendered.map((p) => (
+            <div key={p.page} className="relative mx-auto mb-4" style={{ width: p.cssW, height: p.cssH }} data-page={p.page} data-pw={p.pw} data-ph={p.ph}>
+              <CanvasSlot canvas={p.canvas} />
+              {pageOverlay?.({ page: p.page, pw: p.pw, ph: p.ph, k: p.cssW / p.pw, items: p.items })}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
