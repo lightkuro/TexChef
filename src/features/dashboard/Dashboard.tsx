@@ -171,7 +171,7 @@ export function Dashboard() {
         <div className="inline-flex rounded-lg bg-subtle p-0.5">
           {(
             [
-              ['graph', Network, 'Graph'],
+              ['graph', Network, 'Map'],
               ['list', List, 'List'],
             ] as const
           ).map(([k, Icon, label]) => (

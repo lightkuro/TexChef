@@ -22,6 +22,8 @@ interface Prefs {
   palette: Palette;
   graphMode: 'family' | 'versions';
   dashboardView: 'graph' | 'list';
+  /** How the map draws links between documents. */
+  mapLines: 'straight' | 'angled';
   showAutosaves: boolean;
   showArchived: boolean;
   set: (patch: Partial<Omit<Prefs, 'set'>>) => void;
@@ -43,6 +45,7 @@ export const usePrefs = create<Prefs>((set, get) => ({
   palette: 'kitchen',
   graphMode: 'family',
   dashboardView: 'graph',
+  mapLines: 'straight',
   showAutosaves: false,
   showArchived: false,
   ...load(),

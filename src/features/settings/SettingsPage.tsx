@@ -34,6 +34,7 @@ export function SettingsPage() {
   const theme = usePrefs((s) => s.theme);
   const palette = usePrefs((s) => s.palette);
   const autoCompile = usePrefs((s) => s.autoCompile);
+  const mapLines = usePrefs((s) => s.mapLines);
   const setPref = usePrefs((s) => s.set);
   const [reset, setReset] = useState(false);
   const [storage, setStorage] = useState<StorageStatus>();
@@ -147,6 +148,13 @@ export function SettingsPage() {
               </button>
             ))}
           </div>
+          <label className="flex items-center gap-2">
+            Lines on the map
+            <Select value={mapLines} onChange={(e) => setPref({ mapLines: e.target.value as 'straight' | 'angled' })} data-testid="settings-map-lines">
+              <option value="straight">Straight</option>
+              <option value="angled">Right-angled</option>
+            </Select>
+          </label>
         </Section>
 
         <Section icon={<ShieldCheck className="size-4" />} title="Privacy">

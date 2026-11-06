@@ -33,7 +33,7 @@ export function ColorDialog({ doc, open, onOpenChange }: { doc: DocMeta; open: b
       open={open}
       onOpenChange={onOpenChange}
       title={`Color for “${doc.name}”`}
-      description="Used for the card border, the list icon, graph arrows and the document's lane in the version graph."
+      description="Used for the card border, the list icon, the lines on the map and the document's lane in the Versions map."
       footer={
         <Button variant="ghost" onClick={() => apply(undefined)}>
           Reset to automatic

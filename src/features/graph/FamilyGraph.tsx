@@ -1,17 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Background, Controls, MiniMap, ReactFlow, MarkerType, useNodesState, useEdgesState, type Edge } from '@xyflow/react';
+import { Background, Controls, MiniMap, ReactFlow, MarkerType, useNodesState, useEdgesState, useNodesInitialized, useReactFlow } from '@xyflow/react';
 import dagre from '@dagrejs/dagre';
 import { repo, usePreviews } from '@/app/repo';
 import type { DocMeta } from '@/core/model';
 import { DocCard, DOC_NODE_H, DOC_NODE_W, type DocNodeType } from './DocCard';
+import { DocEdge, type DocEdgeType } from './DocEdge';
 import { docColor } from '@/lib/utils';
+import { usePrefs } from '@/app/prefs';
+import { keepMeasured } from './keepMeasured';
 
 const nodeTypes = { doc: DocCard };
+const edgeTypes = { doc: DocEdge };
 
 function layout(docs: DocMeta[]): Map<string, { x: number; y: number }> {
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: 'LR', nodesep: 28, ranksep: 90, marginx: 20, marginy: 20 });
+  g.setGraph({ rankdir: 'LR', nodesep: 28, ranksep: 140, marginx: 20, marginy: 20 });
   g.setDefaultEdgeLabel(() => ({}));
   const ids = new Set(docs.map((d) => d.id));
   for (const d of docs) g.setNode(d.id, { width: DOC_NODE_W, height: DOC_NODE_H });
@@ -25,10 +29,27 @@ function layout(docs: DocMeta[]): Map<string, { x: number; y: number }> {
   return out;
 }
 
-/** Document family tree: master → variants → sub-variants. */
+const FIT = { padding: 0.2, maxZoom: 1.1 };
+
+/** Zoom to fit again when documents are added or removed (not when one just changes), once their cards are measured. */
+function FitOnChange({ ids }: { ids: string }) {
+  const { fitView } = useReactFlow();
+  const ready = useNodesInitialized();
+  const fitted = useRef('');
+  useEffect(() => {
+    if (!ready || fitted.current === ids) return;
+    const first = fitted.current === '';
+    fitted.current = ids;
+    void fitView({ ...FIT, duration: first ? 0 : 250 });
+  }, [ready, ids, fitView]);
+  return null;
+}
+
+/** Document map: master → variants → sub-variants. */
 export function FamilyGraph({ docs }: { docs: DocMeta[] }) {
   const previews = usePreviews();
   const navigate = useNavigate();
+  const angled = usePrefs((s) => s.mapLines) === 'angled';
   const [behind, setBehind] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -56,7 +77,7 @@ export function FamilyGraph({ docs }: { docs: DocMeta[] }) {
         childCount: docs.filter((c) => c.parent?.docId === d.id).length,
       },
     }));
-    const edges: Edge[] = docs
+    const edges: DocEdgeType[] = docs
       .filter((d) => d.parent && byId.has(d.parent.docId))
       .map((d) => {
         const n = behind[d.id] ?? 0;
@@ -65,21 +86,21 @@ export function FamilyGraph({ docs }: { docs: DocMeta[] }) {
           id: `${d.parent!.docId}->${d.id}`,
           source: d.parent!.docId,
           target: d.id,
-          type: 'smoothstep',
-          label: n > 0 ? `${n} update${n === 1 ? '' : 's'} to get` : d.recipe?.tags.length ? d.recipe.tags.map((t) => `#${t}`).join(' ') : undefined,
-          labelStyle: { fontSize: 11, fill: n > 0 ? 'var(--warn)' : 'var(--muted)' },
-          labelBgStyle: { fill: 'var(--panel)' },
+          type: 'doc',
+          data: { updates: n, angled },
           style: { stroke: color, strokeWidth: 2, strokeDasharray: n > 0 ? '6 4' : undefined },
           markerEnd: { type: MarkerType.ArrowClosed, color },
         };
       });
     return { nodes, edges };
-  }, [docs, previews, behind]);
+  }, [docs, previews, behind, angled]);
 
   // React Flow needs to write measured sizes back into node state before it shows nodes.
   const [rfNodes, setNodes, onNodesChange] = useNodesState<DocNodeType>(nodes);
-  const [rfEdges, setEdges, onEdgesChange] = useEdgesState<Edge>(edges);
-  useEffect(() => setNodes(nodes), [nodes, setNodes]);
+  const [rfEdges, setEdges, onEdgesChange] = useEdgesState<DocEdgeType>(edges);
+  // Keep each node's measured size when rebuilding, or React Flow hides it until it is measured again
+  // (which may never happen if its size does not change).
+  useEffect(() => setNodes((cur) => keepMeasured(cur, nodes)), [nodes, setNodes]);
   useEffect(() => setEdges(edges), [edges, setEdges]);
 
   return (
@@ -89,8 +110,9 @@ export function FamilyGraph({ docs }: { docs: DocMeta[] }) {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
       fitView
-      fitViewOptions={{ padding: 0.2, maxZoom: 1.1 }}
+      fitViewOptions={FIT}
       minZoom={0.2}
       nodesConnectable={false}
       onNodeDoubleClick={(_, n) => navigate(`/doc/${n.id}`)}
@@ -100,6 +122,7 @@ export function FamilyGraph({ docs }: { docs: DocMeta[] }) {
       <Background gap={20} size={1} color="var(--border)" />
       <Controls showInteractive={false} />
       <MiniMap pannable zoomable nodeColor={(n) => docColor(n.id, (n.data as { doc: DocMeta }).doc.color)} />
+      <FitOnChange ids={docs.map((d) => d.id).sort().join(',')} />
     </ReactFlow>
   );
 }

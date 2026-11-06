@@ -9,7 +9,7 @@ export interface Topic {
 }
 
 /** Old topic addresses that still work. */
-export const TOPIC_ALIASES: Record<string, string> = { pulling: 'updates', pushing: 'copy-to-original' };
+export const TOPIC_ALIASES: Record<string, string> = { pulling: 'updates', pushing: 'copy-to-original', graphs: 'map' };
 
 export const TOPICS: Topic[] = [
   {
@@ -51,8 +51,8 @@ export const TOPICS: Topic[] = [
               <b>Get 1 update</b>. Click it to bring the change in. See <HelpLink to="updates">Getting updates from the original</HelpLink>.
             </>,
             <>
-              Back on the home page, the <b>Graph</b> shows how documents relate, and <b>Versions</b> shows every saved version over time. See{' '}
-              <HelpLink to="graphs">Graphs</HelpLink>.
+              Back on the home page, the <b>Map</b> shows how documents relate, and its <b>Versions</b> view shows every saved version over time.
+              See <HelpLink to="map">The map</HelpLink>.
             </>,
           ]}
         />
@@ -238,8 +238,8 @@ export const TOPICS: Topic[] = [
         <Steps
           items={[
             <>
-              Open the master and click <b>New variant</b> (or right-click a document in the graph). To start from an older state, use{' '}
-              <b>New variant from here</b> on a version in the History panel or the Versions graph.
+              Open the master and click <b>New variant</b> (or right-click a document on the map). To start from an older state, use{' '}
+              <b>New variant from here</b> on a version in the History panel or the Versions map.
             </>,
             <>
               Either click <b>tags</b> under “Focus by tag”, or tick and untick <b>blocks</b> in the list. You can combine both: tags choose the
@@ -284,7 +284,7 @@ export const TOPICS: Topic[] = [
         <H2>Variants of variants</H2>
         <P>
           A variant can have its own variants: for example <i>Master → Backend → Backend (Staff, 1 page)</i>. Each one gets updates from the document
-          it was made from. The family graph on the home page shows the whole tree.
+          it was made from. The map on the home page shows the whole tree.
         </P>
         <H3>Duplicate vs. variant</H3>
         <P>
@@ -301,7 +301,7 @@ export const TOPICS: Topic[] = [
     body: () => (
       <>
         <P>
-          When the original of a variant changes, the variant shows <b>Get N updates</b> in its header and an <b>updates</b> badge in the graph.
+          When the original of a variant changes, the variant shows <b>Get N updates</b> in its header and an <b>updates</b> label on the map.
           Getting updates brings those changes in. texChef <b>combines</b> two sets of changes: the ones made in the original and the ones you made in
           the variant. (Developers call this a <i>merge</i>.)
         </P>
@@ -425,7 +425,7 @@ export const TOPICS: Topic[] = [
         <UL>
           <li>Unsaved edits in the variant are saved first, so nothing is lost.</li>
           <li>
-            The result is saved as a new version. In the Versions graph it has two arrows: one from the variant’s previous version and one (dashed)
+            The result is saved as a new version. In the Versions map it has two arrows: one from the variant’s previous version and one (dashed)
             from the original’s version the updates came from.
           </li>
           <li>The variant is now “up to date”, and the original’s current version becomes the new starting point for next time.</li>
@@ -557,30 +557,34 @@ export const TOPICS: Topic[] = [
     ),
   },
   {
-    id: 'graphs',
-    title: 'Graphs',
+    id: 'map',
+    title: 'The map',
     summary: 'See how documents relate and how they changed over time.',
     body: () => (
       <>
         <P>
-          The home page has two graphs (switch with <b>Documents</b> / <b>Versions</b>) and a <b>List</b> view.
+          The home page shows your documents as a <b>Map</b> or a <b>List</b>. The map has two views: <b>Documents</b> and <b>Versions</b>.
         </P>
-        <H2>Documents graph</H2>
+        <H2>Documents</H2>
         <UL>
           <li>Each card is a document, with a thumbnail of its first page and its page count.</li>
-          <li>Arrows go from an original to its variants; the label shows the tags the variant was made with.</li>
+          <li>Lines go from an original to its variants. A variant’s card shows the tags it was made with.</li>
           <li>
-            A dashed arrow and an <b>updates</b> badge mean the original has changes the variant hasn’t brought in yet.
+            A dashed line with an <b>N updates</b> label next to the arrow means the original has changes that variant hasn’t brought in yet.
+            Click the label to get them.
+          </li>
+          <li>
+            Lines are straight. Settings → Appearance → <b>Lines on the map</b> switches to right-angled lines.
           </li>
           <li>
             <b>edited elsewhere</b> means another device changed it too (see <HelpLink to="sync">sync</HelpLink>).
           </li>
           <li>
-            Click a card to open it; right-click it (or use ⋯) for every action: new variant, compare, get updates, duplicate, color, archive,
-            delete.
+            Click a card to open it; right-click it (or use ⋯) for every action: new variant, compare, get updates, duplicate, rename, color,
+            archive, delete. Delete asks first, and suggests archiving if you only want it out of the way.
           </li>
         </UL>
-        <H2>Versions graph</H2>
+        <H2>Versions</H2>
         <UL>
           <li>Each row (lane) is a document; each dot is a version, oldest on the left. The icon in the dot shows its kind.</li>
           <li>
@@ -591,8 +595,8 @@ export const TOPICS: Topic[] = [
         <H2>Colors and archiving</H2>
         <P>
           Give a document a color with <b>Color…</b> in its menu (or click the colored dot next to its name in the editor). The color is used for the
-          card border, the list, the graph arrows and its lane in the Versions graph. Old variants you no longer need can be <b>archived</b>: they
-          disappear from the graphs and list until you click <b>Show archived</b>.
+          card border, the list, the lines on the map and its lane in the Versions view. Old variants you no longer need can be <b>archived</b>:
+          they disappear from the map and list until you click <b>Show archived</b>.
         </P>
       </>
     ),

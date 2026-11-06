@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive, Archive, ArchiveRestore, Palette } from 'lucide-react';
+import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive, Archive, ArchiveRestore, Palette, AlertTriangle } from 'lucide-react';
 import { ColorDialog } from './ColorDialog';
 import { toast } from 'sonner';
 import type { DocMeta } from '@/core/model';
-import { db, repo } from '@/app/repo';
+import { db, repo, useDocs } from '@/app/repo';
 import { forkDocument } from '@/variants/ops';
 import { downloadPdf, downloadProjectZip } from '@/features/importexport/io';
 import {
@@ -23,6 +23,20 @@ import {
   MenuTrigger,
 } from '@/components/ui';
 
+/**
+ * Menus and dialogs render in a portal, but React still bubbles their events to the component that
+ * owns them. On the map that is a document card, which opens the document when clicked, so every
+ * menu item and dialog button would also open the document. Events stop here instead.
+ */
+function Contained({ children, keys = false }: { children: ReactNode; keys?: boolean }) {
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  return (
+    <div className="contents" onClick={stop} onDoubleClick={stop} onContextMenu={stop} onKeyDown={keys ? stop : undefined}>
+      {children}
+    </div>
+  );
+}
+
 interface Action {
   key: string;
   label: string;
@@ -39,6 +53,7 @@ function useDocActions(doc: DocMeta) {
   const [deleting, setDeleting] = useState(false);
   const [coloring, setColoring] = useState(false);
   const [name, setName] = useState(doc.name);
+  const variants = (useDocs() ?? []).filter((d) => d.parent?.docId === doc.id && !d.deleted);
 
   const actions: Action[] = [
     { key: 'open', label: 'Open', icon: <ExternalLink className="size-4" />, run: () => navigate(`/doc/${doc.id}`) },
@@ -97,7 +112,7 @@ function useDocActions(doc: DocMeta) {
   ];
 
   const dialogs = (
-    <>
+    <Contained keys>
       {coloring && <ColorDialog doc={doc} open={coloring} onOpenChange={setColoring} />}
       <Dialog
         open={renaming}
@@ -126,10 +141,9 @@ function useDocActions(doc: DocMeta) {
         open={deleting}
         onOpenChange={setDeleting}
         title={`Delete “${doc.name}”?`}
-        description="Its versions stay in the history store, but the document disappears from every device. Variants of it become standalone documents."
         footer={
           <>
-            <Button variant="ghost" onClick={() => setDeleting(false)}>
+            <Button variant="ghost" onClick={() => setDeleting(false)} autoFocus>
               Cancel
             </Button>
             <Button
@@ -137,15 +151,33 @@ function useDocActions(doc: DocMeta) {
               onClick={async () => {
                 await repo.deleteDoc(doc.id);
                 setDeleting(false);
-                toast.success('Deleted');
+                toast.success(`Deleted “${doc.name}”`);
               }}
+              data-testid="confirm-delete"
             >
-              Delete
+              <Trash2 className="size-4" /> Delete
             </Button>
           </>
         }
-      />
-    </>
+      >
+        <div className="space-y-2 text-sm" data-testid="delete-warning">
+          <p className="flex gap-2 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-danger">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <span>This can’t be undone. The document and all of its versions disappear from texChef on every device that syncs with this one.</span>
+          </p>
+          {variants.length > 0 && (
+            <p>
+              Its {variants.length === 1 ? 'variant' : `${variants.length} variants`} ({variants.map((v) => `“${v.name}”`).join(', ')}){' '}
+              {variants.length === 1 ? 'is' : 'are'} kept, but will no longer get updates from it.
+            </p>
+          )}
+          <p className="text-muted">
+            Want to keep it out of the way instead? Use <b>Archive</b>: it hides the document until you choose to show archived ones. A copy
+            already in your Google Drive folder is not removed.
+          </p>
+        </div>
+      </Dialog>
+    </Contained>
   );
   return { actions, dialogs };
 }
@@ -159,14 +191,16 @@ export function DocActionsMenu({ doc, asContextMenu, children }: { doc: DocMeta;
         <ContextMenu>
           <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
           <ContextMenuContent>
-            {actions.map((a) => (
-              <div key={a.key}>
-                {a.separatorBefore && <ContextMenuSeparator />}
-                <ContextMenuItem onSelect={a.run} danger={a.danger} disabled={a.disabled}>
-                  {a.icon} {a.label}
-                </ContextMenuItem>
-              </div>
-            ))}
+            <Contained>
+              {actions.map((a) => (
+                <div key={a.key}>
+                  {a.separatorBefore && <ContextMenuSeparator />}
+                  <ContextMenuItem onSelect={a.run} danger={a.danger} disabled={a.disabled}>
+                    {a.icon} {a.label}
+                  </ContextMenuItem>
+                </div>
+              ))}
+            </Contained>
           </ContextMenuContent>
         </ContextMenu>
         {dialogs}
@@ -182,14 +216,16 @@ export function DocActionsMenu({ doc, asContextMenu, children }: { doc: DocMeta;
           </button>
         </MenuTrigger>
         <MenuContent>
-          {actions.map((a) => (
-            <div key={a.key}>
-              {a.separatorBefore && <MenuSeparator />}
-              <MenuItem onSelect={a.run} danger={a.danger} disabled={a.disabled}>
-                {a.icon} {a.label}
-              </MenuItem>
-            </div>
-          ))}
+          <Contained>
+            {actions.map((a) => (
+              <div key={a.key}>
+                {a.separatorBefore && <MenuSeparator />}
+                <MenuItem onSelect={a.run} danger={a.danger} disabled={a.disabled}>
+                  {a.icon} {a.label}
+                </MenuItem>
+              </div>
+            ))}
+          </Contained>
         </MenuContent>
       </Menu>
       {dialogs}

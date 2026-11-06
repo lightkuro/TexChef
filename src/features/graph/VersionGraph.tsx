@@ -1,5 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { usePrefs } from '@/app/prefs';
+import { keepMeasured } from './keepMeasured';
 import { Background, Controls, Handle, Position, ReactFlow, useEdgesState, useNodesState, type Edge, type Node, type NodeProps } from '@xyflow/react';
 import { X, GitCompare, RotateCcw, GitBranch, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
@@ -59,6 +61,7 @@ function laneOrder(docs: DocMeta[]): DocMeta[] {
 
 /** Git-style swimlanes: one lane per document, commits over time, dashed edges for branches/merges across documents. */
 export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAutosaves: boolean }) {
+  const angled = usePrefs((s) => s.mapLines) === 'angled';
   const commits = useAllCommits();
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Commit | null>(null);
@@ -115,18 +118,20 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
           id: `${p}->${c.id}`,
           source: p,
           target: c.id,
-          type: cross ? 'smoothstep' : 'straight',
+          type: cross && angled ? 'smoothstep' : 'straight',
           animated: cross && c.kind === 'merge',
           style: { stroke: docColor(doc.id, doc.color), strokeWidth: 2, strokeDasharray: cross ? '5 4' : undefined },
         });
       }
     }
     return { nodes, edges };
-  }, [docs, commits, showAutosaves]);
+  }, [docs, commits, showAutosaves, angled]);
 
   const [rfNodes, setNodes, onNodesChange] = useNodesState<Node>(nodes);
   const [rfEdges, setEdges, onEdgesChange] = useEdgesState<Edge>(edges);
-  useEffect(() => setNodes(nodes), [nodes, setNodes]);
+  // Keep each node's measured size when rebuilding, or React Flow hides it until it is measured again
+  // (which may never happen if its size does not change).
+  useEffect(() => setNodes((cur) => keepMeasured(cur, nodes)), [nodes, setNodes]);
   useEffect(() => setEdges(edges), [edges, setEdges]);
 
   const selDoc = selected ? docs.find((d) => d.id === selected.docId) : undefined;

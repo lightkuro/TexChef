@@ -211,7 +211,8 @@ await step('edit text on the PDF (and in the original too)', async () => {
   await page.getByTestId('pdf-edit-pending').first().waitFor();
   await page.getByTestId('pdf-edit-banner').getByText('1 change').waitFor();
   const want = /\\rcItem\{Rebuilt the customer dashboard in React \\& TypeScript, improving load time by 80\\%\.\}/;
-  await page.waitForFunction(async (v) => /80\\%/.test((await window.rc.repo.getWork(v)).files['main.tex'].text), v);
+  // The original is changed right after the variant.
+  for (const id of [v, m]) await page.waitForFunction(async (id) => /80\\%/.test((await window.rc.repo.getWork(id)).files['main.tex'].text), id);
   assert.match(await workText(v), want);
   assert.match(await workText(m), want);
   await page.getByTestId('pdf-edit-update').click();
@@ -222,15 +223,25 @@ await step('edit text on the PDF (and in the original too)', async () => {
   await page.getByTestId('pdf-edit-banner').waitFor({ state: 'detached' });
 });
 
-await step('dashboard graph shows master → variant', async () => {
+await step('map shows master → variant with a straight line and the updates by the arrow', async () => {
   await page.goto(BASE);
   await page.getByTestId('view-graph').click();
+  assert.equal((await page.getByTestId('view-graph').textContent()).trim(), 'Map');
   await page.getByTestId('graph-family').click();
   await page.getByTestId('doc-node-Master resume').waitFor();
   await page.getByTestId('doc-node-Frontend resume').waitFor();
-  // Edges render once React Flow has measured both nodes.
-  await page.locator('.react-flow__edge').first().waitFor();
+  // Edges render once React Flow has measured both nodes (a level straight line has no height, so wait for it to exist).
+  await page.locator('.react-flow__edge').first().waitFor({ state: 'attached' });
   assert.equal(await page.locator('.react-flow__edge').count(), 1);
+  const d = await page.locator('.react-flow__edge path.react-flow__edge-path').first().getAttribute('d');
+  assert.match(d, /^M\s*[\d.-]+[\s,]+[\d.-]+\s*L\s*[\d.-]+[\s,]+[\d.-]+\s*$/, `straight line, got ${d}`);
+  // The variant got an update from the PDF edit above; its label sits next to the variant's end of the line.
+  const v = variantUrl.split('/doc/')[1];
+  const pill = await page.getByTestId(`edge-updates-${v}`).boundingBox();
+  const src = await page.getByTestId('doc-node-Master resume').boundingBox();
+  const dst = await page.getByTestId('doc-node-Frontend resume').boundingBox();
+  const cx = pill.x + pill.width / 2;
+  assert.ok(Math.abs(cx - dst.x) < Math.abs(cx - (src.x + src.width)), 'updates label is nearer the variant');
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}04-graph.png` });
   await page.getByTestId('graph-versions').click();
@@ -241,6 +252,53 @@ await step('dashboard graph shows master → variant', async () => {
   await page.getByTestId('commit-panel').waitFor();
   await page.screenshot({ path: `${OUT}05-versions.png` });
   await page.getByTestId('graph-family').click();
+});
+
+await step('right-click menu on the map works without opening the document; delete warns', async () => {
+  await page.getByTestId('doc-node-Frontend resume').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Rename…' }).click();
+  await page.getByRole('dialog').getByRole('textbox').fill('Frontend resume v2');
+  await page.getByRole('dialog').getByRole('button', { name: 'Rename' }).click();
+  await page.getByTestId('doc-node-Frontend resume v2').waitFor();
+  assert.equal(new URL(page.url()).pathname, '/');
+  await page.getByTestId('doc-node-Frontend resume v2').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete…' }).click();
+  await page.getByTestId('delete-warning').getByText('This can’t be undone').waitFor();
+  await page.screenshot({ path: `${OUT}04b-delete-warning.png` });
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('dialog').waitFor({ state: 'detached' });
+  assert.equal(new URL(page.url()).pathname, '/');
+  await page.getByTestId('doc-node-Frontend resume v2').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Rename…' }).click();
+  await page.getByRole('dialog').getByRole('textbox').fill('Frontend resume');
+  await page.getByRole('dialog').getByRole('textbox').press('Enter');
+  await page.getByTestId('doc-node-Frontend resume').waitFor();
+  // A second variant, so the lines are not level.
+  await page.evaluate(async (m) => {
+    const { createVariant } = await import('/src/variants/ops.ts');
+    await createVariant(window.rc.repo, { parentId: m, name: 'Backend resume', recipe: { include: [], exclude: [], tags: ['backend'], known: [] } });
+  }, masterUrl.split('/doc/')[1]);
+  await page.getByTestId('doc-node-Backend resume').waitFor();
+  const paths = () => page.locator('.react-flow__edge path.react-flow__edge-path').evaluateAll((els) => els.map((e) => e.getAttribute('d')));
+  await page.waitForFunction(() => document.querySelectorAll('.react-flow__edge').length === 2);
+  assert.ok((await paths()).every((d) => !/Q/.test(d)), 'straight lines by default');
+  // Right-angled lines are a setting.
+  await page.goto(`${BASE}/settings`);
+  await page.getByTestId('settings-map-lines').selectOption('angled');
+  await page.goto(BASE);
+  await page.waitForFunction(() => document.querySelectorAll('.react-flow__edge').length === 2);
+  assert.ok((await paths()).every((d) => /Q/.test(d)), `right-angled lines, got ${await paths()}`);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}04c-angled.png` });
+  await page.goto(`${BASE}/settings`);
+  await page.getByTestId('settings-map-lines').selectOption('straight');
+  await page.goto(BASE);
+  // Delete from the map: asks first, then removes the card and stays on the map.
+  await page.getByTestId('doc-node-Backend resume').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete…' }).click();
+  await page.getByTestId('confirm-delete').click();
+  await page.getByTestId('doc-node-Backend resume').waitFor({ state: 'detached' });
+  assert.equal(new URL(page.url()).pathname, '/');
 });
 
 await step('document color label shows on the graph card', async () => {
