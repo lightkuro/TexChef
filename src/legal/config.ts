@@ -8,7 +8,7 @@ export const LEGAL = {
   /** Person or entity operating the site, e.g. "Jane Doe" or "Kurolight". */
   operator: (import.meta.env.VITE_LEGAL_OPERATOR as string | undefined)?.trim() || '',
   /** Contact for privacy and legal questions: an email address or a URL. */
-  contact: (import.meta.env.VITE_LEGAL_CONTACT as string | undefined)?.trim() || '',
+  contact: (import.meta.env.VITE_LEGAL_CONTACT as string | undefined)?.trim() || 'https://kurolight.dev/contact',
   /** Governing law, e.g. "the State of Washington, USA". */
   jurisdiction: (import.meta.env.VITE_LEGAL_JURISDICTION as string | undefined)?.trim() || '',
   /** Bump when the texts change. */

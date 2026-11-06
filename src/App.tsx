@@ -12,6 +12,7 @@ const PullPage = lazy(() => import('@/features/variants/PullPage').then((m) => (
 const ComparePage = lazy(() => import('@/features/compare/ComparePage').then((m) => ({ default: m.ComparePage })));
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const PrivacyPage = lazy(() => import('@/legal/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
+const HelpPage = lazy(() => import('@/help/HelpPage').then((m) => ({ default: m.HelpPage })));
 const TermsPage = lazy(() => import('@/legal/TermsPage').then((m) => ({ default: m.TermsPage })));
 
 function Loading() {
@@ -151,6 +152,8 @@ const router = createBrowserRouter([
       { path: '/settings', element: <SettingsPage /> },
       { path: '/privacy', element: <PrivacyPage /> },
       { path: '/terms', element: <TermsPage /> },
+      { path: '/help', element: <HelpPage /> },
+      { path: '/help/:topic', element: <HelpPage /> },
       { path: '*', element: <Dashboard /> },
     ],
   },

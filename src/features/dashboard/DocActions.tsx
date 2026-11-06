@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive, Archive, ArchiveRestore } from 'lucide-react';
+import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive, Archive, ArchiveRestore, Palette } from 'lucide-react';
+import { ColorDialog } from './ColorDialog';
 import { toast } from 'sonner';
 import type { DocMeta } from '@/core/model';
 import { db, repo } from '@/app/repo';
@@ -36,6 +37,7 @@ function useDocActions(doc: DocMeta) {
   const navigate = useNavigate();
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [coloring, setColoring] = useState(false);
   const [name, setName] = useState(doc.name);
 
   const actions: Action[] = [
@@ -64,6 +66,7 @@ function useDocActions(doc: DocMeta) {
       },
     },
     { key: 'rename', label: 'Rename…', icon: <Pencil className="size-4" />, run: () => (setName(doc.name), setRenaming(true)) },
+    { key: 'color', label: 'Color…', icon: <Palette className="size-4" />, run: () => setColoring(true) },
     {
       key: 'archive',
       label: doc.archived ? 'Unarchive' : 'Archive',
@@ -95,6 +98,7 @@ function useDocActions(doc: DocMeta) {
 
   const dialogs = (
     <>
+      {coloring && <ColorDialog doc={doc} open={coloring} onOpenChange={setColoring} />}
       <Dialog
         open={renaming}
         onOpenChange={setRenaming}

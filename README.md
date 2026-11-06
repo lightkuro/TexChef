@@ -71,10 +71,10 @@ Other scripts:
 
 Without Google configuration the app runs in **Local only** mode: fully functional, data stays in this browser.
 
-Before making the site public, set `VITE_LEGAL_OPERATOR`, `VITE_LEGAL_CONTACT` and `VITE_LEGAL_JURISDICTION` (build
-variables, like the Google ones) so the Privacy Policy and Terms name who runs the site, how to reach you, and which
-law applies. Until they are set, the pages show a visible “not set yet” marker. The texts in `src/legal/` are a
-starting point written for this app's actual data flows, not legal advice; have them reviewed if the stakes matter.
+The Privacy Policy and Terms send questions to https://kurolight.dev/contact. Optionally set `VITE_LEGAL_OPERATOR`
+(who runs the site), `VITE_LEGAL_CONTACT` (another email or URL) and `VITE_LEGAL_JURISDICTION` (governing law) as build
+variables. The texts in `src/legal/` are written for this app's actual data flows, not legal advice; have them reviewed
+if the stakes matter.
 
 ## Google Drive setup
 

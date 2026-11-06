@@ -15,6 +15,7 @@ import {
   Blocks,
   Play,
   LocateFixed,
+  CircleHelp,
   Save,
   Zap,
   ZapOff,
@@ -36,6 +37,7 @@ import { EngineBanner } from '@/features/compile/EngineBanner';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { cn, docColor, formatBytes } from '@/lib/utils';
 import { usePrefs } from '@/app/prefs';
+import { ColorDialog } from '@/features/dashboard/ColorDialog';
 import { decodeSynctex, parseSynctex, pdfToSource, sourceToPdf, type SyncData, type SyncRect } from '@/compile/synctex';
 
 type SideTab = 'files' | 'blocks' | 'history';
@@ -51,6 +53,7 @@ export function EditorPage() {
   const [activePath, setActivePath] = useState<string | null>(null);
   const [side, setSide] = useState<SideTab>('blocks');
   const [cursorLine, setCursorLine] = useState<number>();
+  const [coloring, setColoring] = useState(false);
   const autoCompile = usePrefs((s) => s.autoCompile);
   const setPref = usePrefs((s) => s.set);
   const engine = useEngineStatus();
@@ -171,7 +174,15 @@ export function EditorPage() {
             <ArrowLeft className="size-4" />
           </Button>
         </Tip>
-        <span className="size-2.5 shrink-0 rounded-full" style={{ background: docColor(doc.id, doc.color) }} />
+        <Tip content="Document color">
+          <button
+            className="size-3 shrink-0 rounded-full ring-offset-2 ring-offset-panel hover:ring-2 hover:ring-line"
+            style={{ background: docColor(doc.id, doc.color) }}
+            onClick={() => setColoring(true)}
+            aria-label="Document color"
+          />
+        </Tip>
+        {coloring && <ColorDialog doc={doc} open={coloring} onOpenChange={setColoring} />}
         <input
           className="h-8 min-w-24 rounded-md bg-transparent px-1.5 text-sm font-semibold hover:bg-subtle focus:bg-subtle focus:outline-none"
           defaultValue={doc.name}
@@ -236,6 +247,9 @@ export function EditorPage() {
             </Button>
           </MenuTrigger>
           <MenuContent>
+            <MenuItem onSelect={() => navigate('/help')}>
+              <CircleHelp className="size-4" /> Help and guides
+            </MenuItem>
             <MenuItem onSelect={() => navigate(`/compare?left=${doc.id}${parent ? `&right=${parent.id}` : ''}`)}>
               <GitCompare className="size-4" /> Compare side by side…
             </MenuItem>

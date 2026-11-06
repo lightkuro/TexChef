@@ -36,9 +36,9 @@ export function DocList({ docs }: { docs: DocMeta[] }) {
           const p = previews?.get(doc.id);
           const n = behind[doc.id] ?? 0;
           return (
-            <div key={doc.id} className="grid grid-cols-[1fr_110px_120px_32px] items-center gap-2 border-b border-line px-4 py-2 last:border-0 hover:bg-subtle">
+            <div key={doc.id} className="grid grid-cols-[1fr_110px_120px_32px] items-center gap-2 border-b border-l-4 border-line px-4 py-2 last:border-b-0 hover:bg-subtle" style={{ borderLeftColor: docColor(doc.id, doc.color) }}>
               <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: depth * 22 }}>
-                {depth > 0 ? <GitBranch className="size-4 shrink-0 text-muted" /> : <FileText className="size-4 shrink-0" style={{ color: docColor(doc.id, doc.color) }} />}
+                {depth > 0 ? <GitBranch className="size-4 shrink-0" style={{ color: docColor(doc.id, doc.color) }} /> : <FileText className="size-4 shrink-0" style={{ color: docColor(doc.id, doc.color) }} />}
                 <Link to={`/doc/${doc.id}`} className="truncate text-sm font-medium hover:underline">
                   {doc.name}
                 </Link>

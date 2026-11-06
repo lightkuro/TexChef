@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, GitPullRequestArrow, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useDoc } from '@/app/repo';
@@ -124,6 +124,9 @@ export function PullPage() {
           </Badge>
         )}
         <div className="flex-1" />
+        <Link to="/help/pulling" className="text-xs text-muted underline hover:text-fg" target="_blank">
+          How pulling works
+        </Link>
         <Button variant="ghost" onClick={() => navigate(`/doc/${doc.id}`)}>
           Cancel
         </Button>

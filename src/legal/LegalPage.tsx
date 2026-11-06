@@ -3,16 +3,11 @@ import { ArrowLeft } from 'lucide-react';
 import { Logo } from '@/components/Logo';
 import { LEGAL } from './config';
 
-function Missing({ what }: { what: string }) {
-  return <span className="rounded bg-warn-soft px-1 text-warn">[{what} not set yet]</span>;
-}
-
 export function Operator() {
   return LEGAL.operator ? <>{LEGAL.operator}</> : <>the operator of {LEGAL.appName}</>;
 }
 
 export function Contact() {
-  if (!LEGAL.contact) return <Missing what="contact" />;
   const isEmail = LEGAL.contact.includes('@') && !LEGAL.contact.startsWith('http');
   return (
     <a className="text-accent underline" href={isEmail ? `mailto:${LEGAL.contact}` : LEGAL.contact} rel="noopener">
@@ -22,7 +17,7 @@ export function Contact() {
 }
 
 export function Jurisdiction() {
-  return LEGAL.jurisdiction ? <>{LEGAL.jurisdiction}</> : <Missing what="jurisdiction" />;
+  return LEGAL.jurisdiction ? <>{LEGAL.jurisdiction}</> : <>the place where the operator of {LEGAL.appName} is based</>;
 }
 
 export function Ext({ href, children }: { href: string; children: React.ReactNode }) {

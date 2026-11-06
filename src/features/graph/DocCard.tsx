@@ -29,12 +29,13 @@ export const DocCard = memo(function DocCard({ data, selected }: NodeProps<DocNo
           'group overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow hover:shadow-md',
           doc.archived && 'opacity-60',
           selected ? 'border-accent ring-2 ring-accent/30' : 'border-line',
+          doc.color && !selected && 'border-2',
         )}
-        style={{ width: DOC_NODE_W }}
+        style={{ width: DOC_NODE_W, borderColor: doc.color && !selected ? doc.color : undefined }}
         data-testid={`doc-node-${doc.name}`}
       >
         <Handle type="target" position={Position.Left} className="!size-2 !border-0 !bg-line" />
-        <div className="h-1" style={{ background: color }} />
+        <div className="h-1.5" style={{ background: color }} />
         <div className="relative h-[118px] overflow-hidden border-b border-line bg-subtle">
           {preview?.thumbnail ? (
             <img src={preview.thumbnail} alt="" className="w-full object-cover object-top" draggable={false} />

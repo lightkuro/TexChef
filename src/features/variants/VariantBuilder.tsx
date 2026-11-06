@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ArrowLeft, GitBranch, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useDoc, useWork } from '@/app/repo';
@@ -150,6 +150,9 @@ export function VariantBuilder() {
         <span className="text-sm font-semibold">New variant of “{parent.name}”</span>
         {from && <Badge tone="info">from an earlier version</Badge>}
         <div className="flex-1" />
+        <Link to="/help/variants" className="text-xs text-muted underline hover:text-fg" target="_blank">
+          How variants work
+        </Link>
         <Input
           className="w-72"
           placeholder={defaultName(parent.name, recipe.tags)}

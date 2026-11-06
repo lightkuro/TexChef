@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Plus, Upload, Network, List, GitCommitHorizontal, Download, CloudDownload, Search, Settings, FileText, Archive } from 'lucide-react';
+import { Plus, Upload, Network, List, GitCommitHorizontal, Download, CloudDownload, Search, Settings, FileText, Archive, CircleHelp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
@@ -27,6 +27,11 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
       <div className="flex flex-1 items-center gap-2">{children}</div>
       <SyncIndicator />
       <ThemeMenu />
+      <Tip content="Help and guides">
+        <Link to="/help" aria-label="Help" className="inline-flex size-8 items-center justify-center rounded-md hover:bg-subtle" data-testid="help-link">
+          <CircleHelp className="size-4" />
+        </Link>
+      </Tip>
       <Tip content="Settings">
         <Link to="/settings" aria-label="Settings" className="inline-flex size-8 items-center justify-center rounded-md hover:bg-subtle">
           <Settings className="size-4" />
@@ -209,6 +214,9 @@ export function Dashboard() {
         <Link to="/terms" className="hover:text-fg" data-testid="link-terms">
           Terms
         </Link>
+        <Link to="/help" className="hover:text-fg">
+          Help
+        </Link>
         <span className="ml-auto">Runs in your browser · your files stay yours</span>
       </footer>
       <NewDocDialog open={newOpen} onOpenChange={setNewOpen} />
@@ -235,6 +243,9 @@ function Welcome({ onNew, onUpload }: { onNew: () => void; onUpload: () => void 
           <Upload className="size-4" /> Upload .tex or Overleaf .zip
         </Button>
       </div>
+      <Link to="/help" className="mt-3 text-sm text-accent underline">
+        New here? Read how texChef works
+      </Link>
       <ol className="mt-10 grid w-full gap-3 text-left text-sm sm:grid-cols-3">
         {[
           ['Write the master', 'Everything you have done, split into blocks with tags like #backend or #ml.'],

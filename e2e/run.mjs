@@ -172,6 +172,25 @@ await step('dashboard graph shows master → variant', async () => {
   await page.getByTestId('graph-family').click();
 });
 
+await step('document color label shows on the graph card', async () => {
+  await page.getByTestId('view-list').click();
+  await page.getByLabel('Actions for Frontend resume').click();
+  await page.getByRole('menuitem', { name: 'Color…' }).click();
+  await page.getByTestId('color-blue').click();
+  await page.getByTestId('view-graph').click();
+  const border = await page.getByTestId('doc-node-Frontend resume').evaluate((el) => getComputedStyle(el).borderTopColor);
+  assert.equal(border, 'rgb(29, 78, 216)');
+});
+
+await step('help pages explain the features', async () => {
+  await page.getByTestId('help-link').click();
+  await page.getByRole('heading', { name: 'A five-minute tour' }).waitFor();
+  await page.getByRole('link', { name: 'Pulling updates (how merges work)' }).first().click();
+  await page.getByRole('heading', { name: 'Example 2: a conflict' }).waitFor();
+  await page.screenshot({ path: `${OUT}07-help-pulling.png`, fullPage: false });
+  await page.goto(BASE);
+});
+
 await step('archive hides a document until "show archived" is on', async () => {
   await page.getByTestId('view-list').click();
   await page.getByLabel('Actions for Frontend resume').click();
