@@ -5,6 +5,7 @@ import { googleConfigured } from '@/features/auth/google';
 import { Button, Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Spinner } from '@/components/ui';
 import { timeAgo } from '@/lib/utils';
 
+/** Icon plus a short status; on phones (below `sm`) only the icon shows, the text stays for screen readers. */
 export function SyncIndicator({ compact }: { compact?: boolean }) {
   const s = useSync();
   const connect = () => connectDrive().catch((e) => toast.error(e instanceof Error ? e.message : String(e)));
@@ -13,15 +14,15 @@ export function SyncIndicator({ compact }: { compact?: boolean }) {
     return (
       <Button variant="ghost" size="sm" onClick={connect} title={googleConfigured ? 'Sync your documents to your Google Drive' : 'Google sign-in is not configured'} data-testid="sync-indicator">
         <HardDrive className="size-3.5 text-muted" />
-        {!compact && <span className="text-muted">Local only</span>}
-        {googleConfigured && !compact && <span className="text-accent">· Connect Drive</span>}
+        {!compact && <span className="text-muted max-sm:sr-only">Local only</span>}
+        {googleConfigured && !compact && <span className="text-accent max-sm:sr-only">· Connect Drive</span>}
       </Button>
     );
   }
   if (s.state === 'needs-signin') {
     return (
       <Button variant="outline" size="sm" onClick={connect} className="border-warn text-warn" data-testid="sync-indicator">
-        <CloudOff className="size-3.5" /> Reconnect Drive
+        <CloudOff className="size-3.5" /> <span className="max-sm:sr-only">Reconnect Drive</span>
       </Button>
     );
   }
@@ -37,7 +38,7 @@ export function SyncIndicator({ compact }: { compact?: boolean }) {
             <Cloud className="size-3.5 text-ok" />
           )}
           {!compact && (
-            <span className="text-muted">
+            <span className="text-muted max-sm:sr-only">
               {s.state === 'syncing' ? 'Syncing…' : s.state === 'error' ? 'Sync error' : s.lastSync ? `Synced ${timeAgo(s.lastSync)}` : 'Drive'}
             </span>
           )}

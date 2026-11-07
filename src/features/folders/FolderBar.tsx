@@ -48,7 +48,7 @@ export function FolderBar({
       <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden" aria-label="Folder path">
         {crumb(
           <>
-            <Files className="size-3.5 shrink-0" /> All documents
+            <Files className="size-3.5 shrink-0" /> <span className="truncate">All documents</span>
           </>,
           null,
           'all',
@@ -62,6 +62,7 @@ export function FolderBar({
         ))}
       </nav>
       {extra}
+      {/* Icons only on phones, so the bar fits beside the folders panel. */}
       <div className="inline-flex shrink-0 rounded-lg bg-subtle p-0.5 text-xs font-medium">
         <Tip content="Show every document inside, including those in subfolders, grouped by folder">
           <button
@@ -70,7 +71,7 @@ export function FolderBar({
             aria-pressed={mode === 'grouped'}
             data-testid="folder-mode-grouped"
           >
-            <FolderTree className="size-3.5" /> Expanded
+            <FolderTree className="size-3.5" /> <span className="max-sm:sr-only">Expanded</span>
           </button>
         </Tip>
         <Tip content="Show subfolders as folders; open one to see what's inside">
@@ -80,7 +81,7 @@ export function FolderBar({
             aria-pressed={mode === 'browse'}
             data-testid="folder-mode-browse"
           >
-            <LayoutGrid className="size-3.5" /> Folders
+            <LayoutGrid className="size-3.5" /> <span className="max-sm:sr-only">Folders</span>
           </button>
         </Tip>
       </div>

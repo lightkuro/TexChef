@@ -24,6 +24,7 @@ import {
   Trash2,
   ChevronDown,
   Check,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
@@ -56,12 +57,13 @@ import type { MapApi } from '@/features/graph/FamilyGraph';
 
 export function AppHeader({ children }: { children?: React.ReactNode }) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-panel px-4">
-      <Link to="/" className="flex items-center gap-2 font-semibold">
+    // `relative`: the phone search bar (HeaderSearch) opens over the whole header row.
+    <header className="relative flex h-12 shrink-0 items-center gap-2 border-b border-line bg-panel px-4 sm:gap-3">
+      <Link to="/" className="flex shrink-0 items-center gap-2 font-semibold">
         <Logo size={28} />
         texChef
       </Link>
-      <div className="flex flex-1 items-center gap-2">{children}</div>
+      <div className="flex min-w-0 flex-1 items-center gap-2">{children}</div>
       <SyncIndicator />
       <ThemeMenu />
       <Tip content="Help and guides">
@@ -253,10 +255,7 @@ export function Dashboard() {
       data-testid="dashboard"
     >
       <AppHeader>
-        <div className="relative ml-4 w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted" />
-          <Input className="pl-8" placeholder="Search documents and tags" value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
+        <HeaderSearch value={query} onChange={setQuery} />
       </AppHeader>
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2">
         <Tip content={showFolders ? 'Hide folders' : 'Show folders'}>
@@ -414,6 +413,55 @@ export function Dashboard() {
 }
 
 /**
+ * The search box. On phones it folds into an icon that opens a full-width search bar over the
+ * header; the bar stays open while there is a query, and closing it clears the query.
+ */
+function HeaderSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (open) input.current?.focus();
+  }, [open]);
+  const close = () => {
+    onChange('');
+    setOpen(false);
+  };
+  return (
+    <>
+      <div className="relative ml-4 hidden w-full max-w-xs sm:block">
+        <Search className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted" />
+        <Input className="pl-8" placeholder="Search documents and tags" value={value} onChange={(e) => onChange(e.target.value)} />
+      </div>
+      <Tip content="Search documents and tags">
+        <Button variant="ghost" size="icon" className="ml-auto sm:hidden" onClick={() => setOpen(true)} aria-label="Search documents and tags" data-testid="search-toggle">
+          <Search className="size-4" />
+        </Button>
+      </Tip>
+      {(open || value !== '') && (
+        <div className="absolute inset-0 z-20 flex items-center gap-2 bg-panel px-4 sm:hidden" data-testid="search-bar">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted" />
+            {/* 16px text: iOS zooms the page when focusing smaller text. */}
+            <Input
+              ref={input}
+              className="pl-8 text-base"
+              placeholder="Search documents and tags"
+              aria-label="Search documents and tags"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={(e) => e.key === 'Escape' && close()}
+            />
+          </div>
+          <Button variant="ghost" size="icon" onClick={close} aria-label="Close search" data-testid="search-close">
+            <X className="size-4" />
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
  * Map or List. The map has two kinds, documents (default) and versions, in a menu that opens below
  * the Map button on hover (or on tap / keyboard focus).
  */
@@ -508,7 +556,7 @@ function ViewSwitch() {
 
 function Welcome({ onNew, onUpload }: { onNew: () => void; onUpload: () => void }) {
   return (
-    <div className="mx-auto flex max-w-2xl flex-col items-center px-6 py-16 text-center">
+    <div className="mx-auto flex max-w-2xl flex-col items-center px-4 py-12 text-center sm:px-6 sm:py-16">
       <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
         <FileText className="size-7" />
       </div>
@@ -517,7 +565,8 @@ function Welcome({ onNew, onUpload }: { onNew: () => void; onUpload: () => void 
         Write everything once in a master resume, then branch focused variants for each role by picking sections, jobs and bullets.
         Variants stay linked: pull master updates into them, or push a reworded bullet back up.
       </p>
-      <div className="mt-6 flex gap-2">
+      {/* Stacked on phones, side by side from `sm` up. */}
+      <div className="mt-6 flex w-full max-w-xs flex-col gap-2 sm:w-auto sm:max-w-none sm:flex-row">
         <Button variant="primary" onClick={onNew}>
           <Plus className="size-4" /> Start a master resume
         </Button>

@@ -10,7 +10,8 @@ import { DocActionsMenu } from './DocActions';
 import { DOC_DRAG_TYPE, folderDragProps, useDocDrop } from '@/features/folders/FolderSidebar';
 import type { FolderItem, FolderMode, FolderViewModel } from '@/features/folders/folderView';
 
-const GRID = 'grid grid-cols-[1fr_110px_120px_32px] items-center gap-2';
+// Narrower Pages / Updated columns on phones, so the name keeps most of the row.
+const GRID = 'grid grid-cols-[1fr_52px_72px_32px] items-center gap-2 sm:grid-cols-[1fr_110px_120px_32px]';
 
 /** Family tree rows (original → variants) for a set of documents. */
 function treeRows(docs: DocMeta[]): { doc: DocMeta; depth: number }[] {
