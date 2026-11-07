@@ -167,6 +167,62 @@ export const TOPICS: Topic[] = [
     ),
   },
   {
+    id: 'visual-editor',
+    title: 'Visual editor and formatting',
+    summary: 'See the LaTeX formatted while you edit, and format text with buttons instead of commands.',
+    body: () => (
+      <>
+        <P>
+          Above the editor, <b>Code</b> shows the LaTeX as typed and <b>Visual</b> shows it formatted: headings look like headings,{' '}
+          <C>\textbf{'{'}…{'}'}</C> shows bold text, <C>\item</C> a bullet, <C>\&amp;</C> an ampersand, and links are underlined. The settings
+          before <C>\begin{'{'}document{'}'}</C> (the preamble) fold into a bar; <b>Show</b> opens it.
+        </P>
+        <UL>
+          <li>
+            <b>It is the same file.</b> Visual only changes how the text looks on screen, never the text itself, so you can switch back and
+            forth at any time and nothing changes. Compiling, versions, variants and editing on the PDF work the same in both.
+          </li>
+          <li>
+            <b>Whatever the cursor is in shows its LaTeX</b>, so you can still edit it: click a heading and you see{' '}
+            <C>\section{'{'}Experience{'}'}</C>; move away and it is a heading again.
+          </li>
+          <li>
+            Commands the visual editor doesn't know (a template's own, like <C>\resumeSubheading</C>) show as a small grey label with their
+            parts separated by dots, so the text in them stays readable and editable.
+          </li>
+          <li>
+            texChef blocks show as small green labels (<b>block exp-acme #backend</b>), so you can still see what variants pick from.
+          </li>
+        </UL>
+        <H2>The formatting bar</H2>
+        <Table
+          head={['Button', 'What it does']}
+          rows={[
+            ['Normal text / Section / Subsection', 'Turns the line the cursor is on into a heading, or back into normal text.'],
+            ['B  I  U', 'Bold, italic, underline for the selected text (Ctrl/⌘ B, I, U). Click again inside to remove it.'],
+            ['Aa', 'Text size of the selection, from tiny to huge. “Normal” removes it.'],
+            ['Color', 'Colors the selection (adds the xcolor package if the document doesn’t load one).'],
+            ['Lists', 'Turns the selected lines into a bulleted or numbered list, or starts an empty one.'],
+            ['Link', 'Makes the selection a link to a web address or an email address (adds hyperref if needed).'],
+            ['+', 'Line break, page break, space, a horizontal line, special characters (& % $ # _ – — •), and comment out lines.'],
+            ['Font', 'The font of the whole document and its base size (10, 11 or 12 pt).'],
+          ]}
+        />
+        <H2>Fonts</H2>
+        <P>
+          The <b>Font</b> menu sets the font of the whole document: Charter, Times, Palatino, Century Schoolbook, Bookman, Utopia, Linux
+          Libertine, Helvetica or Avant Garde, all included with the in-browser TeX Live. texChef adds a small, marked block just before{' '}
+          <C>\begin{'{'}document{'}'}</C> (between <C>% texChef font</C> and <C>% end texChef font</C>) and replaces it when you pick another;{' '}
+          <b>Template default</b> takes it out again. It comes last, so it wins over a font the template sets.
+        </P>
+        <P>
+          The menu works with pdfLaTeX documents. XeLaTeX and LuaLaTeX documents set fonts with <C>\setmainfont</C>; upload a{' '}
+          <C>.ttf</C> or <C>.otf</C> file to use your own, e.g. <C>\setmainfont{'{'}MyFont.ttf{'}'}[Path=./]</C>.
+        </P>
+      </>
+    ),
+  },
+  {
     id: 'blocks',
     title: 'Blocks and tags',
     summary: 'How a document is split into pieces that variants can pick from.',
@@ -850,6 +906,16 @@ export const TOPICS: Topic[] = [
         </UL>
         <P>
           The ⚡ button turns automatic compiling on or off; <b>Compile</b> (<Kbd>Ctrl/⌘ Enter</Kbd>) compiles now.
+        </P>
+        <P>
+          <b>Wrong engine?</b> When a compile fails because the document was written for another engine (fontspec or emoji under pdfLaTeX,
+          Lua code, or a pdfLaTeX-only line like <C>\pdfgentounicode=1</C> under XeLaTeX), the problem says so and offers{' '}
+          <b>Switch to …</b>. Templates that need a particular engine usually say so in their first lines.
+        </P>
+        <P>
+          What none of the three can do here: run other programs during a compile (“shell escape”: <C>minted</C>, <C>svg</C>,
+          converting <C>.eps</C> images), and making an index (<C>\makeindex</C> / <C>\printindex</C>). Bibliographies work with both BibTeX
+          (<C>\bibliography</C>) and biblatex with Biber. Other engines (ConTeXt, plain TeX, Japanese pTeX) aren't included.
         </P>
         <H2>Errors and warnings</H2>
         <P>

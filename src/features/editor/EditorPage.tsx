@@ -28,6 +28,7 @@ import { isTexPath, type Engine } from '@/core/model';
 import type { FileMap } from '@/core/repo';
 import { CodeEditor, type CodeEditorHandle } from './CodeEditor';
 import { FileTree } from './FileTree';
+import { FormatBar } from './FormatBar';
 import { BlocksPanel } from './BlocksPanel';
 import { HistoryPanel } from '@/features/history/HistoryPanel';
 import { PdfViewer } from '@/features/preview/PdfViewer';
@@ -36,6 +37,7 @@ import { isUpToDate, useAutoCompile, useEngineStatus } from '@/features/compile/
 import { downloadPdf, downloadProjectZip, downloadText } from '@/features/importexport/io';
 import { Badge, Button, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Select, Spinner, Tip } from '@/components/ui';
 import { EngineBanner } from '@/features/compile/EngineBanner';
+import { engineName } from '@/compile/engineAdvice';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { cn, docColor, formatBytes } from '@/lib/utils';
 import { dirname } from '@/lib/paths';
@@ -100,6 +102,7 @@ export function EditorPage() {
   const synctexBytes = entry?.output?.pdf ? entry.output.synctex : undefined;
   const [sync, setSync] = useState<SyncData | null>(null);
   const followCursor = usePrefs((s) => s.followCursor);
+  const editorVisual = usePrefs((s) => s.editorVisual);
   const pdfEditAutoUpdate = usePrefs((s) => s.pdfEditAutoUpdate);
   const [cursorRects, setCursorRects] = useState<SyncRect[]>();
 
@@ -452,6 +455,15 @@ export function EditorPage() {
             <span className="font-mono text-fg">{path}</span>
             {path === doc.mainFile && <span>main file</span>}
           </div>
+          {file?.kind !== 'binary' && path && (
+            <FormatBar
+              view={() => editor.current?.view() ?? null}
+              visual={editorVisual}
+              onVisual={(v) => setPref({ editorVisual: v })}
+              isTex={/\.(tex|ltx)$/i.test(path)}
+              engine={doc.engine}
+            />
+          )}
           <div className="min-h-0 flex-1">
             {file?.kind === 'binary' ? (
               <BinaryPreview hash={file.hash} path={path!} size={file.size} />
@@ -465,6 +477,7 @@ export function EditorPage() {
                 onSave={saveVersion}
                 onCompile={compile}
                 onCursorLine={setCursorLine}
+                visual={editorVisual}
               />
             ) : null}
           </div>
@@ -538,6 +551,10 @@ export function EditorPage() {
           />
           <ProblemsPanel
             output={output}
+            onSwitchEngine={(engine) => {
+              void repo.updateDoc(doc.id, { engine });
+              toast.success(`Switched to ${engineName(engine)}`, { description: 'Compiling again with it. The engine menu above the PDF changes it back.' });
+            }}
             onJump={(d) => {
               if (d.file && d.file !== path && work.files[d.file]) setActivePath(d.file);
               if (d.line) setTimeout(() => editor.current?.goto(d.line!), 30);

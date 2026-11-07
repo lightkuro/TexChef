@@ -9,6 +9,8 @@ export interface Diagnostic {
   /** 1-based source line. */
   line?: number;
   hint?: string;
+  /** The document seems written for another engine: offer to switch to this one. */
+  switchEngine?: 'pdflatex' | 'xelatex' | 'lualatex';
 }
 
 const OPEN_FILE_RE = /\((?:\.\/)?([^\s()]+\.(?:tex|cls|sty))/g;
@@ -48,6 +50,20 @@ export function parseTexLog(log: string, projectFiles: string[] = [], mainFile =
     const fle = /^(?:\.\/)?([^:\s]+\.tex):(\d+): (.*)$/.exec(line);
     if (fle) {
       push({ severity: 'error', file: resolve(fle[1]) ?? fle[1], line: Number(fle[2]), message: fle[3].trim() });
+      continue;
+    }
+
+    // Engine-level errors: "!pdfTeX error: /bin/busytex (file cm-super-ts1.enc): cannot open encoding file".
+    const engineErr = /^!\s*(pdfTeX|XeTeX|LuaTeX|xdvipdfmx)[ -]error:?\s*(.*)$/i.exec(line);
+    if (engineErr) {
+      let message = engineErr[2].replace(/^\/bin\/\S+\s*/, '').trim();
+      if (lines[i + 1] && !/^\s*==>/.test(lines[i + 1]) && !lines[i + 1].startsWith('!')) message += ' ' + lines[i + 1].trim();
+      const file = /\(file ([^)]+)\)/.exec(message)?.[1];
+      push({
+        severity: 'error',
+        message: message.replace(/\s+/g, ' ').trim(),
+        hint: file ? `TeX couldn’t open “${file}”, a file from TeX Live (fonts or encodings), so no PDF was made.` : undefined,
+      });
       continue;
     }
 

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { Annotation, EditorState, type Extension } from '@codemirror/state';
+import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state';
 import {
   Decoration,
   EditorView,
@@ -25,6 +25,8 @@ import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, s
 import { lintGutter, setDiagnostics, type Diagnostic as CMDiagnostic } from '@codemirror/lint';
 import { tags as t } from '@lezer/highlight';
 import type { Diagnostic } from '@/compile/logParser';
+import { visualMode } from './visual';
+import { formatKeymap, notifyEditorUpdate } from './format';
 
 const External = Annotation.define<boolean>();
 
@@ -49,6 +51,8 @@ interface Props {
   onSave?: () => void;
   onCompile?: () => void;
   onCursorLine?: (line: number) => void;
+  /** Visual mode (LaTeX files only): headings, bold, lists… shown formatted; the text itself is unchanged. */
+  visual?: boolean;
 }
 
 const highlight = HighlightStyle.define([
@@ -143,6 +147,8 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
   const cb = useRef(props);
   cb.current = props;
   const currentPath = useRef(props.path);
+  const visualSlot = useRef(new Compartment());
+  const visualOn = (p = props) => !!p.visual && /\.(tex|ltx)$/i.test(p.path);
 
   const extensions = (readOnly: boolean): Extension[] => [
     lineNumbers(),
@@ -168,7 +174,9 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
     markerHighlighter,
     EditorView.lineWrapping,
     EditorState.readOnly.of(readOnly),
+    visualSlot.current.of(visualOn(cb.current) ? visualMode() : []),
     keymap.of([
+      ...formatKeymap,
       { key: 'Mod-s', preventDefault: true, run: () => (cb.current.onSave?.(), true) },
       { key: 'Mod-Enter', preventDefault: true, run: () => (cb.current.onCompile?.(), true) },
       ...closeBracketsKeymap,
@@ -184,6 +192,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
       }
       if (u.selectionSet || u.docChanged) {
         cb.current.onCursorLine?.(u.state.doc.lineAt(u.state.selection.main.head).number);
+        notifyEditorUpdate();
       }
     }),
   ];
@@ -208,8 +217,17 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
     currentPath.current = props.path;
     const saved = states.current.get(props.path);
     view.setState(saved && saved.doc.toString() === props.value ? saved : makeState(props.value));
+    view.dispatch({ effects: visualSlot.current.reconfigure(visualOn() ? visualMode() : []) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.path]);
+
+  // Code ↔ visual: only the display changes, never the text.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({ effects: visualSlot.current.reconfigure(visualOn() ? visualMode() : []) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.visual]);
 
   // Apply external changes (pull, block copy, sync) without echoing onChange.
   useEffect(() => {

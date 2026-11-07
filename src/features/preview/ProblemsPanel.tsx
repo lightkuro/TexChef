@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { AlertCircle, AlertTriangle, Info, ChevronDown, ChevronRight, ScrollText } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Info, ChevronDown, ChevronRight, ScrollText, Cpu } from 'lucide-react';
+import { engineName } from '@/compile/engineAdvice';
 import type { Diagnostic } from '@/compile/logParser';
 import type { CompileOutput } from '@/compile/compiler';
 import { cn } from '@/lib/utils';
@@ -8,9 +9,12 @@ import { Badge } from '@/components/ui';
 export function ProblemsPanel({
   output,
   onJump,
+  onSwitchEngine,
 }: {
   output?: CompileOutput;
   onJump: (d: Diagnostic) => void;
+  /** Offered when a problem looks like the document needs another engine. */
+  onSwitchEngine?: (engine: NonNullable<Diagnostic['switchEngine']>) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [showLog, setShowLog] = useState(false);
@@ -64,6 +68,21 @@ export function ProblemsPanel({
                     <span className="min-w-0 flex-1">
                       <span className="break-words">{d.message}</span>
                       {d.hint && <span className="mt-0.5 block text-muted">{d.hint}</span>}
+                      {d.switchEngine && onSwitchEngine && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className="mt-1 inline-flex items-center gap-1 rounded-md border border-accent/40 bg-accent-soft px-2 py-0.5 font-medium text-accent hover:bg-accent hover:text-accent-fg"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSwitchEngine(d.switchEngine!);
+                          }}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.stopPropagation(), onSwitchEngine(d.switchEngine!))}
+                          data-testid="switch-engine"
+                        >
+                          <Cpu className="size-3" /> Switch to {engineName(d.switchEngine)}
+                        </span>
+                      )}
                     </span>
                     {d.line && (
                       <span className="shrink-0 font-mono text-muted">

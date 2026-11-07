@@ -76,5 +76,18 @@ describe('parseTexLog', () => {
     expect(shell.message).toBe('Shell escape feature is not enabled.');
     expect(shell.hint).toMatch(/can’t run programs/);
   });
+
+  it('reports engine-level errors such as a missing font encoding file', () => {
+    const log = [
+      '[1',
+      '{/texlive/texmf-dist/texmf-var/fonts/map/pdftex/updmap/pdftex.map}',
+      '!pdfTeX error: /bin/busytex (file cm-super-ts1.enc): cannot open encoding file ',
+      'for reading',
+      ' ==> Fatal error occurred, no output PDF file produced!',
+    ].join('\n');
+    const [d] = parseTexLog(log);
+    expect(d).toMatchObject({ severity: 'error', message: '(file cm-super-ts1.enc): cannot open encoding file for reading' });
+    expect(d.hint).toMatch(/cm-super-ts1\.enc/);
+  });
 });
 

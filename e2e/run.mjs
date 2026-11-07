@@ -31,6 +31,25 @@ const step = async (name, fn) => {
   }
 };
 
+/**
+ * Like page.waitForFunction, but for functions that return a promise: waitForFunction treats the promise
+ * itself as a truthy result and returns at once, so it can't wait on async checks.
+ */
+async function waitUntil(fn, arg, { timeout = 30_000, polling = 250 } = {}) {
+  const t0 = Date.now();
+  let error;
+  while (Date.now() - t0 < timeout) {
+    try {
+      const v = await page.evaluate(fn, arg);
+      if (v) return v;
+    } catch (e) {
+      error = e; // e.g. the page navigated mid-check
+    }
+    await page.waitForTimeout(polling);
+  }
+  throw new Error(`Timed out after ${timeout} ms waiting for: ${fn.toString().slice(0, 200)}${error ? `\nLast error: ${error.message}` : ''}`);
+}
+
 const pdfText = () =>
   page.evaluate(async () => {
     // Use the app's live instances (exposed in dev) so hot reloads can't hand us a stale module copy.
@@ -170,7 +189,7 @@ await step('editing the source recompiles the PDF', async () => {
     return e.defaultPrevented;
   });
   assert.equal(await leaveNow(), true, 'warns while typing is not stored');
-  await page.waitForFunction(async () => {
+  await waitUntil(async () => {
     const w = await window.rc.db.work.toArray();
     return w.some((x) => x.files['main.tex']?.text?.startsWith('% edited in e2e'));
   });
@@ -232,7 +251,7 @@ await step('edit master, then pull the update into the variant', async () => {
 });
 
 const pdfHas = (v, re) =>
-  page.waitForFunction(
+  waitUntil(
     async ([v, src]) => {
       const e = window.rcCompile.getState().entries[v];
       if (!e?.output?.pdf || e.running) return false;
@@ -267,7 +286,7 @@ await step('edit text on the PDF (and in the original too)', async () => {
   await page.getByTestId('pdf-edit-banner').getByText('1 change').waitFor();
   const want = /\\rcItem\{Rebuilt the customer dashboard in React \\& TypeScript, improving load time by 80\\%\.\}/;
   // The original is changed right after the variant.
-  for (const id of [v, m]) await page.waitForFunction(async (id) => /80\\%/.test((await window.rc.repo.getWork(id)).files['main.tex'].text), id);
+  for (const id of [v, m]) await waitUntil(async (id) => /80\\%/.test((await window.rc.repo.getWork(id)).files['main.tex'].text), id);
   assert.match(await workText(v), want);
   assert.match(await workText(m), want);
   // While changes wait, auto-compile holds off; Update PDF brings them in.
@@ -520,7 +539,7 @@ await step('folders: create, drag in, move via menu, folders and expanded views,
   await page.getByTestId('folder-dialog-ok').click();
   await page.getByTestId('folder-Jobs').waitFor();
   await page.getByTestId('folder-Applications').waitFor({ state: 'detached' });
-  await page.waitForFunction(async () => (await window.rc.repo.listDocs()).filter((d) => d.folder === 'Jobs').length === 2);
+  await waitUntil(async () => (await window.rc.repo.listDocs()).filter((d) => d.folder === 'Jobs').length === 2);
   // The edge of a sidebar row opens the folder too.
   const srow = await page.getByTestId('folder-Jobs').boundingBox();
   await page.mouse.click(srow.x + srow.width * 0.4, srow.y + srow.height - 2);
@@ -549,7 +568,7 @@ await step('folders: create, drag in, move via menu, folders and expanded views,
   await page.getByRole('dialog').getByText('are kept').waitFor();
   await page.getByTestId('folder-dialog-ok').click();
   await page.getByTestId('folder-Jobs').waitFor({ state: 'detached' });
-  await page.waitForFunction(async () => (await window.rc.repo.listDocs()).every((d) => !d.folder));
+  await waitUntil(async () => (await window.rc.repo.listDocs()).every((d) => !d.folder));
   await page.getByTestId('doc-node-Master resume').waitFor();
 });
 
@@ -635,6 +654,25 @@ await step('compile errors are reported with line numbers', async () => {
   await page.getByTestId('problems').getByText('main.tex:3').waitFor();
 });
 
+/** Double-click a word in the editor (at the word itself, not the middle of its line). */
+async function dblclickWord(word) {
+  const p = await page.evaluate((word) => {
+    const walker = document.createTreeWalker(document.querySelector('.cm-content'), NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const i = n.textContent.indexOf(word);
+      if (i < 0) continue;
+      const r = document.createRange();
+      r.setStart(n, i);
+      r.setEnd(n, i + word.length);
+      const b = r.getBoundingClientRect();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    }
+    return null;
+  }, word);
+  assert.ok(p, `"${word}" is in the editor`);
+  await page.mouse.dblclick(p.x, p.y);
+}
+
 /** Wait until any compiled PDF's text matches `re`; returns that text. */
 async function waitPdf(re, timeout) {
   const t0 = Date.now();
@@ -649,7 +687,11 @@ async function waitPdf(re, timeout) {
     if (hit) return hit[1];
     await page.waitForTimeout(1000);
   }
-  throw new Error(`No PDF matched ${re}. PDFs: ${JSON.stringify(texts.map(([k, t]) => [k, t.slice(0, 120)]))}`);
+  const last = await page.evaluate(() => {
+    const e = Object.values(window.rcCompile.getState().entries).sort((a, b) => (b.at ?? 0) - (a.at ?? 0))[0];
+    return e ? { ok: e.output?.ok, ms: e.output?.durationMs, diags: e.output?.diagnostics, log: (e.output?.log ?? '').slice(-1500) } : null;
+  });
+  throw new Error(`No PDF matched ${re}. PDFs: ${JSON.stringify(texts.map(([k, t]) => [k, t.slice(0, 120)]))}\nLatest compile: ${JSON.stringify(last, null, 1)}`);
 }
 
 /** A small valid RGB PNG (a colored square), made here so the test needs no image files. */
@@ -777,6 +819,70 @@ await step('file types: .tex alone, then .cls .sty .bib .png together; a .ttf fo
   assert.equal(new TextDecoder().decode(get('refs.bib')), files['refs.bib']);
   assert.ok(names.some((x) => x.endsWith('.pdf')), 'the PDF is included');
   await page.goto(BASE);
+});
+
+await step('visual mode, formatting toolbar, fonts, and the engine suggestion', async () => {
+  const tex = [
+    '\\documentclass{article}',
+    '\\usepackage{hyperref}',
+    '\\begin{document}',
+    '\\section{Experience}',
+    'Built reliable systems at Acme \\& Co.',
+    '\\begin{itemize}',
+    '  \\item Shipped fast',
+    '\\end{itemize}',
+    '\\end{document}',
+    '',
+  ].join('\n');
+  writeFileSync(`${OUT}visual.tex`, tex);
+  await page.goto(BASE);
+  await page.getByTestId('upload-input').setInputFiles(`${OUT}visual.tex`);
+  await page.getByTestId('editor-page').waitFor();
+  await waitPdf(/Built reliable systems/, 60_000);
+  const id = page.url().split('/doc/')[1];
+  const textNow = () => page.evaluate(async (id) => (await window.rc.repo.getWork(id)).files['visual.tex'].text, id);
+  // Visual: the preamble folds away, the heading and bullets show formatted; switching changes nothing.
+  await page.getByTestId('editor-mode-visual').click();
+  await page.getByTestId('preamble-show').waitFor();
+  await page.locator('.cm-vis-h1', { hasText: 'Experience' }).waitFor();
+  assert.equal(await page.locator('.cm-vis-item').first().textContent(), '•');
+  assert.ok(!(await page.locator('.cm-content').textContent()).includes('\\section'), 'LaTeX hidden');
+  await page.screenshot({ path: `${OUT}13-visual.png` });
+  // Select a word and make it bold with the toolbar, then undo it with Ctrl+B.
+  await dblclickWord('reliable');
+  await page.getByTestId('format-bold').click();
+  await waitUntil(async (id) => /\\textbf\{reliable\}/.test((await window.rc.repo.getWork(id)).files['visual.tex'].text), id, { timeout: 5000 });
+  await page.keyboard.press('Control+b');
+  await waitUntil(async (id) => !/textbf/.test((await window.rc.repo.getWork(id)).files['visual.tex'].text), id, { timeout: 5000 });
+  // A link on the selected word.
+  await dblclickWord('systems');
+  await page.getByTestId('format-link').click();
+  await page.getByTestId('link-url').fill('https://acme.dev');
+  await page.getByTestId('link-ok').click();
+  await waitUntil(async (id) => /\\href\{https:\/\/acme\.dev\}\{systems\}/.test((await window.rc.repo.getWork(id)).files['visual.tex'].text), id, { timeout: 5000 });
+  // Font for the whole document: compiles, and "Template default" takes it out again.
+  await page.getByTestId('format-font').click();
+  await page.getByTestId('font-palatino').click();
+  await waitUntil(async (id) => /% texChef font: palatino/.test((await window.rc.repo.getWork(id)).files['visual.tex'].text), id, { timeout: 5000 });
+  await waitPdf(/Built reliable/, 60_000);
+  await page.getByTestId('problems').getByText('No problems').waitFor({ timeout: 60_000 });
+  await page.getByTestId('format-font').click();
+  await page.getByTestId('font-default').click();
+  await waitUntil(async (id) => !/texChef font/.test((await window.rc.repo.getWork(id)).files['visual.tex'].text), id, { timeout: 5000 });
+  // Switching back to code shows the same LaTeX.
+  const before = await textNow();
+  await page.getByTestId('editor-mode-code').click();
+  await page.locator('.cm-content', { hasText: '\\section{Experience}' }).waitFor();
+  assert.equal(await textNow(), before);
+  // Written for XeLaTeX but compiled with pdfLaTeX: the problem offers the switch.
+  await page.evaluate((id) => window.rc.repo.writeWorkText(id, 'visual.tex', '\\documentclass{article}\n\\usepackage{fontspec}\n\\begin{document}\nNeeds XeLaTeX.\n\\end{document}\n'), id);
+  await page.locator('.cm-content', { hasText: 'Needs XeLaTeX.' }).waitFor();
+  await page.getByTestId('switch-engine').waitFor({ timeout: 60_000 });
+  assert.match(await page.getByTestId('switch-engine').textContent(), /Switch to XeLaTeX/);
+  await page.getByTestId('switch-engine').click();
+  await page.waitForFunction(() => document.querySelector('select[aria-label="Engine"]')?.value === 'xelatex');
+  await waitPdf(/Needs XeLaTeX\./, 120_000);
+  await page.getByTestId('problems').getByText('No problems').waitFor({ timeout: 120_000 });
 });
 
 await step('a zip with several documents (Prism export) imports as separate documents', async () => {

@@ -2,6 +2,7 @@ import { BusyTexRunner, deletePackageCache, type DownloadProgress } from 'texlyr
 import type { Engine } from '@/core/model';
 import { parseTexLog, type Diagnostic } from './logParser';
 import { BUNDLE_SIZE_MB, PackageIndex, type BundleName } from './packages';
+import { engineAdvice } from './engineAdvice';
 
 export interface CompileFile {
   path: string;
@@ -50,6 +51,10 @@ const REMOTE = (import.meta.env.VITE_TEX_REMOTE_ENDPOINT as string | undefined) 
 export class BusyTexCompiler implements Compiler {
   private runner?: BusyTexRunner;
   private initPromise?: Promise<void>;
+  /** TeX Live bundles this engine has loaded so far. */
+  private loaded = new Set<BundleName>();
+  /** Bundles downloaded again this session after a file in them went missing. */
+  private refetched = new Set<BundleName>();
   private chain: Promise<unknown> = Promise.resolve();
   private latest = new Map<string, CompileInput>();
   private packages = new PackageIndex(BASE);
@@ -112,7 +117,9 @@ export class BusyTexCompiler implements Compiler {
     await this.ensureReady();
     const main = input.files.find((f) => f.path === input.mainFile);
     const mainText = typeof main?.content === 'string' ? main.content : '';
-    const plan = await this.packages.plan(input.files, input.mainFile, retry?.force);
+    // Package sets this engine already loaded stay loaded: each brings its own font map, and a later
+    // compile without the set would read that map but miss the fonts it points to.
+    const plan = await this.packages.plan(input.files, input.mainFile, [...this.loaded, ...(retry?.force ?? [])]);
     const files = input.files.map((f) => (f.path === input.mainFile ? { path: f.path, content: plan.mainText } : f));
     const extra = plan.bundles.filter((b) => b !== 'basic');
     for (const b of extra) {
@@ -139,6 +146,7 @@ export class BusyTexCompiler implements Compiler {
         REMOTE,
       );
       if (this.status.state !== 'ready') this.setStatus({ state: 'ready' });
+      plan.bundles.forEach((b) => this.loaded.add(b));
       const log = r.log || r.logs?.map((l) => l.log || l.stdout).join('\n') || '';
       const pdf = r.pdf && r.pdf.byteLength > 0 ? r.pdf : undefined;
       const diagnostics = parseTexLog(
@@ -149,13 +157,16 @@ export class BusyTexCompiler implements Compiler {
       // TeX couldn't find a package or class that comes with one of the TeX Live bundles: that bundle didn't
       // load (an interrupted download, or one the plan didn't know about). Download it again and retry once.
       const lost = await this.bundlesForMissingFiles(log);
-      if (lost.length && !retry) {
-        const stale = lost.filter((b) => plan.bundles.includes(b));
+      if (lost.some((b) => !plan.bundles.includes(b) || !this.refetched.has(b)) && !retry) {
+        // Loaded but the file is missing: the stored copy is probably incomplete. Fetch it again, once per session.
+        const stale = lost.filter((b) => plan.bundles.includes(b) && !this.refetched.has(b));
+        stale.forEach((b) => this.refetched.add(b));
         for (const b of stale) await deletePackageCache(`${BASE}/texlive-${b}.js`);
         if (stale.length) {
           this.runner?.terminate();
           this.runner = undefined;
           this.initPromise = undefined;
+          this.loaded.clear();
           this.loadingLabel = `Downloading TeX Live “${stale[0]}” packages again (${BUNDLE_SIZE_MB[stale[0]]} MB)`;
         }
         return this.run(key, input, { force: lost });
@@ -165,6 +176,15 @@ export class BusyTexCompiler implements Compiler {
         const b = file && (await this.packages.locate(file.replace(/\.(sty|cls)$/, ''), file.endsWith('.cls') ? 'cls' : 'sty'));
         if (b) {
           d.hint = `“${file}” comes with TeX Live’s “${b}” package set (${BUNDLE_SIZE_MB[b]} MB), but it didn’t load in this browser. Check your connection and free disk space, then press Compile. Settings → Clear downloaded TeX packages makes texChef fetch them fresh.`;
+        }
+      }
+      // Written for another engine (fontspec under pdfLaTeX, \pdfgentounicode under XeLaTeX, …): say which.
+      if (diagnostics.some((d) => d.severity === 'error')) {
+        const advice = engineAdvice(log, input.engine, mainText);
+        if (advice) {
+          const d = diagnostics.find((x) => x.severity === 'error' && advice.match.test(x.message)) ?? diagnostics.find((x) => x.severity === 'error')!;
+          d.switchEngine = advice.engine;
+          d.hint = `${advice.reason}${d.hint ? ` ${d.hint}` : ''}`;
         }
       }
       for (const m of plan.missing) {
@@ -188,6 +208,7 @@ export class BusyTexCompiler implements Compiler {
       this.runner?.terminate();
       this.runner = undefined;
       this.initPromise = undefined;
+      this.loaded.clear();
       this.setStatus({ state: 'idle' });
       const message = e instanceof Error ? e.message : String(e);
       return {
@@ -199,11 +220,15 @@ export class BusyTexCompiler implements Compiler {
     }
   }
 
-  /** Bundles that provide the .sty/.cls files TeX reported as not found. */
+  /** Bundles that have the files TeX reported missing (packages, classes, fonts, encodings). */
   private async bundlesForMissingFiles(log: string): Promise<BundleName[]> {
     const out = new Set<BundleName>();
     for (const m of log.matchAll(/File [`'](.+?)\.(sty|cls)' not found/g)) {
       const b = await this.packages.locate(m[1], m[2] as 'sty' | 'cls');
+      if (b) out.add(b);
+    }
+    for (const m of log.matchAll(/\(file ([^)\s]+)\): cannot open|cannot (?:open|find)[^\n]*?file [`'"]?([\w.-]+\.(?:enc|pfb|tfm|map|otf|ttf|vf))/gi)) {
+      const b = await this.packages.locateFile(m[1] ?? m[2]);
       if (b) out.add(b);
     }
     return [...out];
@@ -214,6 +239,7 @@ export class BusyTexCompiler implements Compiler {
     await r.clearAllPackageCache();
     this.runner = undefined;
     this.initPromise = undefined;
+    this.loaded.clear();
     this.setStatus({ state: 'idle' });
   }
 }

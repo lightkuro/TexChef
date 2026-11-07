@@ -26,6 +26,8 @@ interface Prefs {
   pdfEditMode: boolean;
   /** When editing text on the PDF, recompile after every saved change instead of on "Update PDF". */
   pdfEditAutoUpdate: boolean;
+  /** The editor shows LaTeX formatted (headings, bold, bullets) instead of as code. */
+  editorVisual: boolean;
   theme: Theme;
   palette: Palette;
   graphMode: 'family' | 'versions';
@@ -75,6 +77,7 @@ export const usePrefs = create<Prefs>((set, get) => ({
   pdfFit: 'width',
   pdfEditMode: true,
   pdfEditAutoUpdate: true,
+  editorVisual: false,
   theme: 'system',
   palette: 'forest',
   graphMode: 'family',

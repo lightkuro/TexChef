@@ -97,6 +97,26 @@ export class PackageIndex {
     return this.triggers.then((t) => t[b]);
   }
 
+  /** Basenames of every file in a bundle (loaded lazily, only when a file is reported missing). */
+  private allFiles = new Map<BundleName, Promise<Set<string>>>();
+  private everyFile(b: BundleName): Promise<Set<string>> {
+    if (!this.allFiles.has(b)) {
+      this.allFiles.set(
+        b,
+        fetch(`${this.base}/texlive-${b}.txt`)
+          .then((r) => (r.ok ? r.text() : ''))
+          .then((t) => new Set(t.split('\n').map((l) => l.slice(l.lastIndexOf('/') + 1).trim()).filter(Boolean))),
+      );
+    }
+    return this.allFiles.get(b)!;
+  }
+
+  /** Which bundle has a file (any kind: .enc, .pfb, .tfm, .map…), preferring the smallest. */
+  async locateFile(name: string): Promise<BundleName | undefined> {
+    for (const b of BUNDLES) if ((await this.everyFile(b)).has(name)) return b;
+    return undefined;
+  }
+
   /** Which bundle provides a package / class file, preferring the smallest. */
   async locate(name: string, ext: 'sty' | 'cls'): Promise<BundleName | undefined> {
     if (ext === 'sty') {
