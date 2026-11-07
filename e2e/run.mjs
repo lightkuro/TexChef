@@ -3,6 +3,7 @@
 import { chromium } from 'playwright';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { strict as assert } from 'node:assert';
+import { crc32, deflateSync } from 'node:zlib';
 import { zipSync, strToU8, unzipSync } from 'fflate';
 
 const BASE = process.argv[2] ?? 'http://localhost:5173';
@@ -632,6 +633,150 @@ await step('compile errors are reported with line numbers', async () => {
   }, page.url().split('/doc/')[1]);
   await page.getByTestId('problems').getByText(/Undefined control sequence/).waitFor({ timeout: 30_000 });
   await page.getByTestId('problems').getByText('main.tex:3').waitFor();
+});
+
+/** Wait until any compiled PDF's text matches `re`; returns that text. */
+async function waitPdf(re, timeout) {
+  const t0 = Date.now();
+  let texts = [];
+  while (Date.now() - t0 < timeout) {
+    texts = await page.evaluate(async () => {
+      const { pdfText } = await import('/src/compile/pdf.ts');
+      const entries = Object.entries(window.rcCompile.getState().entries).filter(([, x]) => x.output?.pdf);
+      return Promise.all(entries.map(async ([k, x]) => [k, await pdfText(x.output.pdf)]));
+    });
+    const hit = texts.find(([, t]) => re.test(t));
+    if (hit) return hit[1];
+    await page.waitForTimeout(1000);
+  }
+  throw new Error(`No PDF matched ${re}. PDFs: ${JSON.stringify(texts.map(([k, t]) => [k, t.slice(0, 120)]))}`);
+}
+
+/** A small valid RGB PNG (a colored square), made here so the test needs no image files. */
+function makePng(size = 24) {
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(td) >>> 0);
+    return Buffer.concat([len, td, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0);
+  ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // RGB
+  const rows = [];
+  for (let y = 0; y < size; y++) rows.push(Buffer.from([0, ...Array.from({ length: size }, () => [46, 125, 50]).flat()]));
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(Buffer.concat(rows))), chunk('IEND', Buffer.alloc(0))]);
+}
+
+await step('packages from the bigger TeX Live sets load: a package texChef can’t spot, and a document ending in an \\input file', async () => {
+  // A package loaded through a macro: texChef's scan misses it, TeX reports it missing, texChef loads its set and retries.
+  writeFileSync(`${OUT}hidden.tex`, '\\documentclass{article}\n\\def\\pkg{tabto}\n\\expandafter\\usepackage\\expandafter{\\pkg}\n\\begin{document}\nHidden \\tabto{3cm}package loaded.\n\\end{document}\n');
+  await page.goto(BASE);
+  await page.getByTestId('upload-input').setInputFiles(`${OUT}hidden.tex`);
+  await page.getByTestId('editor-page').waitFor();
+  await waitPdf(/Hidden\s+package loaded\./, 180_000);
+  await page.getByTestId('problems').getByText('No problems').waitFor();
+  const used = await page.evaluate(() => Object.values(window.rcCompile.getState().entries).map((e) => e.output?.bundles ?? []));
+  assert.ok(used.some((b) => b.includes('extra')), `the retry loaded the "extra" set: ${JSON.stringify(used)}`);
+  // The document ends in an \input file: main.tex has no \end{document}.
+  const zip = zipSync({
+    'cv/main.tex': strToU8('\\documentclass{article}\n\\usepackage[empty]{fullpage}\n\\usepackage{titlesec}\n\\input{body}\n'),
+    'cv/body.tex': strToU8('\\begin{document}\n\\section{Body}Ends in an input file.\n\\end{document}\n'),
+  });
+  writeFileSync(`${OUT}input-end.zip`, zip);
+  await page.goto(BASE);
+  await page.getByTestId('upload-input').setInputFiles(`${OUT}input-end.zip`);
+  await page.getByTestId('editor-page').waitFor();
+  await waitPdf(/Ends in an input file\./, 120_000);
+});
+
+await step('file types: .tex alone, then .cls .sty .bib .png together; a .ttf font with XeLaTeX; project download keeps every byte', async () => {
+  const dir = `${OUT}formats/`;
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  // A lone .tex file becomes a document.
+  writeFileSync(`${dir}solo.tex`, '\\documentclass{article}\n\\begin{document}\nJust one file.\n\\end{document}\n');
+  await page.goto(BASE);
+  await page.getByTestId('upload-input').setInputFiles(`${dir}solo.tex`);
+  await page.getByTestId('editor-page').waitFor();
+  await page.getByTestId('page-count').waitFor({ timeout: 60_000 });
+  await waitPdf(/Just one file\./, 60_000);
+  // Loose files of several kinds, uploaded together: one document using all of them.
+  const files = {
+    'main.tex': [
+      '\\documentclass{mycv}',
+      '\\usepackage{mystyle}',
+      '\\usepackage{graphicx}',
+      '\\begin{document}',
+      '\\hello\\ \\includegraphics[width=1cm]{logo.png}',
+      'As shown by \\cite{knuth}.',
+      '\\bibliographystyle{plain}',
+      '\\bibliography{refs}',
+      '\\end{document}',
+      '',
+    ].join('\n'),
+    'mycv.cls': '\\NeedsTeXFormat{LaTeX2e}\n\\ProvidesClass{mycv}\n\\LoadClass{article}\n\\AtBeginDocument{Custom class works.\\par}\n',
+    'mystyle.sty': '\\NeedsTeXFormat{LaTeX2e}\n\\ProvidesPackage{mystyle}\n\\newcommand{\\hello}{Custom style works.}\n',
+    'refs.bib': '@book{knuth, author = {Donald E. Knuth}, title = {The {\\TeX}book}, publisher = {Addison-Wesley}, year = {1984}}\n',
+  };
+  for (const [name, text] of Object.entries(files)) writeFileSync(dir + name, text);
+  const png = makePng();
+  writeFileSync(`${dir}logo.png`, png);
+  await page.goto(BASE);
+  await page.getByTestId('upload-input').setInputFiles([...Object.keys(files), 'logo.png'].map((n) => dir + n));
+  await page.getByTestId('editor-page').waitFor();
+  const text = await waitPdf(/The TE?X?book|The TEXbook/i, 90_000);
+  for (const re of [/Custom class works\./, /Custom style works\./, /Knuth/, /\[1\]/]) assert.match(text, re);
+  // The image made it into the PDF (an image XObject).
+  const hasImage = await page.evaluate(() =>
+    Object.values(window.rcCompile.getState().entries).some((x) => x.output?.pdf && /\/Subtype\s*\/Image/.test(new TextDecoder('latin1').decode(x.output.pdf))),
+  );
+  assert.ok(hasImage, 'the PNG is in the PDF');
+  await page.screenshot({ path: `${OUT}12-formats.png` });
+  // A font file added to the document, used with XeLaTeX and fontspec.
+  const font = '/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf';
+  const id = page.url().split('/doc/')[1];
+  await page.getByTestId('tab-files').click();
+  await page.getByTestId('upload-into-doc').setInputFiles(font);
+  await page.getByText('Added 1 file').waitFor();
+  await page.getByLabel('Engine').selectOption('xelatex');
+  await page.evaluate(async (id) => {
+    await window.rc.repo.writeWorkText(id, 'main.tex', '\\documentclass{article}\n\\usepackage{fontspec}\n\\setmainfont{DejaVuSerif-Bold.ttf}[Path=./]\n\\begin{document}\nUploaded font in XeLaTeX.\n\\end{document}\n');
+  }, id);
+  await waitPdf(/Uploaded font in XeLaTeX/, 240_000);
+  // No font errors, and fontspec set up the uploaded font (XeLaTeX compresses the PDF's font tables, so check its log).
+  const fontCheck = await page.evaluate(async () => {
+    const { pdfText } = await import('/src/compile/pdf.ts');
+    for (const x of Object.values(window.rcCompile.getState().entries)) {
+      if (!x.output?.pdf || !/Uploaded font in XeLaTeX/.test(await pdfText(x.output.pdf))) continue;
+      // fontspec writes the fonts it sets up into the log.
+      const names = (x.output.log.match(/[\w-]*DejaVuSerif-Bold[\w.()-]*/g) ?? []).slice(0, 4);
+      return { errors: x.output.diagnostics.filter((d) => d.severity === 'error').map((d) => d.message), names };
+    }
+    return null;
+  });
+  assert.ok(fontCheck, 'found the XeLaTeX PDF');
+  assert.deepEqual(fontCheck.errors, []);
+  const usesFont = fontCheck.names.some((n) => /DejaVuSerif-Bold/.test(n ?? ''));
+  console.log('    font mentions in the XeLaTeX log:', fontCheck.names.join(', '));
+  assert.ok(usesFont, 'the uploaded font is embedded in the PDF');
+  // Download the project: every file comes back byte for byte (binaries included).
+  await page.getByLabel('More').click();
+  const dl = page.waitForEvent('download');
+  await page.getByText('Download project (.zip)').click();
+  const entries = unzipSync(new Uint8Array(readFileSync(await (await dl).path())));
+  const names = Object.keys(entries);
+  for (const n of ['mycv.cls', 'mystyle.sty', 'refs.bib', 'logo.png', 'DejaVuSerif-Bold.ttf', 'main.tex']) assert.ok(names.some((x) => x.endsWith(n)), `${n} in the zip (${names})`);
+  const get = (n) => entries[names.find((x) => x.endsWith(n))];
+  assert.deepEqual(Buffer.from(get('logo.png')), png);
+  assert.deepEqual(Buffer.from(get('DejaVuSerif-Bold.ttf')), readFileSync(font));
+  assert.equal(new TextDecoder().decode(get('refs.bib')), files['refs.bib']);
+  assert.ok(names.some((x) => x.endsWith('.pdf')), 'the PDF is included');
+  await page.goto(BASE);
 });
 
 await step('a zip with several documents (Prism export) imports as separate documents', async () => {

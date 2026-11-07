@@ -1,4 +1,4 @@
-import { BusyTexRunner, type DownloadProgress } from 'texlyre-busytex';
+import { BusyTexRunner, deletePackageCache, type DownloadProgress } from 'texlyre-busytex';
 import type { Engine } from '@/core/model';
 import { parseTexLog, type Diagnostic } from './logParser';
 import { BUNDLE_SIZE_MB, PackageIndex, type BundleName } from './packages';
@@ -104,7 +104,7 @@ export class BusyTexCompiler implements Compiler {
     return job;
   }
 
-  private async run(key: string, input: CompileInput): Promise<CompileOutput> {
+  private async run(key: string, input: CompileInput, retry?: { force: BundleName[] }): Promise<CompileOutput> {
     if (this.latest.get(key) !== input) {
       return { ok: false, log: '', diagnostics: [], durationMs: 0, superseded: true };
     }
@@ -112,7 +112,7 @@ export class BusyTexCompiler implements Compiler {
     await this.ensureReady();
     const main = input.files.find((f) => f.path === input.mainFile);
     const mainText = typeof main?.content === 'string' ? main.content : '';
-    const plan = await this.packages.plan(input.files, input.mainFile);
+    const plan = await this.packages.plan(input.files, input.mainFile, retry?.force);
     const files = input.files.map((f) => (f.path === input.mainFile ? { path: f.path, content: plan.mainText } : f));
     const extra = plan.bundles.filter((b) => b !== 'basic');
     for (const b of extra) {
@@ -146,6 +146,27 @@ export class BusyTexCompiler implements Compiler {
         input.files.map((f) => f.path),
         input.mainFile,
       );
+      // TeX couldn't find a package or class that comes with one of the TeX Live bundles: that bundle didn't
+      // load (an interrupted download, or one the plan didn't know about). Download it again and retry once.
+      const lost = await this.bundlesForMissingFiles(log);
+      if (lost.length && !retry) {
+        const stale = lost.filter((b) => plan.bundles.includes(b));
+        for (const b of stale) await deletePackageCache(`${BASE}/texlive-${b}.js`);
+        if (stale.length) {
+          this.runner?.terminate();
+          this.runner = undefined;
+          this.initPromise = undefined;
+          this.loadingLabel = `Downloading TeX Live “${stale[0]}” packages again (${BUNDLE_SIZE_MB[stale[0]]} MB)`;
+        }
+        return this.run(key, input, { force: lost });
+      }
+      for (const d of diagnostics) {
+        const file = /File [`'](.+?\.(?:sty|cls))' not found/.exec(d.message)?.[1];
+        const b = file && (await this.packages.locate(file.replace(/\.(sty|cls)$/, ''), file.endsWith('.cls') ? 'cls' : 'sty'));
+        if (b) {
+          d.hint = `“${file}” comes with TeX Live’s “${b}” package set (${BUNDLE_SIZE_MB[b]} MB), but it didn’t load in this browser. Check your connection and free disk space, then press Compile. Settings → Clear downloaded TeX packages makes texChef fetch them fresh.`;
+        }
+      }
       for (const m of plan.missing) {
         diagnostics.unshift({
           severity: diagnostics.some((d) => d.severity === 'error') ? 'error' : 'warning',
@@ -176,6 +197,16 @@ export class BusyTexCompiler implements Compiler {
         durationMs: Math.round(performance.now() - t0),
       };
     }
+  }
+
+  /** Bundles that provide the .sty/.cls files TeX reported as not found. */
+  private async bundlesForMissingFiles(log: string): Promise<BundleName[]> {
+    const out = new Set<BundleName>();
+    for (const m of log.matchAll(/File [`'](.+?)\.(sty|cls)' not found/g)) {
+      const b = await this.packages.locate(m[1], m[2] as 'sty' | 'cls');
+      if (b) out.add(b);
+    }
+    return [...out];
   }
 
   async clearCache(): Promise<void> {

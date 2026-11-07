@@ -106,7 +106,8 @@ export class PackageIndex {
     return undefined;
   }
 
-  async plan(files: { path: string; content: string | Uint8Array }[], mainFile: string): Promise<PackagePlan> {
+  /** `force`: bundles to load whatever the files say (e.g. after TeX reported a file from one of them missing). */
+  async plan(files: { path: string; content: string | Uint8Array }[], mainFile: string, force: BundleName[] = []): Promise<PackagePlan> {
     const local = new Set<string>();
     const localClasses = new Set<string>();
     const needs = new Set<string>();
@@ -121,7 +122,7 @@ export class PackageIndex {
       req.packages.forEach((p) => needs.add(p));
       req.classes.forEach((c) => classes.add(c));
     }
-    const bundles = new Set<BundleName>(['basic']);
+    const bundles = new Set<BundleName>(['basic', ...force]);
     const missing: string[] = [];
     for (const p of needs) {
       if (local.has(p)) continue;
@@ -144,8 +145,11 @@ export class PackageIndex {
       const t = await this.trigger(b);
       if (t) triggers.push(`\\usepackage{${t}}`);
     }
-    if (triggers.length && /\\end\{document\}/.test(mainText)) {
-      mainText = `${mainText.replace(/\s*$/, '')}\n${triggers.join('\n')}\n`;
+    if (triggers.length) {
+      // After \end{document} TeX never reads them. A main file without \end{document} (the document ends in an
+      // \input file) gets \endinput first, so TeX stops reading here in any case.
+      const ends = /\\end\{document\}/.test(stripComments(mainText));
+      mainText = `${mainText.replace(/\s*$/, '')}\n${ends ? '' : '\\endinput\n'}${triggers.join('\n')}\n`;
     }
     return { mainText, bundles: BUNDLES.filter((b) => bundles.has(b)), missing };
   }
