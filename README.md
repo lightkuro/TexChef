@@ -8,10 +8,10 @@ focused variants from it** — and keep them linked.
 - **Edit on the PDF.** Turn on *Edit text* and click any sentence in the PDF to change it as plain text; texChef finds the LaTeX behind it (SyncTeX + text matching), rewrites only the changed characters, escapes `& % $ # _`, and keeps formatting. Optionally makes the same change in the variant's original.
 - **Source ↔ PDF sync (SyncTeX).** Double-click the PDF to jump to the source line; the locate button highlights the cursor's line in the PDF.
 - **Version history.** Every save is an immutable version; restore, branch from, download or compare any of them.
-- **Map.** A family tree of documents (master → variants → sub‑variants, straight or right‑angled lines, update counts by each arrow) and git‑style version swimlanes.
+- **Map.** A family tree of documents (master → variants → sub‑variants), left to right or top down, with straight or right‑angled lines, update counts by each arrow, full‑page card previews, drag‑to‑arrange with optional grid snapping, and git‑style version swimlanes.
 - **Side‑by‑side compare & edit.** Any two documents (or versions); both sides editable, per‑change copy arrows, copy whole blocks across, PDFs side by side.
 - **Bring your own storage.** Everything lives in your browser (IndexedDB) and, if you connect it, your own Google Drive using the narrow `drive.file` permission. There is no texChef server.
-- **Themes.** Six color themes (Kitchen, Ocean, Forest, Plum, Graphite, Nord), each in light and dark.
+- **Themes.** Six color themes (Forest, the default, plus Kitchen, Ocean, Plum, Graphite, Nord), each in light and dark.
 - **Privacy Policy and Terms** at `/privacy` and `/terms`, linked from every page footer (needed for Google's branding review).
 - **Upload / download.** `.tex`, `.cls`, `.sty`, `.bib`, images, fonts, Overleaf `.zip` exports; download PDF, sources or a project `.zip`, or all PDFs at once.
 

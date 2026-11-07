@@ -16,8 +16,9 @@
         const t = localStorage.getItem('rc-theme');
         const dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
         if (dark) document.documentElement.classList.add('dark');
-        const p = localStorage.getItem('rc-palette');
-        if (p && p !== 'kitchen') document.documentElement.dataset.palette = p;
+        // Forest (green) is the default; Kitchen is the base styles with no attribute.
+        const p = localStorage.getItem('rc-palette-v2') || 'forest';
+        if (p !== 'kitchen') document.documentElement.dataset.palette = p;
       } catch {}
     </script>
   </head>

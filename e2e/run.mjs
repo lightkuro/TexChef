@@ -83,6 +83,8 @@ await step('home page links to Privacy and Terms; themes switch', async () => {
   await page.goto(`${BASE}/terms`);
   await page.getByTestId('legal-page').getByText('Limitation of liability').waitFor();
   await page.goto(BASE);
+  // Green (Forest) is the default color theme.
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.palette), 'forest');
   await page.getByTestId('theme-menu').click();
   await page.getByTestId('palette-ocean').click();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.palette), 'ocean');
@@ -92,6 +94,10 @@ await step('home page links to Privacy and Terms; themes switch', async () => {
   await page.getByTestId('theme-menu').click();
   await page.getByTestId('palette-kitchen').click();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.palette ?? 'kitchen'), 'kitchen');
+  await page.reload();
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.palette ?? 'kitchen'), 'kitchen', 'a chosen theme sticks');
+  await page.getByTestId('theme-menu').click();
+  await page.getByTestId('palette-forest').click();
 });
 
 await step('create master resume from template and compile it', async () => {
@@ -120,8 +126,29 @@ await step('SyncTeX: double-click PDF jumps to source, locate highlights PDF', a
   // "Northwind Analytics" sits at about (40bp, 162bp) on page 1 of the template.
   await page.mouse.dblclick(box.x + (60 / pw) * box.width, box.y + (159 / ph) * box.height);
   await page.waitForFunction(() => /Northwind Analytics/.test(document.querySelector('.cm-activeLine')?.textContent ?? ''));
+  // The cursor's line stays highlighted in the PDF (on by default); the button turns it off and on.
+  await page.getByTestId('cursor-hl').first().waitFor();
+  assert.equal(await page.getByTestId('locate-in-pdf').getAttribute('aria-pressed'), 'true');
   await page.getByTestId('locate-in-pdf').click();
-  await page.locator('.sync-hl').first().waitFor();
+  await page.getByTestId('cursor-hl').first().waitFor({ state: 'detached' });
+  await page.getByTestId('locate-in-pdf').click();
+  await page.getByTestId('cursor-hl').first().waitFor();
+});
+
+await step('whole-page preview toggle fits a page in the pane', async () => {
+  await page.getByTestId('pdf-whole-page').click();
+  await page.waitForFunction(() => {
+    const v = document.querySelector('[data-testid=pdf-viewer]');
+    const p = v?.querySelector('[data-page="1"]');
+    return v && p && p.getBoundingClientRect().height <= v.clientHeight;
+  });
+  assert.equal(await page.getByTestId('pdf-whole-page').getAttribute('aria-pressed'), 'true');
+  await page.getByTestId('pdf-whole-page').click();
+  await page.waitForFunction(() => {
+    const v = document.querySelector('[data-testid=pdf-viewer]');
+    const p = v?.querySelector('[data-page="1"]');
+    return v && p && p.getBoundingClientRect().width > v.clientWidth - 40;
+  });
 });
 
 await step('editing the source recompiles the PDF', async () => {
@@ -219,6 +246,25 @@ await step('edit text on the PDF (and in the original too)', async () => {
   await page.getByTestId('pdf-edit-pending').first().waitFor({ state: 'detached', timeout: 60_000 });
   await page.getByTestId('pdf-edit-banner').getByText('Click any text in the PDF').waitFor();
   assert.match(await pdfText(), /React & TypeScript, improving\s+load\s+time\s+by\s+80%/);
+  // With "Update after each save" on, a saved change reaches the PDF by itself.
+  await page.getByTestId('pdf-edit-auto').click();
+  assert.equal(await page.getByTestId('pdf-edit-update').count(), 0);
+  const role = await pdfPoint(v, 'Senior Software Engineer');
+  await page.mouse.click(role.x, role.y);
+  await page.getByTestId('pdf-edit-input').fill('Staff Software Engineer');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(
+    async (v) => {
+      const e = window.rcCompile.getState().entries[v];
+      if (!e?.output?.pdf || e.running) return false;
+      const { pdfText } = await import('/src/compile/pdf.ts');
+      return /Staff Software Engineer/.test(await pdfText(e.output.pdf));
+    },
+    v,
+    { timeout: 60_000, polling: 500 },
+  );
+  await page.getByTestId('pdf-edit-pending').first().waitFor({ state: 'detached' });
+  await page.getByTestId('pdf-edit-auto').click();
   await page.getByTestId('pdf-edit-done').click();
   await page.getByTestId('pdf-edit-banner').waitFor({ state: 'detached' });
 });
@@ -293,6 +339,38 @@ await step('right-click menu on the map works without opening the document; dele
   await page.goto(`${BASE}/settings`);
   await page.getByTestId('settings-map-lines').selectOption('straight');
   await page.goto(BASE);
+  // Top-down layout: the master sits above its variants, with a crown as the top of the tree.
+  await page.getByTestId('map-vertical').click();
+  await page.waitForTimeout(600);
+  const m = await page.getByTestId('doc-node-Master resume').boundingBox();
+  const f = await page.getByTestId('doc-node-Frontend resume').boundingBox();
+  assert.ok(f.y > m.y + m.height, 'variant below the master');
+  await page.getByTestId('doc-node-Master resume').getByTestId('root-indicator').waitFor();
+  assert.equal(await page.getByTestId('doc-node-Frontend resume').getByTestId('root-indicator').count(), 0);
+  // Full pages make the cards tall enough for the whole first page.
+  const before = (await page.getByTestId('doc-node-Master resume').boundingBox()).height / (m.width / 232);
+  await page.getByTestId('map-full-pages').click();
+  await page.waitForTimeout(600);
+  const box = await page.getByTestId('doc-node-Master resume').boundingBox();
+  assert.ok(box.height / (box.width / 232) > before + 150, 'full-page cards are taller');
+  await page.getByTestId('map-full-pages').click();
+  // Snap to grid: a dragged card lands on a grid cell, is remembered, and Reset puts it back.
+  await page.getByTestId('map-snap').click();
+  await page.waitForTimeout(600);
+  const card = await page.getByTestId('doc-node-Backend resume').boundingBox();
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height * 0.85);
+  await page.mouse.down();
+  await page.mouse.move(card.x + card.width / 2 + card.width * 1.2, card.y + card.height * 0.85 + 20, { steps: 12 });
+  await page.mouse.up();
+  await page.getByTestId('map-reset').waitFor();
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('rc-map-positions')).vertical);
+  const [pos] = Object.values(saved);
+  assert.ok(pos && pos.x % 272 === 0 && pos.y % 250 === 0, `snapped to the grid, got ${JSON.stringify(pos)}`);
+  assert.equal(new URL(page.url()).pathname, '/');
+  await page.getByTestId('map-reset').click();
+  await page.getByTestId('map-reset').waitFor({ state: 'detached' });
+  await page.getByTestId('map-snap').click();
+  await page.getByTestId('map-horizontal').click();
   // Delete from the map: asks first, then removes the card and stays on the map.
   await page.getByTestId('doc-node-Backend resume').click({ button: 'right' });
   await page.getByRole('menuitem', { name: 'Delete…' }).click();

@@ -28,6 +28,10 @@ export interface PdfEditOptions {
   revertOriginal?: (path: string, oldText: string, newText: string) => Promise<void>;
   /** Leave edit mode (Esc with no edit box open). */
   onExit: () => void;
+  /** Recompile after each saved change. */
+  autoUpdate?: boolean;
+  /** Called after a change (and any change to the original) has been written. */
+  onSaved?: () => void;
 }
 
 interface Session {
@@ -250,8 +254,9 @@ export function usePdfEdit(opts: PdfEditOptions) {
       let alsoDone = false;
       if (also && s.inOriginal && o.current.applyToOriginal) alsoDone = await o.current.applyToOriginal(s.file, src, at, s.original, newUnit);
       const name = o.current.original?.name;
+      o.current.onSaved?.();
       toast.success(alsoDone ? `Changed here and in “${name}”` : 'Text changed', {
-        description: 'The PDF updates when you click Update PDF.',
+        description: o.current.autoUpdate ? 'Updating the PDF…' : 'The PDF updates when you click Update PDF.',
         duration: 5000,
         action: {
           label: 'Undo',

@@ -126,15 +126,22 @@ export function pdfToSource(data: SyncData, page: number, x: number, y: number):
   return best && bestScore < 400 ? { file: best.file, line: best.line } : undefined;
 }
 
-/** Boxes in the PDF produced by a source line (falls back to the nearest earlier line that produced output). */
-export function sourceToPdf(data: SyncData, file: string, line: number): SyncRect[] {
+/**
+ * Boxes in the PDF produced by a source line. Falls back to the nearest earlier line that produced
+ * output; with `maxBack`, only if it is at most that many lines up (otherwise nothing).
+ */
+export function sourceToPdf(data: SyncData, file: string, line: number, maxBack?: number): SyncRect[] {
   const inFile = data.records.filter((r) => r.file === file && r.kind !== 'vbox');
   if (!inFile.length) return [];
   let target = line;
   if (!inFile.some((r) => r.line === line)) {
     const earlier = inFile.filter((r) => r.line < line).map((r) => r.line);
     const later = inFile.filter((r) => r.line > line).map((r) => r.line);
-    target = earlier.length ? Math.max(...earlier) : Math.min(...later);
+    if (maxBack !== undefined) {
+      const near = earlier.length ? Math.max(...earlier) : -Infinity;
+      if (line - near > maxBack) return [];
+      target = near;
+    } else target = earlier.length ? Math.max(...earlier) : Math.min(...later);
   }
   const hits = inFile.filter((r) => r.line === target);
   // Group by page and text line (baseline), then merge into rectangles.

@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { useNavigate } from 'react-router';
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, getStraightPath, type Edge, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, Position, getSmoothStepPath, getStraightPath, type Edge, type EdgeProps } from '@xyflow/react';
 import { GitPullRequestArrow } from 'lucide-react';
 
 export type DocEdgeData = {
@@ -13,19 +13,32 @@ export type DocEdgeType = Edge<DocEdgeData, 'doc'>;
 
 /** Distance (px) from the arrow tip back to the centre of the updates label, which sits on the line. */
 const LABEL_BACK = 46;
+/** The same when the line arrives from above (the label is wider than tall). */
+const LABEL_BACK_DOWN = 28;
 
 /** A link from an original to its variant: straight or right-angled, with pending updates labelled by the arrow. */
 export const DocEdge = memo(function DocEdge({ target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, style }: EdgeProps<DocEdgeType>) {
   const navigate = useNavigate();
   const angled = !!data?.angled;
+  const down = targetPosition === Position.Top;
   // Right-angled lines bend nearer the original, leaving a long last stretch for the updates label.
   const [path] = angled
-    ? getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, borderRadius: 8, centerX: sourceX + (targetX - sourceX) * 0.35 })
+    ? getSmoothStepPath({
+        sourceX,
+        sourceY,
+        sourcePosition,
+        targetX,
+        targetY,
+        targetPosition,
+        borderRadius: 8,
+        ...(down ? { centerY: sourceY + (targetY - sourceY) * 0.35 } : { centerX: sourceX + (targetX - sourceX) * 0.35 }),
+      })
     : getStraightPath({ sourceX, sourceY, targetX, targetY });
 
-  // Centre of the updates label: on the line, just before the arrow (right-angled lines arrive horizontally).
-  let nearX = targetX - LABEL_BACK;
-  let nearY = targetY;
+  // Centre of the updates label: on the line, just before the arrow (right-angled lines arrive
+  // horizontally, or from above in the top-down layout).
+  let nearX = down ? targetX : targetX - LABEL_BACK;
+  let nearY = down ? targetY - LABEL_BACK_DOWN : targetY;
   if (!angled) {
     const dx = targetX - sourceX;
     const dy = targetY - sourceY;

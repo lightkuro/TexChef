@@ -34,7 +34,7 @@ import { PdfViewer } from '@/features/preview/PdfViewer';
 import { ProblemsPanel } from '@/features/preview/ProblemsPanel';
 import { isUpToDate, useAutoCompile, useEngineStatus } from '@/features/compile/useCompile';
 import { downloadPdf, downloadProjectZip, downloadText } from '@/features/importexport/io';
-import { Badge, Button, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Select, Spinner, Tip } from '@/components/ui';
+import { Badge, Button, Checkbox, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Select, Spinner, Tip } from '@/components/ui';
 import { EngineBanner } from '@/features/compile/EngineBanner';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { cn, docColor, formatBytes } from '@/lib/utils';
@@ -95,7 +95,9 @@ export function EditorPage() {
   const pages = entry?.pages ?? preview?.pages;
   const synctexBytes = entry?.output?.pdf ? entry.output.synctex : undefined;
   const [sync, setSync] = useState<SyncData | null>(null);
-  const [highlights, setHighlights] = useState<SyncRect[]>();
+  const followCursor = usePrefs((s) => s.followCursor);
+  const pdfEditAutoUpdate = usePrefs((s) => s.pdfEditAutoUpdate);
+  const [cursorRects, setCursorRects] = useState<SyncRect[]>();
 
   useEffect(() => {
     let cancelled = false;
@@ -111,15 +113,15 @@ export function EditorPage() {
     };
   }, [synctexBytes]);
 
-  const locateInPdf = useCallback(() => {
-    if (!sync || !path) {
-      toast.info('Compile once to enable jumping between source and PDF.');
+  // Keep the cursor's line highlighted in the PDF (lines that print nothing, like the preamble, show nothing).
+  useEffect(() => {
+    if (!followCursor || !sync || !path || cursorLine === undefined || pdfEditing) {
+      setCursorRects(undefined);
       return;
     }
-    const rects = sourceToPdf(sync, path, cursorLine ?? 1);
-    if (rects.length) setHighlights(rects);
-    else toast.info('This line does not produce output in the PDF.');
-  }, [sync, path, cursorLine]);
+    const t = setTimeout(() => setCursorRects(sourceToPdf(sync, path, cursorLine, 3)), 120);
+    return () => clearTimeout(t);
+  }, [followCursor, sync, path, cursorLine, pdfEditing]);
 
   const writeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flush = useCallback(async () => {
@@ -219,6 +221,10 @@ export function EditorPage() {
       await repo.writeWorkText(parent.id, p, f.text.slice(0, i) + oldText + f.text.slice(i + newText.length));
     },
     onExit: () => stopPdfEditing(),
+    autoUpdate: pdfEditAutoUpdate,
+    onSaved: () => {
+      if (pdfEditAutoUpdate) void compile();
+    },
   });
 
   const startPdfEditing = () => {
@@ -424,7 +430,7 @@ export function EditorPage() {
             pdf={pdf}
             running={entry?.running}
             pages={pages}
-            highlights={highlights}
+            cursorRects={cursorRects}
             pageOverlay={pdfEditing ? pdfEdit.renderPage : undefined}
             banner={
               pdfEditing ? (
@@ -444,7 +450,19 @@ export function EditorPage() {
                       'Click any text in the PDF to change it.'
                     )}
                   </span>
-                  {pdfEdit.pendingCount > 0 && (
+                  <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-muted" title="Recompile the PDF after every saved change">
+                    <Checkbox
+                      checked={pdfEditAutoUpdate}
+                      onCheckedChange={(on) => {
+                        setPref({ pdfEditAutoUpdate: on });
+                        if (on && pdfEdit.pendingCount > 0) void compile();
+                      }}
+                      aria-label="Update the PDF after each save"
+                      data-testid="pdf-edit-auto"
+                    />
+                    Update after each save
+                  </label>
+                  {pdfEdit.pendingCount > 0 && !pdfEditAutoUpdate && (
                     <Button size="sm" variant="primary" className="h-6" onClick={compile} disabled={entry?.running} data-testid="pdf-edit-update">
                       {entry?.running ? <Spinner /> : <Play className="size-3" />} Update PDF
                     </Button>
@@ -479,8 +497,22 @@ export function EditorPage() {
                   <PencilLine className="size-3.5" /> Edit text
                 </Button>
               </Tip>
-              <Tip content="Show the cursor's line in the PDF (double-click the PDF to jump back to the source)">
-                <Button size="icon-sm" variant="ghost" onClick={locateInPdf} aria-label="Locate in PDF" data-testid="locate-in-pdf">
+              <Tip
+                content={
+                  followCursor
+                    ? 'Showing the cursor’s line in the PDF. Click to turn off. (Double-click the PDF to jump to the source.)'
+                    : 'Show the cursor’s line in the PDF'
+                }
+              >
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className={cn(followCursor && 'bg-accent-soft text-accent hover:bg-accent-soft')}
+                  onClick={() => setPref({ followCursor: !followCursor })}
+                  aria-label="Show cursor line in PDF"
+                  aria-pressed={followCursor}
+                  data-testid="locate-in-pdf"
+                >
                   <LocateFixed className="size-3.5" />
                 </Button>
               </Tip>

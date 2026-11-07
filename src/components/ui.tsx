@@ -244,6 +244,7 @@ export function Checkbox({
   disabled?: boolean;
   className?: string;
   'aria-label'?: string;
+  'data-testid'?: string;
 }) {
   return (
     <C.Root

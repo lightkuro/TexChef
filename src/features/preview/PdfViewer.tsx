@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Minus, Plus, Maximize2, Download } from 'lucide-react';
+import { Minus, Plus, Maximize2, Download, RectangleVertical } from 'lucide-react';
 import { Util } from 'pdfjs-dist';
 import { openPdf, type LoadedPdf } from '@/compile/pdf';
 import type { SyncRect } from '@/compile/synctex';
 import type { PdfTextItem } from '@/pdfedit/locate';
 import { Button, Spinner, Tip } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { usePrefs } from '@/app/prefs';
 
 /** What an overlay needs to draw on a page: sizes in PDF points, `k` = CSS pixels per point. */
 export interface PageInfo {
@@ -29,6 +30,8 @@ interface Props {
   onSyncClick?: (p: { page: number; x: number; y: number }) => void;
   /** Boxes to flash (e.g. "locate cursor in PDF"); a new array re-triggers the flash and scroll. */
   highlights?: SyncRect[];
+  /** Boxes that stay highlighted (the editor cursor's line); scrolled into view when they change. */
+  cursorRects?: SyncRect[];
   /** Extra controls for the toolbar. */
   actions?: React.ReactNode;
   /** A strip shown under the toolbar. */
@@ -89,11 +92,16 @@ function CanvasSlot({ canvas }: { canvas: HTMLCanvasElement }) {
 }
 
 /** Renders every page of a PDF to canvases, keeping the scroll position across recompiles. */
-export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMessage, running, pages, onSyncClick, highlights, actions, banner, pageOverlay }: Props) {
+export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMessage, running, pages, onSyncClick, highlights, cursorRects, actions, banner, pageOverlay }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState<'fit' | number>('fit');
-  const [width, setWidth] = useState(0);
+  // A number when zoomed by hand; otherwise fit to the width or the whole page (a saved preference).
+  const [zoom, setZoom] = useState<number | null>(null);
+  const fit = usePrefs((s) => s.pdfFit);
+  const setPref = usePrefs((s) => s.set);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const width = size.w;
+  const appliedScale = useRef(1);
   const [error, setError] = useState<string | null>(null);
   const [rendered, setRendered] = useState<RenderedPage[]>([]);
   const highlightRef = useRef<{ rects: SyncRect[]; at: number } | null>(null);
@@ -108,9 +116,10 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    const measure = () => setSize((s) => (s.w === el.clientWidth && s.h === el.clientHeight ? s : { w: el.clientWidth, h: el.clientHeight }));
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setWidth(el.clientWidth);
+    measure();
     return () => ro.disconnect();
   }, []);
 
@@ -128,7 +137,9 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
         for (let i = 1; i <= doc.numPages; i++) {
           const page = await doc.getPage(i);
           const base = page.getViewport({ scale: 1 });
-          const cssScale = zoom === 'fit' ? Math.max(0.2, (width - 32) / base.width) : zoom;
+          const fitWidth = (width - 32) / base.width;
+          const cssScale = zoom ?? Math.max(0.2, fit === 'page' ? Math.min(fitWidth, (size.h - 32) / base.height) : fitWidth);
+          appliedScale.current = cssScale;
           const viewport = page.getViewport({ scale: cssScale * dpr });
           const canvas = document.createElement('canvas');
           canvas.width = Math.floor(viewport.width);
@@ -156,7 +167,9 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
     return () => {
       cancelled = true;
     };
-  }, [pdf, width, zoom]);
+    // Height matters only when fitting the whole page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdf, width, zoom, fit, fit === 'page' && zoom === null ? size.h : 0]);
 
   useLayoutEffect(() => {
     if (!rendered.length) return;
@@ -166,7 +179,18 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
     if (h && container.current && Date.now() - h.at < 2000) drawHighlights(container.current, h.rects, false);
   }, [rendered]);
 
-  const currentScale = typeof zoom === 'number' ? zoom : 1;
+  // Bring the cursor's line into view when it moves off-screen (not when it is already visible).
+  useEffect(() => {
+    const el = container.current?.querySelector<HTMLElement>('.cursor-hl');
+    const sc = scroller.current;
+    if (!el || !sc) return;
+    const r = el.getBoundingClientRect();
+    const v = sc.getBoundingClientRect();
+    if (r.top < v.top + 8 || r.bottom > v.bottom - 8) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [cursorRects, rendered]);
+
+  const currentScale = zoom ?? appliedScale.current;
+  const wholePage = fit === 'page' && zoom === null;
 
   return (
     <div className={cn('relative flex h-full min-h-0 flex-col bg-subtle', className)}>
@@ -177,15 +201,39 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
               <Minus className="size-3.5" />
             </Button>
           </Tip>
-          <span className="w-12 text-center text-xs text-muted tabular-nums">{zoom === 'fit' ? 'Fit' : `${Math.round(zoom * 100)}%`}</span>
+          <span className="w-12 text-center text-xs text-muted tabular-nums">{zoom === null ? (fit === 'page' ? 'Page' : 'Fit') : `${Math.round(zoom * 100)}%`}</span>
           <Tip content="Zoom in">
             <Button size="icon-sm" variant="ghost" onClick={() => setZoom(currentScale + 0.15)} aria-label="Zoom in">
               <Plus className="size-3.5" />
             </Button>
           </Tip>
           <Tip content="Fit width">
-            <Button size="icon-sm" variant="ghost" onClick={() => setZoom('fit')} aria-label="Fit width">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              onClick={() => {
+                setZoom(null);
+                setPref({ pdfFit: 'width' });
+              }}
+              aria-label="Fit width"
+            >
               <Maximize2 className="size-3.5" />
+            </Button>
+          </Tip>
+          <Tip content={wholePage ? 'Showing whole pages. Click to fit the width.' : 'Show the whole page'}>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className={cn(wholePage && 'bg-accent-soft text-accent hover:bg-accent-soft')}
+              onClick={() => {
+                setZoom(null);
+                setPref({ pdfFit: wholePage ? 'width' : 'page' });
+              }}
+              aria-label="Whole page"
+              aria-pressed={wholePage}
+              data-testid="pdf-whole-page"
+            >
+              <RectangleVertical className="size-3.5" />
             </Button>
           </Tip>
           <div className="flex-1" />
@@ -239,6 +287,19 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
           {rendered.map((p) => (
             <div key={p.page} className="relative mx-auto mb-4" style={{ width: p.cssW, height: p.cssH }} data-page={p.page} data-pw={p.pw} data-ph={p.ph}>
               <CanvasSlot canvas={p.canvas} />
+              {cursorRects
+                ?.filter((r) => r.page === p.page)
+                .map((r, i) => {
+                  const k = p.cssW / p.pw;
+                  return (
+                    <div
+                      key={i}
+                      className="cursor-hl"
+                      style={{ left: r.x * k - 3, top: r.y * k - 2, width: r.w * k + 6, height: r.h * k + 4 }}
+                      data-testid="cursor-hl"
+                    />
+                  );
+                })}
               {pageOverlay?.({ page: p.page, pw: p.pw, ph: p.ph, k: p.cssW / p.pw, items: p.items })}
             </div>
           ))}

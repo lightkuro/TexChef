@@ -102,7 +102,8 @@ export const TOPICS: Topic[] = [
             </>,
             <>
               Changed spots get an orange <b>edited</b> outline. Keep clicking and editing; when you are ready, click <b>Update PDF</b>, or{' '}
-              <b>Done</b> to leave edit mode (with auto-compile on, the PDF then updates by itself).
+              <b>Done</b> to leave edit mode (with auto-compile on, the PDF then updates by itself). Prefer to see each change right away? Tick{' '}
+              <b>Update after each save</b> in the bar above the PDF; texChef remembers the choice.
             </>,
           ]}
         />
@@ -583,7 +584,28 @@ export const TOPICS: Topic[] = [
             Click a card to open it; right-click it (or use ⋯) for every action: new variant, compare, get updates, duplicate, rename, color,
             archive, delete. Delete asks first, and suggests archiving if you only want it out of the way.
           </li>
+          <li>
+            A <b>crown</b> next to a name marks the top of a tree: a document variants were made from that wasn’t made from another one itself
+            (usually your master).
+          </li>
         </UL>
+        <H3>Map options</H3>
+        <P>The small bar at the top right of the map:</P>
+        <Table
+          head={['Button', 'What it does']}
+          rows={[
+            [<b>→ / ↓</b>, 'Left to right (originals on the left), or top down (master at the top, variants branching down).'],
+            [<b>Full pages</b>, 'Cards show the whole first page instead of its top.'],
+            [
+              <b>Snap</b>,
+              'Shows a grid of card-sized cells. Cards you drag land neatly in a cell, and the automatic layout uses the grid too, with a free cell between generations so lines and labels have room.',
+            ],
+            [<b>Reset</b>, 'Appears once you have dragged cards: puts them back in the automatic layout.'],
+          ]}
+        />
+        <P>
+          You can drag any card to where you want it; the map remembers it in this browser (separately for each direction) until you reset.
+        </P>
         <H2>Versions</H2>
         <UL>
           <li>Each row (lane) is a document; each dot is a version, oldest on the left. The icon in the dot shows its kind.</li>
@@ -684,7 +706,11 @@ export const TOPICS: Topic[] = [
             <b>Double-click</b> anywhere in the PDF to jump to the line that produced it.
           </li>
           <li>
-            The <b>◎</b> button above the PDF highlights where the line under your cursor appears in the PDF.
+            The line under your cursor in the editor is highlighted in the PDF, and the PDF scrolls to it when it is out of view. The <b>◎</b>{' '}
+            button above the PDF turns this off and on.
+          </li>
+          <li>
+            The <b>▯</b> button fits a whole page in the preview; <b>⤢</b> goes back to fitting the width. Your choice is remembered.
           </li>
           <li>
             <b>Edit text</b> lets you change text by clicking it in the PDF. See <HelpLink to="edit-on-pdf">Editing on the PDF</HelpLink>.

@@ -287,6 +287,15 @@ body {
   width: auto;
 }
 
+/* The editor cursor's line in the PDF (stays while the cursor is there). */
+.cursor-hl {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--accent) 13%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in oklab, var(--accent) 75%, transparent);
+  transition: top 120ms ease-out, height 120ms ease-out;
+}
 .sync-hl {
   position: absolute;
   pointer-events: none;
