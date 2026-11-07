@@ -615,6 +615,31 @@ export const TOPICS: Topic[] = [
           </li>
           <li>Click a dot for details and actions: open, compare, new variant from here, restore.</li>
         </UL>
+        <H2>Folders</H2>
+        <P>
+          The <b>Folders</b> panel on the left of the home page groups documents. Pick a folder to see only its documents, on the map and in the
+          list; <b>All documents</b> shows everything and <b>Not in a folder</b> the rest. The ▤ button above it hides or shows the panel.
+        </P>
+        <UL>
+          <li>
+            <b>New folder</b>: the folder-plus button. With a folder open, the new one goes inside it, so folders can be nested.
+          </li>
+          <li>
+            <b>Put documents in</b>: ⋯ (or right-click) → <b>Move to folder…</b>, or drag a row from the <b>List</b> view onto a folder. New
+            documents and uploads go into the folder that is open, and a variant starts in its original’s folder.
+          </li>
+          <li>
+            <b>Rename or delete</b>: hover a folder and use its ⋯ menu. Deleting a folder never deletes documents: they move to the folder
+            around it.
+          </li>
+          <li>
+            Folders sync with Google Drive along with the documents in them. A brand-new empty folder stays on this device until you put a
+            document in it.
+          </li>
+          <li>
+            Importing a .zip with several documents (a Prism export, say) offers to put them all in a new folder.
+          </li>
+        </UL>
         <H2>Colors and archiving</H2>
         <P>
           Give a document a color with <b>Color…</b> in its menu (or click the colored dot next to its name in the editor). The color is used for the
@@ -804,6 +829,7 @@ texChef/
           <li>Fix shared things (contact details, dates, typos) in the master, then get updates in the variants.</li>
           <li>Use the page-count badge in the variant builder to land on exactly one page.</li>
           <li>Archive variants for applications you are done with instead of deleting them.</li>
+          <li>Use folders to keep groups apart, such as resumes, cover letters and papers.</li>
           <li>The palette button at the top right switches between light and dark and six color themes.</li>
         </UL>
       </>

@@ -425,6 +425,53 @@ await step('archive hides a document until "show archived" is on', async () => {
   await page.getByTestId('view-graph').click();
 });
 
+await step('folders: create, drag in, move via menu, filter, rename, delete', async () => {
+  await page.goto(BASE);
+  await page.getByTestId('folder-sidebar').waitFor();
+  // New folder (opens it; it is empty).
+  await page.getByTestId('new-folder').click();
+  await page.getByTestId('folder-name').fill('Applications');
+  await page.getByTestId('folder-dialog-ok').click();
+  await page.getByTestId('empty-folder').waitFor();
+  // Drag a document onto it from the List view.
+  await page.getByTestId('folder-all').getByRole('button').first().click();
+  await page.getByTestId('view-list').click();
+  await page.getByTestId('doc-row-Frontend resume').dragTo(page.getByTestId('folder-Applications'));
+  await page.getByText('Moved document to “Applications”').waitFor();
+  await page.getByTestId('doc-row-Frontend resume').getByText('Applications').waitFor();
+  // Move another one with the menu.
+  await page.getByLabel('Actions for Master resume').click();
+  await page.getByRole('menuitem', { name: 'Move to folder…' }).click();
+  await page.getByTestId('move-to-Applications').click();
+  await page.getByTestId('move-folder-ok').click();
+  // Open the folder: only its documents show, on the list and on the map.
+  await page.getByTestId('folder-Applications').getByRole('button', { name: /^Applications \d+$/ }).click();
+  await page.getByTestId('doc-row-Master resume').waitFor();
+  assert.equal(await page.getByTestId('doc-list').locator('[data-testid^="doc-row-"]').count(), 2);
+  assert.equal((await page.getByTestId('folder-Applications').textContent()).replace(/\D/g, ''), '2');
+  await page.getByTestId('view-graph').click();
+  await page.getByTestId('doc-node-Master resume').waitFor();
+  assert.equal(await page.locator('.react-flow__node').count(), 2);
+  await page.screenshot({ path: `${OUT}11-folders.png` });
+  // Rename, then delete the folder: documents are kept and leave it.
+  await page.getByTestId('folder-Applications').hover();
+  await page.getByLabel('Actions for folder Applications').click();
+  await page.getByRole('menuitem', { name: 'Rename…' }).click();
+  await page.getByTestId('folder-name').fill('Jobs');
+  await page.getByTestId('folder-dialog-ok').click();
+  await page.getByTestId('folder-Jobs').waitFor();
+  await page.getByTestId('folder-Applications').waitFor({ state: 'detached' });
+  await page.waitForFunction(async () => (await window.rc.repo.listDocs()).filter((d) => d.folder === 'Jobs').length === 2);
+  await page.getByTestId('folder-Jobs').hover();
+  await page.getByLabel('Actions for folder Jobs').click();
+  await page.getByRole('menuitem', { name: 'Delete folder…' }).click();
+  await page.getByRole('dialog').getByText('are kept').waitFor();
+  await page.getByTestId('folder-dialog-ok').click();
+  await page.getByTestId('folder-Jobs').waitFor({ state: 'detached' });
+  await page.waitForFunction(async () => (await window.rc.repo.listDocs()).every((d) => !d.folder));
+  await page.getByTestId('doc-node-Master resume').waitFor();
+});
+
 await step('compare side by side, copy a block across', async () => {
   const m = masterUrl.split('/doc/')[1];
   const v = variantUrl.split('/doc/')[1];

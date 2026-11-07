@@ -80,6 +80,8 @@ const isMainTex = (path: string, data: Uint8Array) =>
   path.toLowerCase().endsWith('.tex') && /^[^%\n]*\\documentclass/m.test(decodeText(data)) && /\\begin\s*\{document\}/.test(decodeText(data));
 
 export interface ImportPlan {
+  /** Name of the upload (the .zip without its extension). */
+  name: string;
   /** One entry for an ordinary upload, several for a bundle of documents. */
   projects: ImportedProject[];
   /** Files of a bundle that belong to no document (not imported). */
@@ -91,7 +93,7 @@ export async function planImport(list: File[] | FileList): Promise<ImportPlan> {
   const { name, entries } = await readEntries(list);
   const paths = Object.keys(entries);
   const { roots, leftovers } = splitProjects(paths, (p) => isMainTex(p, entries[p]));
-  if (roots.length < 2) return { projects: paths.length ? [toProject(name, entries)] : [], skipped: [] };
+  if (roots.length < 2) return { name, projects: paths.length ? [toProject(name, entries)] : [], skipped: [] };
   const projects = roots
     .map((root) => {
       const own: Record<string, Uint8Array> = {};
@@ -99,11 +101,11 @@ export async function planImport(list: File[] | FileList): Promise<ImportPlan> {
       return toProject(root.split('/').pop() || name, own);
     })
     .sort((a, b) => a.name.localeCompare(b.name));
-  return { projects, skipped: leftovers };
+  return { name, projects, skipped: leftovers };
 }
 
 /** Create a document from an imported project. */
-export async function createDocumentFromProject(p: ImportedProject): Promise<DocMeta> {
+export async function createDocumentFromProject(p: ImportedProject, folder?: string): Promise<DocMeta> {
   const files: FileMap = { ...p.files };
   for (const [path, data] of Object.entries(p.binaries)) {
     files[path] = { kind: 'binary', hash: await repo.putBlob(data), size: data.byteLength };
@@ -112,7 +114,7 @@ export async function createDocumentFromProject(p: ImportedProject): Promise<Doc
   const main = p.mainFile ?? 'main.tex';
   const mainText = (files[main] as { text?: string })?.text ?? '';
   const engine = /\\usepackage(\[[^\]]*\])?\{fontspec\}|\\setmainfont/.test(mainText) ? 'xelatex' : /\\directlua|\\usepackage(\[[^\]]*\])?\{luacode\}/.test(mainText) ? 'lualatex' : 'pdflatex';
-  return repo.createDoc({ name: p.name, files, mainFile: main, engine, kind: 'import', message: 'Imported files' });
+  return repo.createDoc({ name: p.name, files, mainFile: main, engine, folder, kind: 'import', message: 'Imported files' });
 }
 
 /** Create a new document from uploads (all files as one document). */

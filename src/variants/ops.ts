@@ -55,6 +55,7 @@ export async function createVariant(repo: Repo, input: CreateVariantInput): Prom
     mainFile: parent.mainFile,
     engine: parent.engine,
     tags: input.tags ?? parent.tags,
+    folder: parent.folder,
     parent: { docId: parent.id, baseCommitId: base },
     recipe,
   });
@@ -73,6 +74,7 @@ export async function forkDocument(repo: Repo, docId: string, name: string, from
     mainFile: doc.mainFile,
     engine: doc.engine,
     tags: doc.tags,
+    folder: doc.folder,
     parent: { docId: doc.id, baseCommitId: base },
     // No recipe: a plain fork pulls every parent change unfiltered.
   });

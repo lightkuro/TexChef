@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Plus, Upload, Network, List, GitCommitHorizontal, Download, CloudDownload, Search, Settings, FileText, Archive, CircleHelp } from 'lucide-react';
+import { Plus, Upload, Network, List, GitCommitHorizontal, Download, CloudDownload, Search, Settings, FileText, Archive, CircleHelp, PanelLeft, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
@@ -17,6 +17,9 @@ import { Button, Input, Spinner, Tip } from '@/components/ui';
 import { Logo } from '@/components/Logo';
 import { ThemeMenu } from '@/components/ThemeMenu';
 import { cn } from '@/lib/utils';
+import { FolderSidebar, UNFILED } from '@/features/folders/FolderSidebar';
+import { useEmptyFolders } from '@/features/folders/folders';
+import { folderName, inFolder } from '@/features/folders/folderTree';
 
 export function AppHeader({ children }: { children?: React.ReactNode }) {
   return (
@@ -53,21 +56,31 @@ export function Dashboard() {
   const graphMode = usePrefs((s) => s.graphMode);
   const showAutosaves = usePrefs((s) => s.showAutosaves);
   const showArchived = usePrefs((s) => s.showArchived);
+  const showFolders = usePrefs((s) => s.showFolders);
+  const savedFolder = usePrefs((s) => s.currentFolder);
+  const emptyFolders = useEmptyFolders((s) => s.list);
   const setPref = usePrefs((s) => s.set);
   const upload = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const sync = useSync();
 
   const archivedCount = docs?.filter((d) => d.archived).length ?? 0;
+  const shown = useMemo(() => (docs ?? []).filter((d) => showArchived || !d.archived), [docs, showArchived]);
+  // The open folder, if it still exists (it may have been renamed or removed on another device).
+  const current =
+    savedFolder === null || savedFolder === UNFILED || (docs ?? []).some((d) => inFolder(d.folder, savedFolder)) || emptyFolders.some((p) => inFolder(p, savedFolder))
+      ? savedFolder
+      : null;
+  const targetFolder = current && current !== UNFILED ? current : undefined;
   const filtered = useMemo(() => {
-    const visible = (docs ?? []).filter((d) => showArchived || !d.archived);
+    const visible = shown.filter((d) => (current === null ? true : current === UNFILED ? !d.folder : inFolder(d.folder, current)));
     const q = query.trim().toLowerCase();
     if (!q) return visible;
     const match = new Set(visible.filter((d) => d.name.toLowerCase().includes(q) || d.tags.some((t) => t.includes(q)) || d.recipe?.tags.some((t) => t.includes(q))).map((d) => d.id));
     // Keep ancestors so the tree stays connected.
     for (const d of visible) if (match.has(d.id)) for (let p = d.parent?.docId; p; p = visible.find((x) => x.id === p)?.parent?.docId) match.add(p);
     return visible.filter((d) => match.has(d.id));
-  }, [docs, query, showArchived]);
+  }, [shown, query, current]);
 
   const importFiles = async (files: File[] | FileList) => {
     if (!files.length) return;
@@ -80,7 +93,7 @@ export function Dashboard() {
         setBundle(plan);
         return;
       }
-      const doc = await createDocumentFromProject(plan.projects[0]);
+      const doc = await createDocumentFromProject(plan.projects[0], targetFolder);
       toast.success(`Imported “${doc.name}”`);
       navigate(`/doc/${doc.id}`);
     } catch (e) {
@@ -114,6 +127,11 @@ export function Dashboard() {
         </div>
       </AppHeader>
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2">
+        <Tip content={showFolders ? 'Hide folders' : 'Show folders'}>
+          <Button variant="ghost" size="icon" onClick={() => setPref({ showFolders: !showFolders })} aria-label="Folders" aria-pressed={showFolders} data-testid="toggle-folders">
+            <PanelLeft className="size-4" />
+          </Button>
+        </Tip>
         <Button variant="primary" onClick={() => setNewOpen(true)} data-testid="new-doc">
           <Plus className="size-4" /> New document
         </Button>
@@ -195,27 +213,45 @@ export function Dashboard() {
           ))}
         </div>
       </div>
-      <main className="relative min-h-0 flex-1 overflow-auto">
+      <div className="flex min-h-0 flex-1">
+      {showFolders && docs && docs.length > 0 && <FolderSidebar docs={shown} current={current} onSelect={(f) => setPref({ currentFolder: f })} />}
+      <main className="relative min-h-0 min-w-0 flex-1 overflow-auto">
         {docs === undefined ? (
           <div className="flex h-full items-center justify-center">
             <Spinner />
           </div>
         ) : docs.length === 0 ? (
           <Welcome onNew={() => setNewOpen(true)} onUpload={() => upload.current?.click()} />
+        ) : filtered.length === 0 && current !== null && !query.trim() ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted" data-testid="empty-folder">
+            <FolderOpen className="size-8 opacity-50" />
+            <p className="font-medium text-fg">{current === UNFILED ? 'Every document is in a folder' : `“${folderName(current)}” is empty`}</p>
+            <p className="max-w-sm">
+              Move documents here with <b>⋯ → Move to folder</b>, drag them onto the folder from the List view, or create a new one: it goes into the open folder.
+            </p>
+          </div>
         ) : view === 'list' ? (
-          <DocList docs={filtered} />
+          <DocList docs={filtered} showFolder={current === null} />
         ) : graphMode === 'family' ? (
           <FamilyGraph docs={filtered} />
         ) : (
           <VersionGraph docs={filtered} showAutosaves={showAutosaves} />
         )}
-        {bundle && <BundleImportDialog plan={bundle} onClose={() => setBundle(null)} />}
+        {bundle && (
+          <BundleImportDialog
+            plan={bundle}
+            parentFolder={targetFolder}
+            onClose={() => setBundle(null)}
+            onImported={(f) => f && setPref({ currentFolder: f })}
+          />
+        )}
         {dragging && (
           <div className="pointer-events-none absolute inset-3 flex items-center justify-center rounded-2xl border-2 border-dashed border-accent bg-accent-soft/80 text-lg font-medium text-accent">
             Drop .tex or .zip files to import
           </div>
         )}
       </main>
+      </div>
       <footer className="flex h-7 shrink-0 items-center gap-3 border-t border-line bg-panel px-4 text-[11px] text-muted">
         <span>texChef</span>
         <Link to="/privacy" className="hover:text-fg" data-testid="link-privacy">
@@ -229,7 +265,7 @@ export function Dashboard() {
         </Link>
         <span className="ml-auto">Runs in your browser · your files stay yours</span>
       </footer>
-      <NewDocDialog open={newOpen} onOpenChange={setNewOpen} />
+      <NewDocDialog open={newOpen} onOpenChange={setNewOpen} folder={targetFolder} />
     </div>
   );
 }

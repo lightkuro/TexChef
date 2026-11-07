@@ -164,6 +164,7 @@ export class SyncEngine {
       mainFile: newer.mainFile,
       tags: newer.tags,
       color: newer.color,
+      folder: newer.folder,
       archived: newer.archived,
       deleted: l.deleted || r.deleted,
       updatedAt: Math.max(l.updatedAt, r.updatedAt),

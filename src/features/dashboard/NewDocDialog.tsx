@@ -12,7 +12,7 @@ const ICONS: Record<string, React.ReactNode> = {
   article: <BookOpen className="size-5" />,
 };
 
-export function NewDocDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function NewDocDialog({ open, onOpenChange, folder }: { open: boolean; onOpenChange: (o: boolean) => void; folder?: string }) {
   const [tpl, setTpl] = useState(TEMPLATES[0].id);
   const [name, setName] = useState('');
   const navigate = useNavigate();
@@ -25,6 +25,7 @@ export function NewDocDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       files,
       engine: t.engine,
       tags: t.tags,
+      folder,
     });
     onOpenChange(false);
     setName('');

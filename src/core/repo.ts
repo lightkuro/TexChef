@@ -23,6 +23,7 @@ export interface CreateDocInput {
   tags?: string[];
   parent?: { docId: string; baseCommitId: string };
   recipe?: Recipe;
+  folder?: string;
   kind?: CommitKind;
   message?: string;
 }
@@ -245,6 +246,7 @@ export class Repo {
       parent: input.parent,
       recipe: input.recipe,
       tags: input.tags ?? [],
+      ...(input.folder ? { folder: input.folder } : {}),
       createdAt: now,
       updatedAt: now,
     };

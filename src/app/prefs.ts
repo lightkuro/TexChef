@@ -40,6 +40,10 @@ interface Prefs {
   mapSnap: boolean;
   showAutosaves: boolean;
   showArchived: boolean;
+  /** Folder sidebar on the home page. */
+  showFolders: boolean;
+  /** Folder open on the home page: a path, "__unfiled__", or null for all documents. */
+  currentFolder: string | null;
   set: (patch: Partial<Omit<Prefs, 'set'>>) => void;
 }
 
@@ -79,6 +83,8 @@ export const usePrefs = create<Prefs>((set, get) => ({
   mapSnap: false,
   showAutosaves: false,
   showArchived: false,
+  showFolders: true,
+  currentFolder: null,
   ...load(),
   set: (patch) => {
     set(patch);

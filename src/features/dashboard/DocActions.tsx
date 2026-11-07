@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive, Archive, ArchiveRestore, Palette, AlertTriangle } from 'lucide-react';
+import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive, Archive, ArchiveRestore, Palette, AlertTriangle, FolderInput } from 'lucide-react';
 import { ColorDialog } from './ColorDialog';
+import { MoveToFolderDialog } from '@/features/folders/MoveToFolderDialog';
 import { toast } from 'sonner';
 import type { DocMeta } from '@/core/model';
 import { db, repo, useDocs } from '@/app/repo';
@@ -52,6 +53,7 @@ function useDocActions(doc: DocMeta) {
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [coloring, setColoring] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [name, setName] = useState(doc.name);
   const variants = (useDocs() ?? []).filter((d) => d.parent?.docId === doc.id && !d.deleted);
 
@@ -82,6 +84,7 @@ function useDocActions(doc: DocMeta) {
     },
     { key: 'rename', label: 'Rename…', icon: <Pencil className="size-4" />, run: () => (setName(doc.name), setRenaming(true)) },
     { key: 'color', label: 'Color…', icon: <Palette className="size-4" />, run: () => setColoring(true) },
+    { key: 'move', label: 'Move to folder…', icon: <FolderInput className="size-4" />, run: () => setMoving(true) },
     {
       key: 'archive',
       label: doc.archived ? 'Unarchive' : 'Archive',
@@ -114,6 +117,7 @@ function useDocActions(doc: DocMeta) {
   const dialogs = (
     <Contained keys>
       {coloring && <ColorDialog doc={doc} open={coloring} onOpenChange={setColoring} />}
+      {moving && <MoveToFolderDialog doc={doc} open={moving} onOpenChange={setMoving} />}
       <Dialog
         open={renaming}
         onOpenChange={setRenaming}

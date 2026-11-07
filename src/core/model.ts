@@ -59,6 +59,8 @@ export interface DocMeta {
   recipe?: Recipe;
   tags: string[];
   color?: string;
+  /** Folder on the home page, as a path ("Applications/2026"); none when undefined. */
+  folder?: string;
   archived?: boolean;
   /** Soft delete (kept as a tombstone so deletes sync across devices). */
   deleted?: boolean;

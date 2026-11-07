@@ -2,29 +2,34 @@ import { useState } from 'react';
 import { FileText, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, Checkbox, Dialog, Input, Spinner } from '@/components/ui';
+import { cleanFolder } from '@/features/folders/folderTree';
 import { createDocumentFromProject, type ImportPlan } from './io';
 
 /** An upload that holds several documents (e.g. a Prism export): choose which to import. */
-export function BundleImportDialog({ plan, onClose }: { plan: ImportPlan; onClose: () => void }) {
+export function BundleImportDialog({ plan, parentFolder, onClose, onImported }: { plan: ImportPlan; parentFolder?: string; onClose: () => void; onImported?: (folder?: string) => void }) {
+  const [useFolder, setUseFolder] = useState(true);
+  const [folder, setFolder] = useState(parentFolder ? `${parentFolder}/${plan.name}` : plan.name);
   const [picked, setPicked] = useState<boolean[]>(() => plan.projects.map(() => true));
   const [names, setNames] = useState<string[]>(() => plan.projects.map((p) => p.name));
   const [busy, setBusy] = useState<number | null>(null);
   const count = picked.filter(Boolean).length;
 
   const run = async () => {
+    const target = useFolder ? cleanFolder(folder) : parentFolder;
     let done = 0;
     for (let i = 0; i < plan.projects.length; i++) {
       if (!picked[i]) continue;
       setBusy(i);
       try {
-        await createDocumentFromProject({ ...plan.projects[i], name: names[i].trim() || plan.projects[i].name });
+        await createDocumentFromProject({ ...plan.projects[i], name: names[i].trim() || plan.projects[i].name }, target);
         done++;
       } catch (e) {
         toast.error(`${names[i]}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
     setBusy(null);
-    toast.success(`Imported ${done} document${done === 1 ? '' : 's'}`, { description: 'Open one to compile it.' });
+    toast.success(`Imported ${done} document${done === 1 ? '' : 's'}`, { description: target ? `In the folder “${target}”. Open one to compile it.` : 'Open one to compile it.' });
+    onImported?.(target);
     onClose();
   };
 
@@ -70,6 +75,11 @@ export function BundleImportDialog({ plan, onClose }: { plan: ImportPlan; onClos
           );
         })}
       </div>
+      <label className="mt-3 flex items-center gap-2 text-sm">
+        <Checkbox checked={useFolder} onCheckedChange={setUseFolder} aria-label="Put them in a folder" />
+        <span className="shrink-0">Put them in a folder</span>
+        <Input className="h-7 min-w-0 flex-1 text-sm" value={folder} onChange={(e) => setFolder(e.target.value)} disabled={!useFolder} aria-label="Folder for the imported documents" data-testid="bundle-folder" />
+      </label>
       {plan.skipped.length > 0 && (
         <p className="mt-3 text-xs text-muted">
           Not imported ({plan.skipped.length}): files outside any document folder, such as {plan.skipped.slice(0, 3).join(', ')}
