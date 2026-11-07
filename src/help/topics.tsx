@@ -520,6 +520,57 @@ export const TOPICS: Topic[] = [
     ),
   },
   {
+    id: 'saving',
+    title: 'Saving, autosave and leaving',
+    summary: 'What is saved when, and when texChef warns you before leaving.',
+    body: () => (
+      <>
+        <P>You never have to press save to keep your work: texChef stores it as you go. There are three layers:</P>
+        <Table
+          head={['', 'When', 'Where']}
+          rows={[
+            [
+              <b>Draft</b>,
+              'Every edit, a fraction of a second after you type (also edits made on the PDF, in Compare and by Get updates).',
+              'This browser. It survives reloads, closing the tab and restarting the computer.',
+            ],
+            [
+              <b>Autosave version</b>,
+              'After a minute without typing, and when you switch away from or close the tab.',
+              'History (hidden unless you tick “autosaves”), and Google Drive if connected.',
+            ],
+            [<b>Saved version</b>, <>When you click <b>Save version</b> or press <Kbd>Ctrl/⌘ S</Kbd>.</>, 'History, and Google Drive if connected.'],
+          ]}
+        />
+        <P>
+          In the editor, the badge next to the name says <b>Draft saved</b> while your latest edits are only a draft, and <b>Saved</b> once they
+          are part of a version.
+        </P>
+        <H2>Google Drive</H2>
+        <P>
+          Versions (saved and autosave) upload to Drive when you save, when you come back to the tab, and every minute. Drafts do not: they upload
+          once they become a version, which happens by itself after a minute without typing.
+        </P>
+        <H2>When texChef asks before you leave</H2>
+        <UL>
+          <li>
+            <b>Closing the tab or reloading</b> while your last keystrokes are still being stored (a fraction of a second), while the edit box on
+            the PDF holds text you haven’t saved, or, with Drive connected, while something hasn’t reached Drive yet. The browser shows its own
+            “Leave site?” message; if you stay, texChef saves and uploads right away.
+          </li>
+          <li>
+            <b>Going to another page in texChef</b> while the edit box on the PDF holds unsaved text, or while you have made choices on the
+            Get updates page without applying them. You can stay, or leave without saving.
+          </li>
+        </UL>
+        <Note kind="info">
+          Without Drive, closing the tab never loses work: drafts stay in this browser. The one exception is clearing the browser’s site data;
+          export a backup (Export → Backup with history) if you want a copy elsewhere.
+        </Note>
+      </>
+    ),
+  },
+  {
     id: 'history',
     title: 'Versions and history',
     summary: 'Save, restore, start a variant from, and download any version.',
@@ -617,16 +668,34 @@ export const TOPICS: Topic[] = [
         </UL>
         <H2>Folders</H2>
         <P>
-          The <b>Folders</b> panel on the left of the home page groups documents. Pick a folder to see only its documents, on the map and in the
-          list; <b>All documents</b> shows everything and <b>Not in a folder</b> the rest. The ▤ button above it hides or shows the panel.
+          Documents can live in folders, and folders in folders. The home page works like a file browser: the bar above the map or list shows
+          where you are (<b>All documents › Jobs › 2026</b>; click a part, or ↑, to go back up), and the <b>Folders</b> panel on the left shows
+          the whole tree (the ▤ button hides it).
         </P>
+        <Table
+          head={['View', 'What you see']}
+          rows={[
+            [
+              <b>Folders</b>,
+              'The default. The open folder’s subfolders appear as folder cards (map) or folder rows (list), next to the documents directly in it. At the top level you see only your folders and the documents in no folder. Click a folder to open it.',
+            ],
+            [
+              <b>All, grouped</b>,
+              'Every document inside the open folder, grouped by folder: framed groups on the map, sections in the list. Searching always looks through everything inside the open folder.',
+            ],
+          ]}
+        />
         <UL>
           <li>
-            <b>New folder</b>: the folder-plus button. With a folder open, the new one goes inside it, so folders can be nested.
+            On the map, a dotted line from a document to a folder card means some of its variants are in that folder (or its original is).
           </li>
           <li>
-            <b>Put documents in</b>: ⋯ (or right-click) → <b>Move to folder…</b>, or drag a row from the <b>List</b> view onto a folder. New
-            documents and uploads go into the folder that is open, and a variant starts in its original’s folder.
+            <b>New folder</b>: the folder-plus button, or right-click empty space. With a folder open, the new one goes inside it.
+          </li>
+          <li>
+            <b>Put documents in</b>: drag a document onto a folder (a folder card on the map, a folder row in the list, a folder in the panel, or
+            a part of the path bar), or use ⋯ / right-click → <b>Move to folder…</b>. New documents and uploads go into the folder that is open,
+            and a variant starts in its original’s folder.
           </li>
           <li>
             <b>Rename or delete</b>: hover a folder and use its ⋯ menu. Deleting a folder never deletes documents: they move to the folder
@@ -640,6 +709,25 @@ export const TOPICS: Topic[] = [
             Importing a .zip with several documents (a Prism export, say) offers to put them all in a new folder.
           </li>
         </UL>
+        <H2>Right-click menus</H2>
+        <UL>
+          <li>
+            <b>Empty space</b> on the map or in the list: new document or folder, upload files or a folder, make previews, export, view options
+            (map or list, folders or grouped, archived documents, the folders panel), map layout, and actions for the open folder.
+          </li>
+          <li>
+            <b>A folder</b>: open, new folder inside, rename, make previews, export, delete.
+          </li>
+          <li>
+            <b>A document</b>: everything in its ⋯ menu.
+          </li>
+        </UL>
+        <H2>Previews</H2>
+        <P>
+          Cards show the first page of each document’s last PDF. Documents you just imported have none until they are compiled: <b>Make
+          previews</b> in the path bar compiles every document in the open folder (and its subfolders) that has no preview or an out-of-date one,
+          one after another. Click it again to stop. Right-click → <b>Recompile all previews</b> compiles all of them.
+        </P>
         <H2>Colors and archiving</H2>
         <P>
           Give a document a color with <b>Color…</b> in its menu (or click the colored dot next to its name in the editor). The color is used for the
@@ -658,7 +746,7 @@ export const TOPICS: Topic[] = [
         <H2>Bringing work in</H2>
         <UL>
           <li>
-            <b>Upload .tex / .zip</b> on the home page (or drop files onto it) makes a new document. An <b>Overleaf</b> project downloaded as .zip
+            <b>Upload</b> on the home page (files or a .zip, or a whole folder; or drop files onto the page) makes a new document. An <b>Overleaf</b> project downloaded as .zip
             works as is; the file with <C>\documentclass</C> becomes the main file.
           </li>
           <li>
@@ -687,11 +775,34 @@ export const TOPICS: Topic[] = [
             Editor ⌄ menu: <b>Download PDF</b>, the current file, or the whole project as <b>.zip</b> (sources + PDF).
           </li>
           <li>Any version in History can be downloaded as a .zip.</li>
-          <li>
-            <b>Export all PDFs</b> on the home page downloads the latest PDF of every document in one .zip.
-          </li>
           <li>With Drive connected, each document also has a readable folder in your Drive with its sources and latest PDF.</li>
         </UL>
+        <H2>Export</H2>
+        <P>
+          <b>Export</b> on the home page (or right-click a folder or empty space) covers the open folder and everything inside it; at the top
+          level, everything. Folders become folders in the export.
+        </P>
+        <Table
+          head={['Format', 'What you get']}
+          rows={[
+            ['PDFs (.zip)', 'One PDF per document. Documents without an up-to-date PDF are compiled first.'],
+            ['LaTeX projects (.zip)', 'Each document’s files in its own folder, as they are now (unsaved drafts included).'],
+            [
+              'Backup with history',
+              'The LaTeX projects, untouched, plus a .texchef folder with everything else: every saved version, drafts, folders, colors, tags, variant links and choices, previews and map positions. As a .zip, or written straight into a folder on your computer (Chrome and Edge).',
+            ],
+          ]}
+        />
+        <H3>Restoring a backup</H3>
+        <P>
+          Upload the backup .zip, or <b>Upload → A folder…</b> and pick the backup folder, on any texChef, even an empty one: texChef recognises
+          it and restores everything with the same documents, history and links. Documents already there keep what they have and get the
+          backup’s versions added. If you edited the LaTeX files in the backup outside texChef, those edits come in as changes.
+        </P>
+        <Note kind="tip">
+          A backup folder is a normal set of LaTeX projects, so you can also open it in any other LaTeX editor. Leave the <C>.texchef</C> folder
+          alone if you want to restore it later.
+        </Note>
       </>
     ),
   },
@@ -821,6 +932,8 @@ texChef/
             [<Kbd>Enter</Kbd>, 'Save an edit made on the PDF (Ctrl/⌘ Enter in the LaTeX tab)'],
             [<Kbd>Esc</Kbd>, 'Close the edit box'],
             ['Double-click the PDF (also while editing on it)', 'Jump to the source line'],
+            ['Right-click empty space on the home page', 'New document or folder, upload, previews, export, view options'],
+            ['Drag a document onto a folder', 'Move it into that folder (map, list, folders panel or path bar)'],
           ]}
         />
         <H2>Tips</H2>

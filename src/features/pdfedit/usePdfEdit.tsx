@@ -7,6 +7,7 @@ import { alnum, displayText, project } from '@/pdfedit/latexText';
 import { findInSources, groupLines, indexSource, lineAt, lineKey, lineOf, pickUnit, union, keyIndexAt, type PdfLine, type PdfTextItem, type Rect } from '@/pdfedit/locate';
 import { applyPlainEdit, applyRawEdit, unitPlainText, type SourceChange } from '@/pdfedit/applyEdit';
 import { locateInOriginal } from '@/variants/ops';
+import { useUnsavedReason } from '@/app/unsaved';
 import { Button, Checkbox } from '@/components/ui';
 import { cn } from '@/lib/utils';
 
@@ -455,6 +456,8 @@ function EditBox({
     const full = session.before + base + session.after;
     return applyPlainEdit(full, session.before.length, session.before.length + base.length, value)?.unitText ?? base;
   };
+  // Typed but not saved: warn before leaving the page or closing the tab.
+  useUnsavedReason('pdf-edit-box', currentLatex() !== session.original, 'The text you are changing in the edit box on the PDF is not saved.');
 
   const switchTo = (next: 'text' | 'latex') => {
     if (next === mode) return;

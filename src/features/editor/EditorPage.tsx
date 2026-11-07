@@ -40,6 +40,7 @@ import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { cn, docColor, formatBytes } from '@/lib/utils';
 import { dirname } from '@/lib/paths';
 import { usePrefs } from '@/app/prefs';
+import { setUnsaved } from '@/app/unsaved';
 import { ColorDialog } from '@/features/dashboard/ColorDialog';
 import { decodeSynctex, parseSynctex, pdfToSource, sourceToPdf, type SyncData, type SyncRect } from '@/compile/synctex';
 import { usePdfEdit } from '@/features/pdfedit/usePdfEdit';
@@ -135,11 +136,14 @@ export function EditorPage() {
       await repo.writeWorkText(id, p, t);
       if (pending.current.get(p) === t) pending.current.delete(p);
     }
+    if (!pending.current.size) setUnsaved('editor-typing', null);
   }, [id]);
 
   const onChange = (value: string) => {
     if (!path) return;
     pending.current.set(path, value);
+    // Stored a moment later; until then, closing the tab would lose the last keystrokes.
+    setUnsaved('editor-typing', { message: 'Your last edits are still being stored.', when: 'close' });
     clearTimeout(writeTimer.current);
     writeTimer.current = setTimeout(() => void flush(), 300);
   };
@@ -308,9 +312,28 @@ export function EditorPage() {
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         />
         {work.dirty ? (
-          <Badge tone="warn">Unsaved changes</Badge>
+          <Tip
+            content={
+              <span className="block max-w-72">
+                Your edits are kept in this browser as you type. <b>Save version</b> (Ctrl/⌘ S) marks this point in History; an autosave
+                version is also made after a minute without typing and when you leave the tab.
+              </span>
+            }
+          >
+            <span>
+              <Badge tone="info" data-testid="save-state">
+                Draft saved
+              </Badge>
+            </span>
+          </Tip>
         ) : (
-          <Badge tone="neutral">Saved</Badge>
+          <Tip content="Everything is saved as a version.">
+            <span>
+              <Badge tone="neutral" data-testid="save-state">
+                Saved
+              </Badge>
+            </span>
+          </Tip>
         )}
         {parent && (
           <div className="ml-1 flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs">

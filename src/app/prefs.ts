@@ -42,6 +42,8 @@ interface Prefs {
   showArchived: boolean;
   /** Folder sidebar on the home page. */
   showFolders: boolean;
+  /** Home page: show subfolders as folders (browse) or everything inside, grouped by folder. */
+  folderMode: 'browse' | 'grouped';
   /** Folder open on the home page: a path, "__unfiled__", or null for all documents. */
   currentFolder: string | null;
   set: (patch: Partial<Omit<Prefs, 'set'>>) => void;
@@ -84,6 +86,7 @@ export const usePrefs = create<Prefs>((set, get) => ({
   showAutosaves: false,
   showArchived: false,
   showFolders: true,
+  folderMode: 'browse',
   currentFolder: null,
   ...load(),
   set: (patch) => {

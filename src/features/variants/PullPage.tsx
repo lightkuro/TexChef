@@ -12,6 +12,7 @@ import { findConflicts, resolveConflict, resolveAll, type ConflictChoice } from 
 import { DiffView, type DiffViewHandle } from '@/features/compare/DiffView';
 import { Badge, Button, Checkbox, EmptyState, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { setUnsaved, useUnsavedReason } from '@/app/unsaved';
 
 /** Get updates from the original into a variant: choose new blocks, review the combined text, resolve conflicts. */
 export function PullPage() {
@@ -26,6 +27,9 @@ export function PullPage() {
   const [path, setPath] = useState<string>();
   const [edited, setEdited] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  // Toggled a new block, resolved a conflict or edited the result: not applied until "Apply updates".
+  const [touched, setTouched] = useState(false);
+  useUnsavedReason('pull-page', (touched || Object.keys(edited).length > 0) && !busy, 'The updates you chose on this page are not applied yet.');
   const diff = useRef<DiffViewHandle>(null);
 
   useEffect(() => {
@@ -97,6 +101,7 @@ export function PullPage() {
     try {
       await applyPull(repo, doc.id, merged, plan.parentHead, recipe);
       toast.success(`Updated from “${parent.name}”`);
+      setUnsaved('pull-page', null);
       navigate(`/doc/${doc.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -142,7 +147,10 @@ export function PullPage() {
               <p className="mt-0.5 mb-2 text-xs text-muted">Choose which new blocks to bring into this variant.</p>
               {newBlocks.map(({ block }) => (
                 <label key={block.id} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 hover:bg-subtle" style={{ paddingLeft: 4 + block.depth * 12 }}>
-                  <Checkbox checked={!!choices[block.id]} onCheckedChange={(c) => setChoices({ ...choices, [block.id]: c })} aria-label={`Include ${block.label}`} />
+                  <Checkbox checked={!!choices[block.id]} onCheckedChange={(c) => {
+                      setTouched(true);
+                      setChoices({ ...choices, [block.id]: c });
+                    }} aria-label={`Include ${block.label}`} />
                   <span className="min-w-0 flex-1 truncate text-xs">{block.label}</span>
                   {block.tags.map((t) => (
                     <Badge key={t} tone="accent" className="px-1.5 py-0 text-[10px]">

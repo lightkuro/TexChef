@@ -5,6 +5,7 @@ import { isTextPath, type DocMeta } from '@/core/model';
 import { decodeText } from '@/core/hash';
 import { downloadBlob, safeFilename } from '@/lib/utils';
 import { splitProjects } from './split';
+import { isBackup, readBackup, type RestorePlan } from '@/features/workspace/backup';
 
 export { splitProjects };
 
@@ -42,6 +43,7 @@ export function guessMainFile(files: FileMap): string | undefined {
 /** Uploaded files (loose files and/or .zip archives) as paths → bytes, plus a name for them. */
 async function readEntries(list: File[] | FileList): Promise<{ name: string; entries: Record<string, Uint8Array> }> {
   const entries: Record<string, Uint8Array> = {};
+  const loose: Record<string, Uint8Array> = {};
   let name = '';
   for (const file of Array.from(list)) {
     const data = new Uint8Array(await file.arrayBuffer());
@@ -53,10 +55,14 @@ async function readEntries(list: File[] | FileList): Promise<{ name: string; ent
       name ||= file.name.replace(/\.zip$/i, '');
     } else {
       const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
-      if (!IGNORED.test(rel)) entries[rel] = data;
-      name ||= file.name.replace(/\.[^.]+$/, '');
+      if (!IGNORED.test(rel)) loose[rel] = data;
+      // A picked folder: name the import after it.
+      name ||= rel.includes('/') ? rel.split('/')[0] : file.name.replace(/\.[^.]+$/, '');
     }
   }
+  // Files from a picked folder all start with that folder's name: drop it.
+  const strip = stripCommonRoot(Object.keys(loose));
+  for (const [p, d] of Object.entries(loose)) entries[strip(p)] = d;
   return { name: name || 'Imported document', entries };
 }
 
@@ -82,6 +88,8 @@ const isMainTex = (path: string, data: Uint8Array) =>
 export interface ImportPlan {
   /** Name of the upload (the .zip without its extension). */
   name: string;
+  /** The upload is a texChef backup: restore it instead of importing projects. */
+  backup?: RestorePlan;
   /** One entry for an ordinary upload, several for a bundle of documents. */
   projects: ImportedProject[];
   /** Files of a bundle that belong to no document (not imported). */
@@ -91,6 +99,7 @@ export interface ImportPlan {
 /** Work out what an upload contains: one document, or a bundle of several. */
 export async function planImport(list: File[] | FileList): Promise<ImportPlan> {
   const { name, entries } = await readEntries(list);
+  if (isBackup(entries)) return { name, projects: [], skipped: [], backup: await readBackup(entries) };
   const paths = Object.keys(entries);
   const { roots, leftovers } = splitProjects(paths, (p) => isMainTex(p, entries[p]));
   if (roots.length < 2) return { name, projects: paths.length ? [toProject(name, entries)] : [], skipped: [] };

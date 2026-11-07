@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import type { DocMeta } from '@/core/model';
 import { db, repo, useDocs } from '@/app/repo';
 import { forkDocument } from '@/variants/ops';
+import { makePreviews } from '@/features/workspace/previews';
 import { downloadPdf, downloadProjectZip } from '@/features/importexport/io';
 import {
   Button,
@@ -100,9 +101,11 @@ function useDocActions(doc: DocMeta) {
       icon: <Download className="size-4" />,
       separatorBefore: true,
       run: async () => {
+        // Compile first if there is no PDF yet, or the text changed since.
+        await makePreviews([doc], { quiet: true });
         const p = await db.previews.get(doc.id);
         if (p) downloadPdf(doc.name, p.pdf);
-        else toast.info('Open the document once to compile it first.');
+        else toast.error(`“${doc.name}” didn’t compile. Open it to see the problems.`);
       },
     },
     {
@@ -193,7 +196,10 @@ export function DocActionsMenu({ doc, asContextMenu, children }: { doc: DocMeta;
     return (
       <>
         <ContextMenu>
-          <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+          {/* Don't let a right-click menu around this one (the map or list background) open too. */}
+          <ContextMenuTrigger asChild onContextMenu={(e) => e.stopPropagation()}>
+            {children}
+          </ContextMenuTrigger>
           <ContextMenuContent>
             <Contained>
               {actions.map((a) => (

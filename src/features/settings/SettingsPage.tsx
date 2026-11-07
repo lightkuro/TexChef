@@ -225,6 +225,8 @@ export function SettingsPage() {
               onClick={async () => {
                 disconnectDrive();
                 await db.delete();
+                // Empty folders and map positions belong to the data too (theme and other settings stay).
+                for (const k of ['rc-empty-folders', 'rc-map-positions']) localStorage.removeItem(k);
                 location.href = '/';
               }}
             >

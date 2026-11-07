@@ -1,7 +1,7 @@
 // End-to-end check of the main flows in a real browser (Chromium via Playwright).
 // Usage: start `pnpm dev` (with TeX assets from `pnpm tex:assets`), then `pnpm e2e [baseUrl]`.
 import { chromium } from 'playwright';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { strict as assert } from 'node:assert';
 import { zipSync, strToU8, unzipSync } from 'fflate';
 
@@ -156,12 +156,27 @@ await step('editing the source recompiles the PDF', async () => {
   await cm.click();
   await page.keyboard.press('Control+Home');
   await page.keyboard.type('% edited in e2e\n');
+  // Closing the tab right now would lose keystrokes not stored yet: the browser asks first.
+  const leaveNow = () => page.evaluate(() => {
+    const e = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(e);
+    return e.defaultPrevented;
+  });
+  assert.equal(await leaveNow(), true, 'warns while typing is not stored');
   await page.waitForFunction(async () => {
     const w = await window.rc.db.work.toArray();
     return w.some((x) => x.files['main.tex']?.text?.startsWith('% edited in e2e'));
   });
+  // Stored in the browser (and no Google Drive here): closing is safe, no prompt.
+  await page.waitForFunction(() => {
+    const e = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(e);
+    return !e.defaultPrevented;
+  });
+  assert.equal((await page.getByTestId('save-state').textContent()).trim(), 'Draft saved');
   await page.getByTestId('save-version').click();
   await page.getByText('Version saved').waitFor();
+  await page.getByTestId('save-state').getByText('Saved').waitFor();
 });
 
 await step('variant builder: pick #frontend, see live preview, create variant', async () => {
@@ -275,6 +290,15 @@ await step('edit text on the PDF (and in the original too)', async () => {
   const head = await pdfPoint(v, 'Northwind Analytics');
   await page.mouse.dblclick(head.x, head.y);
   await page.waitForFunction(() => /Northwind Analytics/.test(document.querySelector('.cm-activeLine')?.textContent ?? ''));
+  await page.getByTestId('pdf-edit-box').waitFor({ state: 'detached' });
+  // Leaving with text typed in the edit box asks first.
+  await page.mouse.click(head.x, head.y);
+  await page.getByTestId('pdf-edit-input').fill('Distinguished Engineer');
+  await page.getByLabel('Back to documents').click();
+  await page.getByTestId('leave-reasons').getByText('edit box').waitFor();
+  await page.getByTestId('leave-stay').click();
+  assert.equal(await page.getByTestId('pdf-edit-input').inputValue(), 'Distinguished Engineer');
+  await page.getByTestId('pdf-edit-input').press('Escape');
   await page.getByTestId('pdf-edit-box').waitFor({ state: 'detached' });
 });
 
@@ -425,7 +449,7 @@ await step('archive hides a document until "show archived" is on', async () => {
   await page.getByTestId('view-graph').click();
 });
 
-await step('folders: create, drag in, move via menu, filter, rename, delete', async () => {
+await step('folders: create, drag in, move via menu, browse and grouped views, rename, delete', async () => {
   await page.goto(BASE);
   await page.getByTestId('folder-sidebar').waitFor();
   // New folder (opens it; it is empty).
@@ -433,27 +457,36 @@ await step('folders: create, drag in, move via menu, filter, rename, delete', as
   await page.getByTestId('folder-name').fill('Applications');
   await page.getByTestId('folder-dialog-ok').click();
   await page.getByTestId('empty-folder').waitFor();
-  // Drag a document onto it from the List view.
-  await page.getByTestId('folder-all').getByRole('button').first().click();
+  // At the top level it shows as a folder next to the documents.
+  await page.getByTestId('crumb-all').click();
   await page.getByTestId('view-list').click();
-  await page.getByTestId('doc-row-Frontend resume').dragTo(page.getByTestId('folder-Applications'));
+  await page.getByTestId('folder-row-Applications').waitFor();
+  // Drag a document onto the folder row.
+  await page.getByTestId('doc-row-Frontend resume').dragTo(page.getByTestId('folder-row-Applications'));
   await page.getByText('Moved document to “Applications”').waitFor();
-  await page.getByTestId('doc-row-Frontend resume').getByText('Applications').waitFor();
+  await page.getByTestId('doc-row-Frontend resume').waitFor({ state: 'detached' });
   // Move another one with the menu.
   await page.getByLabel('Actions for Master resume').click();
   await page.getByRole('menuitem', { name: 'Move to folder…' }).click();
   await page.getByTestId('move-to-Applications').click();
   await page.getByTestId('move-folder-ok').click();
-  // Open the folder: only its documents show, on the list and on the map.
-  await page.getByTestId('folder-Applications').getByRole('button', { name: /^Applications \d+$/ }).click();
+  await page.getByTestId('doc-row-Master resume').waitFor({ state: 'detached' });
+  await page.getByTestId('folder-row-Applications').getByText('2 documents').waitFor();
+  // "All, grouped" shows everything, grouped by folder.
+  await page.getByTestId('folder-mode-grouped').click();
+  await page.getByTestId('group-Applications').getByTestId('doc-row-Master resume').waitFor();
+  await page.getByTestId('folder-mode-browse').click();
+  // Open the folder: its documents show, on the list and on the map.
+  await page.getByTestId('folder-row-Applications').getByRole('button', { name: 'Applications', exact: true }).click();
   await page.getByTestId('doc-row-Master resume').waitFor();
   assert.equal(await page.getByTestId('doc-list').locator('[data-testid^="doc-row-"]').count(), 2);
-  assert.equal((await page.getByTestId('folder-Applications').textContent()).replace(/\D/g, ''), '2');
   await page.getByTestId('view-graph').click();
   await page.getByTestId('doc-node-Master resume').waitFor();
   assert.equal(await page.locator('.react-flow__node').count(), 2);
+  await page.getByTestId('crumb-all').click();
+  await page.getByTestId('folder-node-Applications').waitFor();
   await page.screenshot({ path: `${OUT}11-folders.png` });
-  // Rename, then delete the folder: documents are kept and leave it.
+  // Rename, then delete the folder: documents are kept and come back to the top level.
   await page.getByTestId('folder-Applications').hover();
   await page.getByLabel('Actions for folder Applications').click();
   await page.getByRole('menuitem', { name: 'Rename…' }).click();
@@ -470,6 +503,23 @@ await step('folders: create, drag in, move via menu, filter, rename, delete', as
   await page.getByTestId('folder-Jobs').waitFor({ state: 'detached' });
   await page.waitForFunction(async () => (await window.rc.repo.listDocs()).every((d) => !d.folder));
   await page.getByTestId('doc-node-Master resume').waitFor();
+});
+
+await step('right-click empty space: new folder, previews, export menu', async () => {
+  const box = await page.getByTestId('dashboard-content').boundingBox();
+  await page.mouse.click(box.x + 40, box.y + box.height - 60, { button: 'right' });
+  await page.getByRole('menuitem', { name: 'Make missing previews' }).waitFor();
+  await page.getByRole('menuitem', { name: 'Export everything' }).hover();
+  await page.getByRole('menuitem', { name: 'Backup with history (.zip)' }).waitFor();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await page.mouse.click(box.x + 40, box.y + box.height - 60, { button: 'right' });
+  await page.getByRole('menuitem', { name: 'New folder…' }).click();
+  await page.getByTestId('folder-name').fill('Scratch');
+  await page.getByTestId('folder-dialog-ok').click();
+  await page.getByTestId('crumb-Scratch').waitFor();
+  await page.getByTestId('folder-up').click();
+  await page.getByTestId('folder-node-Scratch').waitFor();
 });
 
 await step('compare side by side, copy a block across', async () => {
@@ -543,6 +593,85 @@ await step('a zip with several documents (Prism export) imports as separate docu
   await page.getByTestId('editor-page').waitFor();
   await page.getByTestId('page-count').waitFor({ timeout: 60_000 });
   assert.match(await pdfText(), /Vision paper\. Section text\./);
+});
+
+/** What a restore must bring back: documents with their details, history and drafts. */
+const snapshot = () =>
+  page.evaluate(async () => {
+    const { repo, db } = window.rc;
+    const docs = (await repo.listDocs()).filter((d) => !d.deleted).sort((a, b) => a.id.localeCompare(b.id));
+    const work = {};
+    for (const d of docs) work[d.id] = (await repo.getWork(d.id)).files['main.tex']?.text ?? null;
+    return {
+      docs: docs.map((d) => ({ id: d.id, name: d.name, folder: d.folder ?? null, parent: d.parent ?? null, head: d.head, recipe: d.recipe ?? null, color: d.color ?? null, archived: !!d.archived })),
+      // Versions of the documents that exist (a deleted document is not backed up).
+      commits: (await db.commits.toArray()).filter((c) => docs.some((d) => d.id === c.docId)).length,
+      work,
+    };
+  });
+
+await step('full backup: export, wipe, restore everything (zip, then a folder with outside edits)', async () => {
+  await page.goto(BASE);
+  // A draft that is not a saved version yet must survive too.
+  const draftId = masterUrl.split('/doc/')[1];
+  await page.evaluate(async (id) => {
+    const { repo } = window.rc;
+    const t = (await repo.getWork(id)).files['main.tex'].text;
+    await repo.writeWorkText(id, 'main.tex', t + '\n% draft not saved as a version\n');
+  }, draftId);
+  const before = await snapshot();
+  assert.ok(before.docs.length >= 5 && before.docs.some((d) => d.folder));
+  await page.getByTestId('folder-all').getByRole('button').first().click();
+  await page.getByTestId('export-menu').click();
+  const dl = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Backup with history (.zip)' }).click();
+  const zipPath = `${OUT}backup.zip`;
+  await (await dl).saveAs(zipPath);
+  const entries = unzipSync(new Uint8Array(readFileSync(zipPath)));
+  assert.ok(entries['.texchef/backup.json'] && entries['.texchef/commits.json']);
+  // The readable projects are untouched LaTeX.
+  const masterTex = Object.keys(entries).find((p) => /^Master resume\/main\.tex$/.test(p));
+  assert.ok(masterTex, 'readable Master resume/main.tex');
+  assert.match(new TextDecoder().decode(entries[masterTex]), /% draft not saved as a version/);
+
+  const wipe = async () => {
+    await page.evaluate(async () => {
+      await window.rc.db.delete();
+      localStorage.removeItem('rc-empty-folders');
+      localStorage.removeItem('rc-map-positions');
+    });
+    await page.goto(BASE);
+    await page.getByText('One master resume, many tailored versions').waitFor();
+  };
+  await wipe();
+  await page.getByTestId('upload-input').setInputFiles(zipPath);
+  await page.getByTestId('restore-summary').waitFor();
+  await page.getByTestId('restore-backup').click();
+  await page.getByText(/^Restored \d+ documents/).waitFor();
+  const after = await snapshot();
+  assert.deepEqual(after.docs, before.docs);
+  assert.equal(after.commits, before.commits);
+  assert.deepEqual(after.work, before.work);
+
+  // Edit a project outside texChef, then restore the backup from a folder: the edit comes in as a change.
+  const dir = `${OUT}backup-folder/texChef backup`;
+  rmSync(`${OUT}backup-folder`, { recursive: true, force: true });
+  for (const [p, data] of Object.entries(entries)) {
+    mkdirSync(`${dir}/${p.split('/').slice(0, -1).join('/')}`, { recursive: true });
+    writeFileSync(`${dir}/${p}`, p === masterTex ? new TextDecoder().decode(data).replace('Jordan Rivera', 'Jordan Q. Rivera') : data);
+  }
+  await wipe();
+  await page.getByTestId('upload-folder-input').setInputFiles(dir);
+  await page.getByTestId('restore-backup').click();
+  await page.getByText(/^Restored \d+ documents/).waitFor();
+  const edited = await page.evaluate(async (id) => {
+    const w = await window.rc.repo.getWork(id);
+    return { text: w.files['main.tex'].text, dirty: w.dirty };
+  }, draftId);
+  assert.match(edited.text, /Jordan Q\. Rivera/);
+  assert.equal(edited.dirty, true);
+  const again = await snapshot();
+  assert.deepEqual(again.docs, before.docs);
 });
 
 assert.deepEqual(errors.filter((e) => !/ResizeObserver/.test(e)), [], 'page errors');

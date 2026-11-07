@@ -8,7 +8,11 @@ focused variants from it** — and keep them linked.
 - **Edit on the PDF.** Turn on *Edit text* and click any sentence in the PDF to change it as plain text; texChef finds the LaTeX behind it (SyncTeX + text matching), rewrites only the changed characters, escapes `& % $ # _`, and keeps formatting. Optionally makes the same change in the variant's original.
 - **Source ↔ PDF sync (SyncTeX).** Double-click the PDF to jump to the source line; the locate button highlights the cursor's line in the PDF.
 - **Version history.** Every save is an immutable version; restore, branch from, download or compare any of them.
-- **Folders.** Group documents into (nested) folders on the home page; drag from the list or use *Move to folder*; folders sync with the documents.
+- **Folders.** Nested folders on the home page, browsed like a file manager (folder cards on the map, folder rows in the list, a path bar) or shown all at once, grouped; drag documents onto folders; folders sync with the documents.
+- **Right-click menus** on documents, folders and empty space (new, upload, previews, export, view and layout options).
+- **Previews.** Compile every document in a folder that has no (or an old) preview in one go, so the map shows its pages.
+- **Export and backup.** PDFs or LaTeX projects of a folder or everything as a .zip, and a full *backup with history* (.zip or written to a folder) that keeps the LaTeX projects untouched and puts versions, drafts, folders, variant links and previews in a `.texchef/` folder; uploading it restores everything, including edits made outside texChef.
+- **Saving.** Edits are kept as you type, versions are made on save and after a minute idle, and texChef warns before leaving when something would be lost.
 - **Map.** A family tree of documents (master → variants → sub‑variants), left to right or top down, with straight or right‑angled lines, update counts by each arrow, full‑page card previews, drag‑to‑arrange with optional grid snapping, and git‑style version swimlanes.
 - **Side‑by‑side compare & edit.** Any two documents (or versions); both sides editable, per‑change copy arrows, copy whole blocks across, PDFs side by side.
 - **Bring your own storage.** Everything lives in your browser (IndexedDB) and, if you connect it, your own Google Drive using the narrow `drive.file` permission. There is no texChef server.

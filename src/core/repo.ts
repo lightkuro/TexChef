@@ -48,6 +48,12 @@ export class Repo {
     return () => this.listeners.get(event)?.delete(fn);
   }
 
+  /** Tell listeners (sync, UI) that documents or history changed outside the usual methods (e.g. a restore). */
+  notifyChanged() {
+    this.emit('commit');
+    this.emit('index');
+  }
+
   private emit(event: RepoEvent) {
     this.listeners.get(event)?.forEach((fn) => fn());
   }

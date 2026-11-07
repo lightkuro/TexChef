@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
+import { LeaveGuard } from '@/app/unsaved';
 import { createBrowserRouter, RouterProvider, Outlet, useParams, useNavigate } from 'react-router';
 import { Toaster, toast } from 'sonner';
 import { AlertTriangle } from 'lucide-react';
@@ -129,6 +130,7 @@ function Root() {
           <Outlet />
         </Suspense>
       </div>
+      <LeaveGuard />
       <Toaster position="bottom-right" richColors closeButton theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'} />
     </TooltipProvider>
   );
