@@ -1,3 +1,5 @@
+import { joinPath, normalizePath } from '@/lib/paths';
+
 /**
  * Minimal SyncTeX reader for click-to-source (PDF → line) and locate-in-PDF (line → boxes).
  * Coordinates are converted to PDF points (bp) with the origin at the top-left of the page.
@@ -32,12 +34,15 @@ export interface SyncRect {
 
 const RECORD_RE = /^([[(vhxkg$])(\d+),(\d+)(?:,-?\d+)?:(-?\d+),(-?\d+)(?::(-?\d+)(?:,(-?\d+),(-?\d+))?)?/;
 
-/** Map a SyncTeX input path to a project-relative path, or null for TeX Live files. */
-function projectPath(path: string): string | null {
-  const m = /project_dir\/(?:\.\/)?(.+)$/.exec(path);
-  if (m) return m[1].replace(/^\.\//, '');
-  if (path.startsWith('/texlive/') || path.startsWith('/')) return null;
-  return path.replace(/^\.\//, '');
+/**
+ * Map a SyncTeX input path to a project-relative path, or null for TeX Live files. TeX runs in the
+ * main file's folder, so paths look like ".../project_dir/vision/./main.tex" or "./part.tex".
+ */
+function projectPath(path: string, baseDir: string): string | null {
+  const m = /project_dir\/(.+)$/.exec(path);
+  if (m) return normalizePath(m[1]);
+  if (path.startsWith('/')) return null;
+  return joinPath(baseDir, path);
 }
 
 export async function decodeSynctex(bytes: Uint8Array): Promise<string> {
@@ -47,7 +52,8 @@ export async function decodeSynctex(bytes: Uint8Array): Promise<string> {
   return new Response(stream).text();
 }
 
-export function parseSynctex(text: string): SyncData {
+/** `baseDir`: folder of the main file within the project ("" when it is at the top). */
+export function parseSynctex(text: string, baseDir = ''): SyncData {
   const inputs = new Map<string, string | null>();
   let unit = 1;
   let mag = 1000;
@@ -61,7 +67,7 @@ export function parseSynctex(text: string): SyncData {
     if (!content) {
       if (line.startsWith('Input:')) {
         const [, tag, ...rest] = line.split(':');
-        inputs.set(tag, projectPath(rest.join(':')));
+        inputs.set(tag, projectPath(rest.join(':'), baseDir));
       } else if (line.startsWith('Unit:')) unit = Number(line.slice(5)) || 1;
       else if (line.startsWith('Magnification:')) mag = Number(line.slice(14)) || 1000;
       else if (line.startsWith('X Offset:')) xOff = Number(line.slice(9)) || 0;
@@ -77,7 +83,7 @@ export function parseSynctex(text: string): SyncData {
     }
     if (line.startsWith('Input:')) {
       const [, tag, ...rest] = line.split(':');
-      inputs.set(tag, projectPath(rest.join(':')));
+      inputs.set(tag, projectPath(rest.join(':'), baseDir));
       continue;
     }
     const m = RECORD_RE.exec(line);

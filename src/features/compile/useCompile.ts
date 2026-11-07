@@ -121,10 +121,12 @@ export function useAutoCompile(opts: {
   const latest = useRef(opts);
   latest.current = opts;
 
-  const compileNow = useCallback(async () => {
+  /** Compile now. Pass `files` when they may be newer than the last render (e.g. right after a save). */
+  const compileNow = useCallback(async (files?: FileMap) => {
     const o = latest.current;
-    if (!o.files || !o.mainFile || !o.engine) return undefined;
-    return compileFiles({ key: o.key, files: o.files, mainFile: o.mainFile, engine: o.engine, savePreviewAs: o.savePreviewAs });
+    const f = files ?? o.files;
+    if (!f || !o.mainFile || !o.engine) return undefined;
+    return compileFiles({ key: o.key, files: f, mainFile: o.mainFile, engine: o.engine, savePreviewAs: o.savePreviewAs });
   }, []);
 
   useEffect(() => {

@@ -4,7 +4,8 @@ import { Plus, Upload, Network, List, GitCommitHorizontal, Download, CloudDownlo
 import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
-import { importAsNewDocument, downloadAllPdfs } from '@/features/importexport/io';
+import { createDocumentFromProject, downloadAllPdfs, planImport, type ImportPlan } from '@/features/importexport/io';
+import { BundleImportDialog } from '@/features/importexport/BundleImportDialog';
 import { FamilyGraph } from '@/features/graph/FamilyGraph';
 import { VersionGraph } from '@/features/graph/VersionGraph';
 import { DocList } from './DocList';
@@ -47,6 +48,7 @@ export function Dashboard() {
   const [query, setQuery] = useState('');
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [bundle, setBundle] = useState<ImportPlan | null>(null);
   const view = usePrefs((s) => s.dashboardView);
   const graphMode = usePrefs((s) => s.graphMode);
   const showAutosaves = usePrefs((s) => s.showAutosaves);
@@ -71,7 +73,14 @@ export function Dashboard() {
     if (!files.length) return;
     setBusy(true);
     try {
-      const doc = await importAsNewDocument(files);
+      const plan = await planImport(files);
+      if (!plan.projects.length) throw new Error('Nothing to import in this upload');
+      // Several documents in one upload (e.g. a Prism export): let the user pick.
+      if (plan.projects.length > 1) {
+        setBundle(plan);
+        return;
+      }
+      const doc = await createDocumentFromProject(plan.projects[0]);
       toast.success(`Imported “${doc.name}”`);
       navigate(`/doc/${doc.id}`);
     } catch (e) {
@@ -200,6 +209,7 @@ export function Dashboard() {
         ) : (
           <VersionGraph docs={filtered} showAutosaves={showAutosaves} />
         )}
+        {bundle && <BundleImportDialog plan={bundle} onClose={() => setBundle(null)} />}
         {dragging && (
           <div className="pointer-events-none absolute inset-3 flex items-center justify-center rounded-2xl border-2 border-dashed border-accent bg-accent-soft/80 text-lg font-medium text-accent">
             Drop .tex or .zip files to import

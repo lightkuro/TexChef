@@ -1,3 +1,5 @@
+import { dirname, joinPath, normalizePath } from '@/lib/paths';
+
 export type Severity = 'error' | 'warning' | 'info';
 
 export interface Diagnostic {
@@ -19,6 +21,14 @@ export function parseTexLog(log: string, projectFiles: string[] = [], mainFile =
   const lines = log.split(/\r?\n/);
   const out: Diagnostic[] = [];
   const project = new Set(projectFiles);
+  // TeX runs in the main file's folder, so the log names files relative to it.
+  const baseDir = dirname(mainFile);
+  const resolve = (p: string): string | undefined => {
+    const fromMain = joinPath(baseDir, p);
+    if (project.has(fromMain)) return fromMain;
+    const plain = normalizePath(p);
+    return project.has(plain) ? plain : undefined;
+  };
   let currentFile = mainFile;
   const seen = new Set<string>();
   const push = (d: Diagnostic) => {
@@ -31,12 +41,13 @@ export function parseTexLog(log: string, projectFiles: string[] = [], mainFile =
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     for (const m of line.matchAll(OPEN_FILE_RE)) {
-      if (project.has(m[1])) currentFile = m[1];
+      const f = resolve(m[1]);
+      if (f) currentFile = f;
     }
 
     const fle = /^(?:\.\/)?([^:\s]+\.tex):(\d+): (.*)$/.exec(line);
     if (fle) {
-      push({ severity: 'error', file: fle[1], line: Number(fle[2]), message: fle[3].trim() });
+      push({ severity: 'error', file: resolve(fle[1]) ?? fle[1], line: Number(fle[2]), message: fle[3].trim() });
       continue;
     }
 

@@ -32,7 +32,7 @@ export const TOPICS: Topic[] = [
               On the home page, click <b>New document</b> and pick <b>Master resume</b>. It opens in the editor and compiles to a PDF on the right.
             </>,
             <>
-              Edit the text in the middle, or click <b>Edit text</b> above the PDF and click any sentence in the PDF to change it there. See{' '}
+              Edit the text in the middle, or click any sentence in the PDF to change it right there. See{' '}
               <HelpLink to="edit-on-pdf">Editing on the PDF</HelpLink>.
             </>,
             <>
@@ -85,13 +85,14 @@ export const TOPICS: Topic[] = [
     body: () => (
       <>
         <P>
-          For small fixes (a typo, a date, a number in a bullet) you do not need to find the line in the LaTeX. Click <b>Edit text</b> in the bar
-          above the PDF, then click the words you want to change.
+          For small fixes (a typo, a date, a number in a bullet) you do not need to find the line in the LaTeX: click the words in the PDF. This
+          is on by default; <b>Edit text</b> in the bar above the PDF turns it off and on.
         </P>
         <Steps
           items={[
             <>
-              Click <b>Edit text</b>. Text under the mouse is outlined; the PDF stops recompiling while you edit, so nothing moves under your cursor.
+              Move the mouse over the PDF: the line under it is outlined. While an edit box is open, the PDF waits, so nothing moves under your
+              cursor.
             </>,
             <>
               Click a sentence. A box opens under it with the text as plain words: no backslashes or braces. The matching piece of the PDF is
@@ -101,9 +102,9 @@ export const TOPICS: Topic[] = [
               Change the text and press <Kbd>Enter</Kbd> (or <b>Save</b>). <Kbd>Esc</Kbd> cancels.
             </>,
             <>
-              Changed spots get an orange <b>edited</b> outline. Keep clicking and editing; when you are ready, click <b>Update PDF</b>, or{' '}
-              <b>Done</b> to leave edit mode (with auto-compile on, the PDF then updates by itself). Prefer to see each change right away? Tick{' '}
-              <b>Update after each save</b> in the bar above the PDF; texChef remembers the choice.
+              With <b>Update PDF after saving</b> ticked (at the bottom of the box, on by default) the PDF recompiles straight away. Untick it to
+              collect several changes first: they get an orange <b>edited</b> outline, and a bar above the PDF offers <b>Update PDF</b> when you
+              are ready. texChef remembers the choice.
             </>,
           ]}
         />
@@ -636,6 +637,10 @@ export const TOPICS: Topic[] = [
             works as is; the file with <C>\documentclass</C> becomes the main file.
           </li>
           <li>
+            A .zip holding <b>several documents</b>, such as an export of all your <b>Prism</b> projects, is recognised: each folder with its own
+            main .tex file becomes a separate document, with its images and other files. A list lets you untick or rename them before importing.
+          </li>
+          <li>
             <b>Import from Drive</b> (when Drive is connected) opens Google’s file picker. texChef can only read files you pick there.
           </li>
           <li>
@@ -787,10 +792,10 @@ texChef/
             [<Kbd>Tab</Kbd>, 'Indent; also accepts a suggestion'],
             [<Kbd>\</Kbd>, 'Start typing a command to get suggestions'],
             [<C>%% @</C>, 'Suggests a block snippet'],
-            ['Double-click the PDF', 'Jump to the source line'],
             [<>Edit text, then click the PDF</>, 'Change that text in place'],
             [<Kbd>Enter</Kbd>, 'Save an edit made on the PDF (Ctrl/⌘ Enter in the LaTeX tab)'],
-            [<Kbd>Esc</Kbd>, 'Close the edit box; press again to stop editing on the PDF'],
+            [<Kbd>Esc</Kbd>, 'Close the edit box'],
+            ['Double-click the PDF (also while editing on it)', 'Jump to the source line'],
           ]}
         />
         <H2>Tips</H2>

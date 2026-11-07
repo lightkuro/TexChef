@@ -209,32 +209,38 @@ await step('edit master, then pull the update into the variant', async () => {
   assert.doesNotMatch(text, /streaming ingestion/);
 });
 
-await step('edit text on the PDF (and in the original too)', async () => {
-  const v = variantUrl.split('/doc/')[1];
-  const m = masterUrl.split('/doc/')[1];
-  await page.getByTestId('pdf-edit-toggle').click();
-  await page.getByTestId('pdf-edit-banner').getByText('Click any text in the PDF').waitFor();
-  // Turning editing on brings the PDF up to date with the text first.
-  await page.waitForFunction(
-    async (v) => {
+const pdfHas = (v, re) =>
+  page.waitForFunction(
+    async ([v, src]) => {
       const e = window.rcCompile.getState().entries[v];
       if (!e?.output?.pdf || e.running) return false;
       const { pdfText } = await import('/src/compile/pdf.ts');
-      return /75%/.test(await pdfText(e.output.pdf));
+      return new RegExp(src).test(await pdfText(e.output.pdf));
     },
-    v,
+    [v, re.source],
     { timeout: 60_000, polling: 500 },
   );
+
+await step('edit text on the PDF (and in the original too)', async () => {
+  const v = variantUrl.split('/doc/')[1];
+  const m = masterUrl.split('/doc/')[1];
+  // Edit text is on by default.
+  assert.equal(await page.getByTestId('pdf-edit-toggle').getAttribute('aria-pressed'), 'true');
+  // Auto-compile still works in edit mode: the variant's PDF catches up with the update it just got.
+  await pdfHas(v, /75%/);
   const at = await pdfPoint(v, 'customer dashboard');
   assert.ok(at, 'bullet found in the PDF');
   await page.mouse.click(at.x, at.y);
   const input = page.getByTestId('pdf-edit-input');
   await input.waitFor();
   assert.equal(await input.inputValue(), 'Rebuilt the customer dashboard in React and TypeScript, improving load time by 75%.');
+  // "Update PDF after saving" sits in the box and is on by default; turn it off to collect changes first.
+  assert.equal(await page.getByTestId('pdf-edit-auto').getAttribute('aria-checked'), 'true');
+  await page.getByTestId('pdf-edit-auto').click();
   await input.fill('Rebuilt the customer dashboard in React & TypeScript, improving load time by 80%.');
   await page.getByLabel('Also change it in Master resume').click();
   await page.screenshot({ path: `${OUT}08-edit-on-pdf.png` });
-  await page.keyboard.press('Enter');
+  await page.getByTestId('pdf-edit-save').click();
   await page.getByTestId('pdf-edit-pending').first().waitFor();
   await page.getByTestId('pdf-edit-banner').getByText('1 change').waitFor();
   const want = /\\rcItem\{Rebuilt the customer dashboard in React \\& TypeScript, improving load time by 80\\%\.\}/;
@@ -242,31 +248,34 @@ await step('edit text on the PDF (and in the original too)', async () => {
   for (const id of [v, m]) await page.waitForFunction(async (id) => /80\\%/.test((await window.rc.repo.getWork(id)).files['main.tex'].text), id);
   assert.match(await workText(v), want);
   assert.match(await workText(m), want);
+  // While changes wait, auto-compile holds off; Update PDF brings them in.
+  await page.waitForTimeout(2500);
+  await page.getByTestId('pdf-edit-pending').first().waitFor();
   await page.getByTestId('pdf-edit-update').click();
   await page.getByTestId('pdf-edit-pending').first().waitFor({ state: 'detached', timeout: 60_000 });
-  await page.getByTestId('pdf-edit-banner').getByText('Click any text in the PDF').waitFor();
+  await page.getByTestId('pdf-edit-banner').waitFor({ state: 'detached' });
   assert.match(await pdfText(), /React & TypeScript, improving\s+load\s+time\s+by\s+80%/);
-  // With "Update after each save" on, a saved change reaches the PDF by itself.
-  await page.getByTestId('pdf-edit-auto').click();
-  assert.equal(await page.getByTestId('pdf-edit-update').count(), 0);
+  // With "Update PDF after saving" on, a saved change reaches the PDF right away.
   const role = await pdfPoint(v, 'Senior Software Engineer');
   await page.mouse.click(role.x, role.y);
+  await page.getByTestId('pdf-edit-input').waitFor();
+  await page.getByTestId('pdf-edit-auto').click();
   await page.getByTestId('pdf-edit-input').fill('Staff Software Engineer');
   await page.keyboard.press('Enter');
-  await page.waitForFunction(
-    async (v) => {
-      const e = window.rcCompile.getState().entries[v];
-      if (!e?.output?.pdf || e.running) return false;
-      const { pdfText } = await import('/src/compile/pdf.ts');
-      return /Staff Software Engineer/.test(await pdfText(e.output.pdf));
-    },
-    v,
-    { timeout: 60_000, polling: 500 },
-  );
+  await pdfHas(v, /Staff Software Engineer/);
   await page.getByTestId('pdf-edit-pending').first().waitFor({ state: 'detached' });
-  await page.getByTestId('pdf-edit-auto').click();
-  await page.getByTestId('pdf-edit-done').click();
-  await page.getByTestId('pdf-edit-banner').waitFor({ state: 'detached' });
+  assert.equal(await page.getByTestId('pdf-edit-banner').count(), 0);
+  // Edits right after one another each reach the PDF (no stale compile).
+  const role2 = await pdfPoint(v, 'Staff Software Engineer');
+  await page.mouse.click(role2.x, role2.y);
+  await page.getByTestId('pdf-edit-input').fill('Principal Software Engineer');
+  await page.keyboard.press('Enter');
+  await pdfHas(v, /Principal Software Engineer/);
+  // Double-clicking still jumps to the source in edit mode.
+  const head = await pdfPoint(v, 'Northwind Analytics');
+  await page.mouse.dblclick(head.x, head.y);
+  await page.waitForFunction(() => /Northwind Analytics/.test(document.querySelector('.cm-activeLine')?.textContent ?? ''));
+  await page.getByTestId('pdf-edit-box').waitFor({ state: 'detached' });
 });
 
 await step('map shows master → variant with a straight line and the updates by the arrow', async () => {
@@ -462,6 +471,31 @@ await step('compile errors are reported with line numbers', async () => {
   }, page.url().split('/doc/')[1]);
   await page.getByTestId('problems').getByText(/Undefined control sequence/).waitFor({ timeout: 30_000 });
   await page.getByTestId('problems').getByText('main.tex:3').waitFor();
+});
+
+await step('a zip with several documents (Prism export) imports as separate documents', async () => {
+  const zip = zipSync({
+    'prism-export/vision/main.tex': strToU8('\\documentclass{article}\n\\begin{document}\nVision paper.\n\\input{sec}\n\\end{document}\n'),
+    'prism-export/vision/sec.tex': strToU8('Section text.\n'),
+    'prism-export/resume/resume.tex': strToU8('\\documentclass{article}\n\\begin{document}\nResume doc.\n\\end{document}\n'),
+    'prism-export/README.md': strToU8('exported'),
+  });
+  writeFileSync(`${OUT}bundle.zip`, zip);
+  await page.goto(BASE);
+  await page.getByTestId('upload-input').setInputFiles(`${OUT}bundle.zip`);
+  const list = page.getByTestId('bundle-list');
+  await list.waitFor();
+  assert.equal(await list.getByRole('checkbox').count(), 2);
+  await page.getByRole('dialog').getByText('README.md').waitFor();
+  await page.screenshot({ path: `${OUT}10-bundle.png` });
+  await page.getByTestId('bundle-import').click();
+  await page.getByText('Imported 2 documents').waitFor();
+  await page.getByTestId('view-list').click();
+  await page.getByTestId('doc-list').getByText('resume', { exact: true }).waitFor();
+  await page.getByTestId('doc-list').getByText('vision', { exact: true }).click();
+  await page.getByTestId('editor-page').waitFor();
+  await page.getByTestId('page-count').waitFor({ timeout: 60_000 });
+  assert.match(await pdfText(), /Vision paper\. Section text\./);
 });
 
 assert.deepEqual(errors.filter((e) => !/ResizeObserver/.test(e)), [], 'page errors');

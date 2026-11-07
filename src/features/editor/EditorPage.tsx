@@ -34,10 +34,11 @@ import { PdfViewer } from '@/features/preview/PdfViewer';
 import { ProblemsPanel } from '@/features/preview/ProblemsPanel';
 import { isUpToDate, useAutoCompile, useEngineStatus } from '@/features/compile/useCompile';
 import { downloadPdf, downloadProjectZip, downloadText } from '@/features/importexport/io';
-import { Badge, Button, Checkbox, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Select, Spinner, Tip } from '@/components/ui';
+import { Badge, Button, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Select, Spinner, Tip } from '@/components/ui';
 import { EngineBanner } from '@/features/compile/EngineBanner';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { cn, docColor, formatBytes } from '@/lib/utils';
+import { dirname } from '@/lib/paths';
 import { usePrefs } from '@/app/prefs';
 import { ColorDialog } from '@/features/dashboard/ColorDialog';
 import { decodeSynctex, parseSynctex, pdfToSource, sourceToPdf, type SyncData, type SyncRect } from '@/compile/synctex';
@@ -65,7 +66,9 @@ export function EditorPage() {
   const pending = useRef(new Map<string, string>());
   const [, force] = useState(0);
   const preview = usePreview(id);
-  const [pdfEditing, setPdfEditing] = useState(false);
+  const pdfEditing = usePrefs((s) => s.pdfEditMode);
+  // Set while an edit box is open on the PDF, or edits wait for "Update PDF": auto-compile holds off.
+  const [editHold, setEditHold] = useState(false);
 
   const path = activePath && work?.files[activePath] ? activePath : doc?.mainFile ?? null;
   const pathRef = useRef(path);
@@ -88,7 +91,7 @@ export function EditorPage() {
     mainFile: doc?.mainFile,
     engine: doc?.engine,
     // While editing on the PDF, keep the page still: the PDF updates when the user asks.
-    auto: autoCompile && !pdfEditing,
+    auto: autoCompile && !editHold,
     savePreviewAs: id,
   });
   const pdf = entry?.output?.pdf ?? preview?.pdf;
@@ -106,22 +109,22 @@ export function EditorPage() {
       return;
     }
     void decodeSynctex(synctexBytes)
-      .then((t) => !cancelled && setSync(parseSynctex(t)))
+      .then((t) => !cancelled && setSync(parseSynctex(t, dirname(doc?.mainFile ?? ''))))
       .catch(() => !cancelled && setSync(null));
     return () => {
       cancelled = true;
     };
-  }, [synctexBytes]);
+  }, [synctexBytes, doc?.mainFile]);
 
   // Keep the cursor's line highlighted in the PDF (lines that print nothing, like the preamble, show nothing).
   useEffect(() => {
-    if (!followCursor || !sync || !path || cursorLine === undefined || pdfEditing) {
+    if (!followCursor || !sync || !path || cursorLine === undefined) {
       setCursorRects(undefined);
       return;
     }
     const t = setTimeout(() => setCursorRects(sourceToPdf(sync, path, cursorLine, 3)), 120);
     return () => clearTimeout(t);
-  }, [followCursor, sync, path, cursorLine, pdfEditing]);
+  }, [followCursor, sync, path, cursorLine]);
 
   const writeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flush = useCallback(async () => {
@@ -154,8 +157,9 @@ export function EditorPage() {
   const compile = useCallback(async () => {
     await flush();
     force((n) => n + 1);
-    void compileNow();
-  }, [compileNow, flush]);
+    // Read the files back after saving: the last render may not have seen the newest text yet.
+    void compileNow(id ? (await repo.getWork(id)).files : undefined);
+  }, [compileNow, flush, id]);
 
   // ---- Edit on the PDF --------------------------------------------------------------------
   const readSources = useCallback(async () => {
@@ -220,23 +224,41 @@ export function EditorPage() {
       if (i < 0 || f.text.indexOf(newText, i + 1) >= 0) return;
       await repo.writeWorkText(parent.id, p, f.text.slice(0, i) + oldText + f.text.slice(i + newText.length));
     },
-    onExit: () => stopPdfEditing(),
     autoUpdate: pdfEditAutoUpdate,
+    onAutoUpdateChange: (on) => {
+      setPref({ pdfEditAutoUpdate: on });
+      if (on && pdfEdit.pendingCount > 0) void compile();
+    },
     onSaved: () => {
       if (pdfEditAutoUpdate) void compile();
     },
   });
 
+  useEffect(() => {
+    setEditHold(pdfEditing && (pdfEdit.boxOpen || (pdfEdit.pendingCount > 0 && !pdfEditAutoUpdate)));
+  }, [pdfEditing, pdfEdit.boxOpen, pdfEdit.pendingCount, pdfEditAutoUpdate]);
+
   const startPdfEditing = () => {
-    setPdfEditing(true);
+    setPref({ pdfEditMode: true });
     // Edit on a PDF that matches the text: catch up first if a compile is due.
     if (id && doc && !isUpToDate(id, files, doc.mainFile, doc.engine) && !entry?.running) void compile();
   };
 
   const stopPdfEditing = () => {
-    setPdfEditing(false);
+    setPref({ pdfEditMode: false });
     // With auto-compile on, the PDF catches up by itself once editing ends.
     if (pdfEdit.pendingCount > 0 && !autoCompile) void compile();
+  };
+
+  const jumpToSource = ({ page, x, y }: { page: number; x: number; y: number }) => {
+    if (!sync) {
+      toast.info('Compile once to enable jumping from the PDF to the source.');
+      return;
+    }
+    const hit = pdfToSource(sync, page, x, y);
+    if (!hit || !work?.files[hit.file]) return;
+    if (hit.file !== path) setActivePath(hit.file);
+    setTimeout(() => editor.current?.goto(hit.line), hit.file !== path ? 60 : 0);
   };
 
   if (doc === null) {
@@ -433,63 +455,33 @@ export function EditorPage() {
             cursorRects={cursorRects}
             pageOverlay={pdfEditing ? pdfEdit.renderPage : undefined}
             banner={
-              pdfEditing ? (
+              pdfEditing && pdf && pdfEdit.pendingCount > 0 && !pdfEditAutoUpdate ? (
                 <div className="flex shrink-0 items-center gap-2 border-b border-line bg-accent-soft px-3 py-1.5 text-xs" data-testid="pdf-edit-banner">
                   <PencilLine className="size-3.5 shrink-0 text-accent" />
                   <span className="min-w-0 flex-1">
-                    {!pdf ? (
-                      'Compile once to see the PDF, then click any text in it to change it.'
-                    ) : pdfEdit.pendingCount > 0 ? (
-                      <>
-                        <b>
-                          {pdfEdit.pendingCount} change{pdfEdit.pendingCount === 1 ? '' : 's'}
-                        </b>{' '}
-                        not in the PDF yet.
-                      </>
-                    ) : (
-                      'Click any text in the PDF to change it.'
-                    )}
+                    <b>
+                      {pdfEdit.pendingCount} change{pdfEdit.pendingCount === 1 ? '' : 's'}
+                    </b>{' '}
+                    not in the PDF yet.
                   </span>
-                  <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-muted" title="Recompile the PDF after every saved change">
-                    <Checkbox
-                      checked={pdfEditAutoUpdate}
-                      onCheckedChange={(on) => {
-                        setPref({ pdfEditAutoUpdate: on });
-                        if (on && pdfEdit.pendingCount > 0) void compile();
-                      }}
-                      aria-label="Update the PDF after each save"
-                      data-testid="pdf-edit-auto"
-                    />
-                    Update after each save
-                  </label>
-                  {pdfEdit.pendingCount > 0 && !pdfEditAutoUpdate && (
-                    <Button size="sm" variant="primary" className="h-6" onClick={compile} disabled={entry?.running} data-testid="pdf-edit-update">
-                      {entry?.running ? <Spinner /> : <Play className="size-3" />} Update PDF
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" className="h-6" onClick={stopPdfEditing} data-testid="pdf-edit-done">
-                    Done
+                  <Button size="sm" variant="primary" className="h-6" onClick={compile} disabled={entry?.running} data-testid="pdf-edit-update">
+                    {entry?.running ? <Spinner /> : <Play className="size-3" />} Update PDF
                   </Button>
                 </div>
               ) : null
             }
-            onSyncClick={pdfEditing ? undefined : ({ page, x, y }) => {
-              if (!sync) {
-                toast.info('Compile once to enable jumping from the PDF to the source.');
-                return;
-              }
-              const hit = pdfToSource(sync, page, x, y);
-              if (!hit || !work.files[hit.file]) return;
-              if (hit.file !== path) setActivePath(hit.file);
-              setTimeout(() => editor.current?.goto(hit.line), hit.file !== path ? 60 : 0);
+            onSyncClick={(p) => {
+              // In edit mode the first click of a double-click opens the edit box: close it and jump instead.
+              if (pdfEditing) pdfEdit.close();
+              jumpToSource(p);
             }}
             actions={
               <>
-              <Tip content={pdfEditing ? 'Stop editing on the PDF' : 'Click text in the PDF to change it'}>
+              <Tip content={pdfEditing ? 'On: click text in the PDF to change it. Click to turn off.' : 'Click text in the PDF to change it'}>
                 <Button
                   size="sm"
-                  variant={pdfEditing ? 'primary' : 'ghost'}
-                  className="h-7 gap-1 px-2 text-xs"
+                  variant="ghost"
+                  className={cn('h-7 gap-1 px-2 text-xs', pdfEditing && 'bg-accent-soft text-accent hover:bg-accent-soft')}
                   onClick={() => (pdfEditing ? stopPdfEditing() : startPdfEditing())}
                   aria-pressed={pdfEditing}
                   data-testid="pdf-edit-toggle"

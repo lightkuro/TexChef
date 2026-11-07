@@ -22,6 +22,8 @@ interface Prefs {
   followCursor: boolean;
   /** PDF preview zoom when not zoomed by hand: page width, or the whole page. */
   pdfFit: 'width' | 'page';
+  /** Clicking text in the PDF opens an edit box ("Edit text" in the PDF toolbar). */
+  pdfEditMode: boolean;
   /** When editing text on the PDF, recompile after every saved change instead of on "Update PDF". */
   pdfEditAutoUpdate: boolean;
   theme: Theme;
@@ -65,7 +67,8 @@ export const usePrefs = create<Prefs>((set, get) => ({
   autoCompile: true,
   followCursor: true,
   pdfFit: 'width',
-  pdfEditAutoUpdate: false,
+  pdfEditMode: true,
+  pdfEditAutoUpdate: true,
   theme: 'system',
   palette: 'forest',
   graphMode: 'family',

@@ -26,10 +26,9 @@ export interface PdfEditOptions {
   original?: { id: string; name: string; readText: (path: string) => Promise<string | undefined> };
   applyToOriginal?: (path: string, variantText: string, unitStart: number, oldText: string, newText: string) => Promise<boolean>;
   revertOriginal?: (path: string, oldText: string, newText: string) => Promise<void>;
-  /** Leave edit mode (Esc with no edit box open). */
-  onExit: () => void;
-  /** Recompile after each saved change. */
+  /** Recompile after each saved change (the checkbox in the edit box). */
   autoUpdate?: boolean;
+  onAutoUpdateChange?: (on: boolean) => void;
   /** Called after a change (and any change to the original) has been written. */
   onSaved?: () => void;
 }
@@ -108,6 +107,9 @@ export function usePdfEdit(opts: PdfEditOptions) {
   const [pending, setPending] = useState<Pending[]>([]);
   const [alsoOriginal, setAlsoOriginal] = useState(false);
   const nextId = useRef(1);
+  // Bumped when the box is closed from outside (e.g. a double-click jumps to the source), so a
+  // click that is still looking up its text doesn't open the box afterwards.
+  const clickToken = useRef(0);
 
   // Once the PDF is compiled from the current text, the "not in the PDF yet" markers go. An open
   // edit box stays: it works on the source, not on the picture.
@@ -134,7 +136,7 @@ export function usePdfEdit(opts: PdfEditOptions) {
       if (session || notice) {
         setSession(null);
         setNotice(null);
-      } else if (!(e.target as HTMLElement)?.closest?.('.cm-editor')) o.current.onExit();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -179,7 +181,9 @@ export function usePdfEdit(opts: PdfEditOptions) {
         setNotice(null);
         return;
       }
+      const token = ++clickToken.current;
       const sources = await o.current.readSources();
+      if (token !== clickToken.current) return;
       // Clicked something edited since the last compile: reopen that edit.
       const p = pending.find((q) => q.page === info.page && q.rects.some((r) => x >= r.x - 1 && x <= r.x + r.w + 1 && y >= r.y - 1 && y <= r.y + r.h + 1));
       if (p) {
@@ -321,6 +325,8 @@ export function usePdfEdit(opts: PdfEditOptions) {
               originalName={opts.original?.name}
               also={alsoOriginal}
               onAlso={setAlsoOriginal}
+              autoUpdate={!!opts.autoUpdate}
+              onAutoUpdate={(on) => o.current.onAutoUpdateChange?.(on)}
               onCancel={() => setSession(null)}
               onSave={save}
               onShowSource={() => {
@@ -363,7 +369,16 @@ export function usePdfEdit(opts: PdfEditOptions) {
     [opts.enabled, opts.original?.name, pending, hover, session, notice, alsoOriginal, onPageClick, save],
   );
 
-  return { renderPage, pendingCount: pending.length, close: () => (setSession(null), setNotice(null)) };
+  return {
+    renderPage,
+    pendingCount: pending.length,
+    boxOpen: !!session,
+    close: () => {
+      clickToken.current++;
+      setSession(null);
+      setNotice(null);
+    },
+  };
 }
 
 /** A card attached below (or above) a box on the page. */
@@ -395,6 +410,8 @@ function EditBox({
   originalName,
   also,
   onAlso,
+  autoUpdate,
+  onAutoUpdate,
   onCancel,
   onSave,
   onShowSource,
@@ -404,6 +421,8 @@ function EditBox({
   originalName?: string;
   also: boolean;
   onAlso: (v: boolean) => void;
+  autoUpdate: boolean;
+  onAutoUpdate: (on: boolean) => void;
   onCancel: () => void;
   onSave: (value: string, mode: 'text' | 'latex', also: boolean) => void;
   onShowSource: () => void;
@@ -550,9 +569,22 @@ function EditBox({
           Save <CornerDownLeft className="size-3" />
         </Button>
       </div>
-      <p className="mt-1.5 text-[10.5px] text-muted">
-        {mode === 'text' ? 'Enter saves · Esc cancels' : 'Ctrl/⌘ + Enter saves · Esc cancels'}
-      </p>
+      <div className="mt-1.5 flex items-center gap-2 text-[10.5px] text-muted">
+        <span className="min-w-0 flex-1">{mode === 'text' ? 'Enter saves · Esc cancels' : 'Ctrl/⌘ + Enter saves · Esc cancels'}</span>
+        <label
+          className="flex shrink-0 cursor-pointer items-center gap-1.5"
+          title="Recompile the PDF after every saved change. Off: changes wait for Update PDF."
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              submit();
+            }
+          }}
+        >
+          <Checkbox checked={autoUpdate} onCheckedChange={onAutoUpdate} aria-label="Update PDF after saving" data-testid="pdf-edit-auto" />
+          Update PDF after saving
+        </label>
+      </div>
     </Popover>
   );
 }

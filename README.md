@@ -13,7 +13,7 @@ focused variants from it** — and keep them linked.
 - **Bring your own storage.** Everything lives in your browser (IndexedDB) and, if you connect it, your own Google Drive using the narrow `drive.file` permission. There is no texChef server.
 - **Themes.** Six color themes (Forest, the default, plus Kitchen, Ocean, Plum, Graphite, Nord), each in light and dark.
 - **Privacy Policy and Terms** at `/privacy` and `/terms`, linked from every page footer (needed for Google's branding review).
-- **Upload / download.** `.tex`, `.cls`, `.sty`, `.bib`, images, fonts, Overleaf `.zip` exports; download PDF, sources or a project `.zip`, or all PDFs at once.
+- **Upload / download.** `.tex`, `.cls`, `.sty`, `.bib`, images, fonts, Overleaf `.zip` exports, and `.zip` bundles of many projects (e.g. a Prism export: one document per folder with its own main `.tex`); download PDF, sources or a project `.zip`, or all PDFs at once.
 
 ## Blocks: how variants work
 
