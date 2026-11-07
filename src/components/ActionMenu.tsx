@@ -17,6 +17,7 @@ export interface MenuAction {
   /** Muted text on the right. */
   hint?: string;
   sub?: MenuAction[];
+  testId?: string;
 }
 
 const itemClass =
@@ -42,7 +43,7 @@ function contextItems(actions: MenuAction[]): React.ReactNode {
       {a.separatorBefore && <CM.Separator className="my-1 h-px bg-line" />}
       {a.sub ? (
         <CM.Sub>
-          <CM.SubTrigger className={itemClass} disabled={a.disabled}>
+          <CM.SubTrigger className={itemClass} disabled={a.disabled} data-testid={a.testId}>
             <Body a={a} />
             <ChevronRight className="size-3.5 text-muted" />
           </CM.SubTrigger>
@@ -53,7 +54,7 @@ function contextItems(actions: MenuAction[]): React.ReactNode {
           </CM.Portal>
         </CM.Sub>
       ) : (
-        <CM.Item className={cn(itemClass, a.danger && 'text-danger')} disabled={a.disabled} onSelect={a.run}>
+        <CM.Item className={cn(itemClass, a.danger && 'text-danger')} disabled={a.disabled} onSelect={a.run} data-testid={a.testId}>
           <Body a={a} />
         </CM.Item>
       )}
@@ -67,7 +68,7 @@ function dropdownItems(actions: MenuAction[]): React.ReactNode {
       {a.separatorBefore && <DM.Separator className="my-1 h-px bg-line" />}
       {a.sub ? (
         <DM.Sub>
-          <DM.SubTrigger className={itemClass} disabled={a.disabled}>
+          <DM.SubTrigger className={itemClass} disabled={a.disabled} data-testid={a.testId}>
             <Body a={a} />
             <ChevronRight className="size-3.5 text-muted" />
           </DM.SubTrigger>
@@ -78,7 +79,7 @@ function dropdownItems(actions: MenuAction[]): React.ReactNode {
           </DM.Portal>
         </DM.Sub>
       ) : (
-        <DM.Item className={cn(itemClass, a.danger && 'text-danger')} disabled={a.disabled} onSelect={a.run}>
+        <DM.Item className={cn(itemClass, a.danger && 'text-danger')} disabled={a.disabled} onSelect={a.run} data-testid={a.testId}>
           <Body a={a} />
         </DM.Item>
       )}

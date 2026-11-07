@@ -10,16 +10,13 @@ import { compareBlocks } from '@/blocks/ops';
 import { parseBlocks } from '@/blocks/parser';
 import { upsertBlock } from '@/blocks/ops';
 import { DiffView } from './DiffView';
+import { DocPicker, type SideRef } from './DocPicker';
 import { PdfViewer } from '@/features/preview/PdfViewer';
 import { useAutoCompile, useEngineStatus } from '@/features/compile/useCompile';
 import { EngineBanner } from '@/features/compile/EngineBanner';
 import { Badge, Button, EmptyState, Select, Spinner, Tip } from '@/components/ui';
-import { cn, docColor, timeAgo } from '@/lib/utils';
+import { cn, timeAgo } from '@/lib/utils';
 
-interface SideRef {
-  docId: string;
-  commitId?: string;
-}
 
 function parseSide(v: string | null): SideRef | undefined {
   if (!v) return undefined;
@@ -43,22 +40,12 @@ function useSideFiles(side: SideRef | undefined): { files?: FileMap; editable: b
   return side.commitId ? { files: commitFiles, editable: false } : { files: work?.files, editable: true };
 }
 
-function SidePicker({ docs, value, onChange, label }: { docs: DocMeta[]; value?: SideRef; onChange: (s: SideRef) => void; label: string }) {
+function SidePicker({ docs, value, other, onChange, label }: { docs: DocMeta[]; value?: SideRef; other?: SideRef; onChange: (s: SideRef) => void; label: string }) {
   const commits = useDocCommits(value?.docId);
   return (
     <div className="flex min-w-0 items-center gap-1.5">
       <span className="text-xs text-muted">{label}</span>
-      {value && <span className="size-2.5 shrink-0 rounded-full" style={{ background: docColor(value.docId, docs.find((d) => d.id === value.docId)?.color) }} />}
-      <Select value={value?.docId ?? ''} onChange={(e) => onChange({ docId: e.target.value })} className="max-w-48 text-xs" aria-label={`${label} document`}>
-        <option value="" disabled>
-          Choose document…
-        </option>
-        {docs.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.name}
-          </option>
-        ))}
-      </Select>
+      <DocPicker docs={docs} value={value} other={other} onChange={onChange} label={label} />
       {value && (
         <Select value={value.commitId ?? ''} onChange={(e) => onChange({ docId: value.docId, commitId: e.target.value || undefined })} className="max-w-56 text-xs" aria-label={`${label} version`}>
           <option value="">Current (editable)</option>
@@ -208,7 +195,7 @@ export function ComparePage() {
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
           <ArrowLeft className="size-4" />
         </Button>
-        <SidePicker docs={docs} value={left} onChange={(s) => setSide('left', s)} label="Left" />
+        <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" />
         <Tip content="Swap sides">
           <Button
             variant="ghost"
@@ -225,7 +212,7 @@ export function ComparePage() {
             <ArrowLeftRight className="size-4" />
           </Button>
         </Tip>
-        <SidePicker docs={docs} value={right} onChange={(s) => setSide('right', s)} label="Right" />
+        <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" />
         <div className="flex-1" />
         {paths.length > 1 && (
           <Select value={activePath} onChange={(e) => setPath(e.target.value)} className="text-xs" aria-label="File">

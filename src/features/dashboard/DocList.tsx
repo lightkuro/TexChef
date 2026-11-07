@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui';
 import { ActionContextMenu, ActionDropdown, type MenuAction } from '@/components/ActionMenu';
 import { cn, docColor, timeAgo } from '@/lib/utils';
 import { DocActionsMenu } from './DocActions';
-import { DOC_DRAG_TYPE, useDocDrop } from '@/features/folders/FolderSidebar';
+import { DOC_DRAG_TYPE, folderDragProps, useDocDrop } from '@/features/folders/FolderSidebar';
 import type { FolderItem, FolderMode, FolderViewModel } from '@/features/folders/folderView';
 
 const GRID = 'grid grid-cols-[1fr_110px_120px_32px] items-center gap-2';
@@ -104,11 +104,12 @@ export function DocList({
       <ActionContextMenu key={f.path} actions={actions} label={f.name}>
         <div
           className={cn(GRID, 'group cursor-pointer border-b border-l-4 border-line border-l-transparent px-4 py-2 last:border-b-0 hover:bg-subtle', drop.over === f.path && 'bg-accent-soft ring-2 ring-accent ring-inset')}
-          onDoubleClick={() => onOpenFolder(f.path)}
+          onClick={() => onOpenFolder(f.path)}
           {...drop.props(f.path, f.path)}
+          {...folderDragProps(f.path)}
           data-testid={`folder-row-${f.name}`}
         >
-          <button className="flex min-w-0 items-center gap-2 text-left" onClick={() => onOpenFolder(f.path)}>
+          <button className="flex min-w-0 items-center gap-2 text-left">
             <Folder className="size-4 shrink-0 text-accent" />
             <span className="truncate text-sm font-medium">{f.name}</span>
           </button>

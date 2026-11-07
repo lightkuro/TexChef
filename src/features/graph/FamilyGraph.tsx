@@ -13,7 +13,7 @@ import {
   useNodesInitialized,
   useReactFlow,
 } from '@xyflow/react';
-import { ArrowDownFromLine, ArrowRightFromLine, Grid3x3, RectangleVertical, RotateCcw } from 'lucide-react';
+import { ArrowDownFromLine, ArrowRightFromLine, Grid3x3, Menu as MenuIcon, RectangleVertical, RotateCcw, Scan, Spline } from 'lucide-react';
 import { repo, usePreviews } from '@/app/repo';
 import type { DocMeta } from '@/core/model';
 import { DocCard, type DocNodeType } from './DocCard';
@@ -22,8 +22,10 @@ import { FolderCard, GroupFrame, type FolderNodeType, type GroupNodeType } from 
 import { cn, docColor } from '@/lib/utils';
 import { usePrefs } from '@/app/prefs';
 import { keepMeasured } from './keepMeasured';
-import { cardHeight, CARD_W, docItems, gridCell, layoutGroups, layoutMap, type LayoutItem } from './mapLayout';
-import { useMapPositions } from './positions';
+import { cardHeight, CARD_W, docItems, GRID_GAP, gridCell, layoutGroups, layoutMap, type LayoutItem } from './mapLayout';
+import { useMapPositions, type MapDirection } from './positions';
+import { ActionDropdown, type MenuAction } from '@/components/ActionMenu';
+import { confirmAction } from '@/components/confirm';
 import { Tip } from '@/components/ui';
 import type { FolderItem, FolderMode, FolderViewModel } from '@/features/folders/folderView';
 
@@ -83,12 +85,70 @@ function ToggleButton({ on, onClick, label, tip, testId, children }: { on: boole
   );
 }
 
-/** Layout direction, full pages, grid snap and reset, floating over the map. */
+/** Ask, then put dragged cards back where the automatic layout puts them. */
+export async function askResetPositions(direction: MapDirection): Promise<boolean> {
+  const ok = await confirmAction({
+    title: 'Reset card positions?',
+    body: (
+      <p>
+        Cards you dragged on the map go back to where the automatic {direction === 'vertical' ? 'top-down' : 'left-to-right'} layout puts them. Documents and
+        folders don’t change.
+      </p>
+    ),
+    ok: 'Reset positions',
+  });
+  if (ok) useMapPositions.getState().reset(direction);
+  return ok;
+}
+
+/** Layout direction, plus a menu with full pages, grid snap, line style and reset, floating over the map. */
 function MapOptions({ moved, onReset, grouped }: { moved: boolean; onReset: () => void; grouped: boolean }) {
+  const { fitView } = useReactFlow();
+  const onFit = () => void fitView({ ...FIT, duration: 250 });
   const direction = usePrefs((s) => s.mapDirection);
   const fullPages = usePrefs((s) => s.mapFullPages);
   const snap = usePrefs((s) => s.mapSnap);
+  const lines = usePrefs((s) => s.mapLines);
   const set = usePrefs((s) => s.set);
+  const actions: MenuAction[] = [
+    {
+      key: 'full',
+      label: 'Full-page previews',
+      hint: 'whole first page',
+      icon: <RectangleVertical className="size-4" />,
+      checked: fullPages,
+      run: () => set({ mapFullPages: !fullPages }),
+      testId: 'map-full-pages',
+    },
+    {
+      key: 'snap',
+      label: 'Snap to grid',
+      hint: grouped ? 'not in Expanded' : 'card-sized cells',
+      icon: <Grid3x3 className="size-4" />,
+      checked: snap && !grouped,
+      disabled: grouped,
+      run: () => set({ mapSnap: !snap }),
+      testId: 'map-snap',
+    },
+    {
+      key: 'lines',
+      label: 'Right-angled lines',
+      icon: <Spline className="size-4" />,
+      checked: lines === 'angled',
+      run: () => set({ mapLines: lines === 'angled' ? 'straight' : 'angled' }),
+      testId: 'map-lines',
+    },
+    { key: 'fit', label: 'Fit to screen', icon: <Scan className="size-4" />, separatorBefore: true, run: onFit, testId: 'map-fit' },
+    {
+      key: 'reset',
+      label: 'Reset card positions…',
+      hint: !moved || grouped ? 'nothing moved' : undefined,
+      icon: <RotateCcw className="size-4" />,
+      disabled: !moved || grouped,
+      run: onReset,
+      testId: 'map-reset',
+    },
+  ];
   return (
     <Panel position="top-right" className="!m-3">
       <div className="flex items-center gap-0.5 rounded-lg border border-line bg-panel p-0.5 shadow-sm" data-testid="map-options">
@@ -99,22 +159,19 @@ function MapOptions({ moved, onReset, grouped }: { moved: boolean; onReset: () =
           <ArrowDownFromLine className="size-3.5" />
         </ToggleButton>
         <span className="mx-0.5 h-4 w-px bg-line" />
-        <ToggleButton on={fullPages} onClick={() => set({ mapFullPages: !fullPages })} label="Full-page previews" tip="Show the whole first page on each card" testId="map-full-pages">
-          <RectangleVertical className="size-3.5" /> Full pages
-        </ToggleButton>
-        {!grouped && (
-          <ToggleButton on={snap} onClick={() => set({ mapSnap: !snap })} label="Snap to grid" tip="Dragged cards snap to a grid of card-sized cells" testId="map-snap">
-            <Grid3x3 className="size-3.5" /> Snap
-          </ToggleButton>
-        )}
-        {moved && !grouped && (
-          <>
-            <span className="mx-0.5 h-4 w-px bg-line" />
-            <ToggleButton on={false} onClick={onReset} label="Reset card positions" tip="Put dragged cards back in the automatic layout" testId="map-reset">
-              <RotateCcw className="size-3.5" /> Reset
-            </ToggleButton>
-          </>
-        )}
+        <ActionDropdown
+          label="Map options"
+          actions={actions}
+          trigger={
+            <button
+              className={cn('flex h-7 items-center rounded-md px-2 text-muted hover:bg-subtle hover:text-fg', (fullPages || (snap && !grouped)) && 'text-accent')}
+              aria-label="Map options"
+              data-testid="map-menu"
+            >
+              <MenuIcon className="size-4" />
+            </button>
+          }
+        />
       </div>
     </Panel>
   );
@@ -130,6 +187,8 @@ export interface FamilyGraphProps {
   scopeKey: string;
   onOpenFolder: (path: string) => void;
   onMoveToFolder: (docId: string, folder: string) => void;
+  /** A folder card was dropped on another folder card. */
+  onMoveFolder?: (path: string, into: string) => void;
   /** Right-click menu for a folder card. */
   folderWrap?: (item: FolderItem) => (children: React.ReactElement) => React.ReactNode;
   onApi?: (api: MapApi) => void;
@@ -138,7 +197,7 @@ export interface FamilyGraphProps {
 const folderNodeId = (path: string) => `folder:${path}`;
 
 /** Document map: master → variants → sub-variants, with subfolders as folder cards or folders as frames. */
-export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onMoveToFolder, folderWrap, onApi }: FamilyGraphProps) {
+export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onMoveToFolder, onMoveFolder, folderWrap, onApi }: FamilyGraphProps) {
   const previews = usePreviews();
   const navigate = useNavigate();
   const angled = usePrefs((s) => s.mapLines) === 'angled';
@@ -149,7 +208,6 @@ export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onM
   const snap = snapPref && !grouped;
   const saved = useMapPositions((s) => s.saved[direction]);
   const savePositions = useMapPositions((s) => s.save);
-  const resetPositions = useMapPositions((s) => s.reset);
   const [behind, setBehind] = useState<Record<string, number>>({});
   const [resets, setResets] = useState(0);
   const [dropFolder, setDropFolder] = useState<string | null>(null);
@@ -221,6 +279,7 @@ export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onM
           isRoot: childCount > 0 && !(d.parent && byId.has(d.parent.docId)),
           vertical,
           fullPage: fullPages,
+          snap,
         },
         ...extra,
       };
@@ -270,6 +329,7 @@ export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onM
             fullPage: fullPages,
             dropping: dropFolder === f.path,
             wrap: folderWrap?.(f),
+            snap,
           },
         }),
       ),
@@ -283,22 +343,23 @@ export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onM
   const [rfEdges, setEdges, onEdgesChange] = useEdgesState<DocEdgeType>(edges);
   // Keep each node's measured size when rebuilding, or React Flow hides it until it is measured again
   // (which may never happen if its size does not change). Card height changes with full pages.
-  const lastFull = useRef(fullPages);
+  const sizeKey = `${fullPages}|${snap}`;
+  const lastSize = useRef(sizeKey);
   useEffect(() => {
-    const sameSize = lastFull.current === fullPages;
-    lastFull.current = fullPages;
+    const sameSize = lastSize.current === sizeKey;
+    lastSize.current = sizeKey;
     setNodes((cur) => (sameSize ? keepMeasured(cur, nodes) : nodes));
-  }, [nodes, setNodes, fullPages]);
+  }, [nodes, setNodes, sizeKey]);
   useEffect(() => setEdges(edges), [edges, setEdges]);
 
   const layoutKey = `${scopeKey}|${mode}|${[...docs.map((d) => d.id), ...view.folders.map((f) => f.path)].sort().join(',')}|${direction}|${fullPages}|${snap}|${resets}`;
 
-  /** The folder card under the middle of a dragged document card, if any. */
-  const folderUnder = (node: { position: { x: number; y: number }; measured?: { width?: number; height?: number } }) => {
+  /** The folder card under the middle of a dragged card (a document or another folder), if any. */
+  const folderUnder = (node: { id: string; position: { x: number; y: number }; measured?: { width?: number; height?: number } }) => {
     const cx = node.position.x + (node.measured?.width ?? CARD_W) / 2;
     const cy = node.position.y + (node.measured?.height ?? cardHeight(fullPages)) / 2;
     const hit = rfNodes.find((n) => {
-      if (n.type !== 'folder') return false;
+      if (n.type !== 'folder' || n.id === node.id) return false;
       const w = n.measured?.width ?? CARD_W;
       const h = n.measured?.height ?? cardHeight(fullPages);
       return cx >= n.position.x && cx <= n.position.x + w && cy >= n.position.y && cy <= n.position.y + h;
@@ -322,15 +383,19 @@ export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onM
       snapToGrid={snap}
       snapGrid={[cell.w, cell.h]}
       onNodeDrag={(_, node) => {
-        if (node.type !== 'doc') return;
+        if (node.type !== 'doc' && node.type !== 'folder') return;
         const f = folderUnder(node);
         if (f !== dropFolder) setDropFolder(f);
       }}
       onNodeDragStop={(_, node, dragged) => {
-        const f = node.type === 'doc' ? folderUnder(node) : null;
+        const f = node.type === 'doc' || node.type === 'folder' ? folderUnder(node) : null;
         setDropFolder(null);
-        if (f) {
+        if (f && node.type === 'doc') {
           onMoveToFolder(node.id, f);
+          return;
+        }
+        if (f && node.type === 'folder') {
+          onMoveFolder?.((node as FolderNodeType).data.item.path, f);
           return;
         }
         savePositions(direction, Object.fromEntries(dragged.map((n) => [n.id, n.position])));
@@ -343,7 +408,8 @@ export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onM
       proOptions={{ hideAttribution: true }}
     >
       {snap ? (
-        <Background id="grid" variant={BackgroundVariant.Lines} gap={[cell.w, cell.h]} lineWidth={1} color="color-mix(in oklab, var(--border) 70%, transparent)" />
+        // Lines between cells, half a gap around each card, so a snapped card sits in the middle of its cell.
+        <Background id="grid" variant={BackgroundVariant.Lines} gap={[cell.w, cell.h]} offset={GRID_GAP / 2} lineWidth={1} color="color-mix(in oklab, var(--border) 70%, transparent)" />
       ) : (
         <Background gap={20} size={1} color="var(--border)" />
       )}
@@ -356,10 +422,7 @@ export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onM
       <MapOptions
         grouped={grouped}
         moved={Object.keys(saved).some((id) => docs.some((d) => d.id === id) || view.folders.some((f) => folderNodeId(f.path) === id))}
-        onReset={() => {
-          resetPositions(direction);
-          setResets((n) => n + 1);
-        }}
+        onReset={() => void askResetPositions(direction).then((ok) => ok && setResets((n) => n + 1))}
       />
       <FitOnChange layoutKey={layoutKey} />
       <ApiBridge onReady={onApi} />

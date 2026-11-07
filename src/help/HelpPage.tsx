@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { Logo } from '@/components/Logo';
+import { KurolightMark, Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { TOPIC_ALIASES, TOPICS } from './topics';
 
@@ -43,7 +43,7 @@ export function HelpPage() {
         </Link>
       </header>
       <div className="flex min-h-0 flex-1">
-        <nav className="hidden w-64 shrink-0 overflow-auto border-r border-line bg-panel p-3 md:block" aria-label="Help topics">
+        <nav className="hidden w-64 shrink-0 flex-col overflow-auto border-r border-line bg-panel p-3 md:flex" aria-label="Help topics">
           {TOPICS.map((t) => (
             <NavLink
               key={t.id}
@@ -55,6 +55,12 @@ export function HelpPage() {
               {t.title}
             </NavLink>
           ))}
+          <div className="mt-auto px-3 pt-6 pb-1 text-[11px] leading-relaxed text-muted">
+            <p>texChef is free and runs entirely in your browser.</p>
+            <div className="mt-1.5">
+              <KurolightMark />
+            </div>
+          </div>
         </nav>
         <div ref={scroller} className="min-w-0 flex-1 overflow-auto">
           <div className="border-b border-line bg-panel px-4 py-2 md:hidden">
@@ -87,6 +93,9 @@ export function HelpPage() {
                   {next.title} <ArrowRight className="size-4" />
                 </Link>
               )}
+            </div>
+            <div className="mt-8 flex justify-center md:hidden">
+              <KurolightMark />
             </div>
           </article>
         </div>

@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { create } from 'zustand';
-import { Folder, FolderOpen, FolderPlus, Pencil, Trash2 } from 'lucide-react';
+import { Folder, FolderInput, FolderOpen, FolderPlus, Pencil, Trash2 } from 'lucide-react';
 import type { DocMeta } from '@/core/model';
 import { Button, Dialog, Input } from '@/components/ui';
 import { cleanFolder, folderName, inFolder, parentFolder } from './folderTree';
 import { deleteFolder, renameFolder, useEmptyFolders } from './folders';
+import { MoveToFolderDialog } from './MoveToFolderDialog';
 
-type Pending = { kind: 'new'; parent?: string } | { kind: 'rename'; path: string } | { kind: 'delete'; path: string };
+type Pending = { kind: 'new'; parent?: string } | { kind: 'rename'; path: string } | { kind: 'move'; path: string } | { kind: 'delete'; path: string };
 
 /** Asks for a folder dialog from anywhere (sidebar, list, map, right-click menus). */
 export const useFolderDialog = create<{ pending: Pending | null; open: (p: Pending) => void; close: () => void }>((set) => ({
@@ -33,6 +34,7 @@ export function folderActions(path: string, onOpen: (path: string) => void): Fol
     { key: 'open', label: 'Open', icon: <FolderOpen className="size-4" />, run: () => onOpen(path) },
     { key: 'new', label: 'New folder inside…', icon: <FolderPlus className="size-4" />, run: () => openFolderDialog({ kind: 'new', parent: path }) },
     { key: 'rename', label: 'Rename…', icon: <Pencil className="size-4" />, run: () => openFolderDialog({ kind: 'rename', path }) },
+    { key: 'move', label: 'Move to…', icon: <FolderInput className="size-4" />, run: () => openFolderDialog({ kind: 'move', path }) },
     { key: 'delete', label: 'Delete folder…', icon: <Trash2 className="size-4" />, danger: true, separatorBefore: true, run: () => openFolderDialog({ kind: 'delete', path }) },
   ];
 }
@@ -72,6 +74,19 @@ export function FolderDialogHost({ docs, current, onSelect }: { docs: DocMeta[];
     }
     close();
   };
+
+  if (pending?.kind === 'move') {
+    const from = pending.path;
+    return (
+      <MoveToFolderDialog
+        key={from}
+        folder={from}
+        open
+        onOpenChange={(o) => !o && close()}
+        onMoved={(to) => current && inFolder(current, from) && onSelect(to + current.slice(from.length))}
+      />
+    );
+  }
 
   const title =
     pending?.kind === 'new'

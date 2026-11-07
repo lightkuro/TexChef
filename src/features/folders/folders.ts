@@ -65,3 +65,17 @@ export async function deleteFolder(path: string): Promise<void> {
   const store = useEmptyFolders.getState();
   store.set(store.list.filter((p) => !inFolder(p, path)));
 }
+
+/**
+ * Move folder `path` (with everything inside) into folder `into` (undefined: the top level).
+ * Returns its new path, or an error message when that isn't possible.
+ */
+export async function moveFolderInto(path: string, into: string | undefined): Promise<{ to: string } | { error: string }> {
+  const target = cleanFolder(into);
+  if (target && inFolder(target, path)) return { error: 'A folder can’t go inside itself.' };
+  if (target === parentFolder(path)) return { error: `It’s already ${target ? `in “${target.split('/').pop()}”` : 'at the top level'}.` };
+  const leaf = path.slice(path.lastIndexOf('/') + 1);
+  const to = target ? `${target}/${leaf}` : leaf;
+  await renameFolder(path, to);
+  return { to };
+}

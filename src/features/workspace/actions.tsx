@@ -3,7 +3,8 @@ import { FileArchive, FileText, FolderDown, HardDriveDownload, Images, RefreshCw
 import type { DocMeta } from '@/core/model';
 import type { MenuAction } from '@/components/ActionMenu';
 import { backupFiles, backupName, canWriteFolders, downloadZip, pdfFiles, saveToFolder, sourceFiles } from './backup';
-import { makePreviews } from './previews';
+import { confirmAction } from '@/components/confirm';
+import { docsNeedingPreview, makePreviews, usePreviewJob } from './previews';
 
 export type ExportKind = 'pdf' | 'sources' | 'backup-zip' | 'backup-folder';
 
@@ -40,6 +41,19 @@ export async function runExport(kind: ExportKind, docs: DocMeta[], scope: string
   }
 }
 
+/** Brave hides the folder-writing feature behind a setting. */
+const isBrave = () => typeof navigator !== 'undefined' && 'brave' in navigator;
+
+/** Why a backup can't be written into a folder here, and what to do instead. */
+function explainNoFolders() {
+  toast.info(isBrave() ? 'Brave has writing to folders turned off' : 'This browser can’t write into folders', {
+    duration: 15000,
+    description: isBrave()
+      ? 'To turn it on: open brave://flags, search for “File System Access API”, set it to Enabled and restart Brave. Or use “Backup with history (.zip)” and unzip it: you get the same folder.'
+      : 'Only Chrome, Edge and similar browsers let a web page write into a folder you choose. Use “Backup with history (.zip)” and unzip it: you get the same folder.',
+  });
+}
+
 /** The export formats, as menu entries. */
 export function exportActions(docs: DocMeta[], scope: string | null): MenuAction[] {
   const folders = canWriteFolders();
@@ -57,17 +71,44 @@ export function exportActions(docs: DocMeta[], scope: string | null): MenuAction
       key: 'backup-folder',
       label: 'Backup with history to a folder…',
       icon: <FolderDown className="size-4" />,
-      disabled: !folders,
-      hint: folders ? undefined : 'Chrome or Edge',
-      run: () => void runExport('backup-folder', docs, scope),
+      hint: folders ? undefined : isBrave() ? 'off in Brave' : 'not in this browser',
+      run: () => (folders ? void runExport('backup-folder', docs, scope) : explainNoFolders()),
     },
   ];
+}
+
+/** Ask first, then compile the previews (it can take a while for many documents). */
+export async function askMakePreviews(docs: DocMeta[], all = false) {
+  if (usePreviewJob.getState().running) {
+    toast.info('Already making previews.');
+    return;
+  }
+  const todo = all ? docs : await docsNeedingPreview(docs);
+  if (!todo.length) {
+    toast.success(docs.length ? 'Every preview here is up to date.' : 'There are no documents here.');
+    return;
+  }
+  const n = todo.length;
+  const ok = await confirmAction({
+    title: all ? `Recompile ${n} preview${n === 1 ? '' : 's'}?` : `Make ${n} preview${n === 1 ? '' : 's'}?`,
+    body: (
+      <>
+        <p>
+          texChef compiles {n === 1 ? `“${todo[0].name}”` : `these ${n} documents one after another`} so the map shows {n === 1 ? 'its' : 'their'} first page.
+          {n > 1 && ' That takes a few seconds per document.'}
+        </p>
+        <p className="text-muted">You can keep working meanwhile, and stop it from the progress button next to the folder path. Nothing in the documents changes.</p>
+      </>
+    ),
+    ok: all ? 'Recompile' : 'Make previews',
+  });
+  if (ok) await makePreviews(todo, { all: true });
 }
 
 /** "Make previews" entries for menus. */
 export function previewActions(docs: DocMeta[]): MenuAction[] {
   return [
-    { key: 'previews', label: 'Make missing previews', icon: <Images className="size-4" />, run: () => void makePreviews(docs) },
-    { key: 'previews-all', label: 'Recompile all previews', icon: <RefreshCw className="size-4" />, run: () => void makePreviews(docs, { all: true }) },
+    { key: 'previews', label: 'Make missing previews…', icon: <Images className="size-4" />, run: () => void askMakePreviews(docs) },
+    { key: 'previews-all', label: 'Recompile all previews…', icon: <RefreshCw className="size-4" />, run: () => void askMakePreviews(docs, true) },
   ];
 }

@@ -100,19 +100,49 @@ export function parseTexLog(log: string, projectFiles: string[] = [], mainFile =
         file: currentFile,
         line: ln ? Number(ln[1]) : undefined,
         message: msg.replace(/\s*on input line \d+\.?/, '').trim(),
+        hint: warningHint(msg),
       });
       continue;
     }
 
-    const box = /^(Overfull|Underfull) \\[hv]box (\([^)]*\)) .*?(?:at lines? (\d+)(?:--\d+)?)?$/.exec(line);
+    const box = /^(Overfull|Underfull) \\([hv])box (\([^)]*\)) .*?(?:at lines? (\d+)(?:--\d+)?)?$/.exec(line);
     if (box) {
+      const over = box[1] === 'Overfull';
+      const pt = Number(/([\d.]+)pt too (?:wide|high)/.exec(box[3])?.[1] ?? NaN);
+      // A line that sticks out by less than TINY_OVERFULL is invisible in print: list it with the bad boxes.
+      const tiny = over && pt <= TINY_OVERFULL_PT;
       push({
-        severity: box[1] === 'Overfull' ? 'warning' : 'info',
+        severity: over && !tiny ? 'warning' : 'info',
         file: currentFile,
-        line: box[3] ? Number(box[3]) : undefined,
-        message: `${box[1]} box ${box[2]}`,
+        line: box[4] ? Number(box[4]) : undefined,
+        message: `${box[1]} box ${box[3]}`,
+        hint: over && Number.isFinite(pt) ? overfullHint(box[2] as 'h' | 'v', pt) : undefined,
       });
     }
   }
   return out;
+}
+
+/** Overfull boxes up to this size (about 0.35 mm) can't be seen, so they aren't counted as warnings. */
+export const TINY_OVERFULL_PT = 1;
+
+const mm = (pt: number) => (pt * 0.3515).toFixed(pt < 3 ? 2 : 1);
+
+function overfullHint(kind: 'h' | 'v', pt: number): string {
+  if (kind === 'v') return `Something on the page is ${pt}pt (${mm(pt)} mm) taller than the space for it, often a page that is too full. Check the bottom of that page in the PDF.`;
+  if (pt <= TINY_OVERFULL_PT) return `A line sticks out past the margin by ${mm(pt)} mm. That's too little to see; common in dense resumes and safe to ignore.`;
+  return `A line runs ${mm(pt)} mm past the right margin. Look at that line in the PDF: if it shows, reword it or let it break (e.g. a long URL).`;
+}
+
+/** Plain-language notes for common warnings. */
+export function warningHint(msg: string): string | undefined {
+  if (/shell[- ]?escape|write18/i.test(msg)) {
+    return 'Some packages (epstopdf, svg, minted, gnuplottex) run other programs during a compile; that is called shell escape. A browser can’t run programs, so it is always off in texChef. Harmless unless the document uses .eps or .svg images or minted code: convert those images to .pdf or .png and upload them instead.';
+  }
+  const skip = /\\(footskip|headheight) is too small \(([\d.]+)pt\): Make it at least ([\d.]+)pt/.exec(msg);
+  if (skip) {
+    const what = skip[1] === 'footskip' ? 'footer' : 'header';
+    return `From the fancyhdr package: the page ${what} is ${skip[3]}pt tall but only ${skip[2]}pt is set aside for it. fancyhdr makes room itself after the first page, so usually nothing visible changes; to silence it, add \\setlength{\\${skip[1]}}{${skip[3]}pt} near \\pagestyle.`;
+  }
+  return undefined;
 }

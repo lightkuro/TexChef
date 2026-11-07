@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   Plus,
@@ -23,6 +23,7 @@ import {
   Pencil,
   Trash2,
   ChevronDown,
+  Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
@@ -31,10 +32,9 @@ import { createDocumentFromProject, planImport, type ImportPlan } from '@/featur
 import { RestoreDialog } from '@/features/workspace/RestoreDialog';
 import type { RestorePlan } from '@/features/workspace/backup';
 import { exportActions, previewActions } from '@/features/workspace/actions';
-import { PreviewButton } from '@/features/workspace/PreviewButton';
-import { useMapPositions } from '@/features/graph/positions';
+import { PreviewProgress } from '@/features/workspace/PreviewButton';
 import { BundleImportDialog } from '@/features/importexport/BundleImportDialog';
-import { FamilyGraph } from '@/features/graph/FamilyGraph';
+import { askResetPositions, FamilyGraph } from '@/features/graph/FamilyGraph';
 import { VersionGraph } from '@/features/graph/VersionGraph';
 import { DocList } from './DocList';
 import { NewDocDialog } from './NewDocDialog';
@@ -42,11 +42,11 @@ import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { useSync } from '@/features/sync/controller';
 import { pickFromDrive, pickerConfigured } from '@/features/sync/picker';
 import { Button, Input, Spinner, Tip } from '@/components/ui';
-import { Logo } from '@/components/Logo';
+import { KurolightMark, Logo } from '@/components/Logo';
 import { ThemeMenu } from '@/components/ThemeMenu';
 import { cn } from '@/lib/utils';
 import { FolderSidebar, UNFILED } from '@/features/folders/FolderSidebar';
-import { moveDocsToFolder, useEmptyFolders } from '@/features/folders/folders';
+import { moveDocsToFolder, moveFolderInto, useEmptyFolders } from '@/features/folders/folders';
 import { folderName, inFolder, parentFolder } from '@/features/folders/folderTree';
 import { folderView, type FolderItem } from '@/features/folders/folderView';
 import { FolderBar } from '@/features/folders/FolderBar';
@@ -158,10 +158,11 @@ export function Dashboard() {
         icon: <Eye className="size-4" />,
         separatorBefore: true,
         sub: [
-          { key: 'map', label: 'Map', checked: view === 'graph', run: () => setPref({ dashboardView: 'graph' }) },
+          { key: 'map', label: 'Map', checked: view === 'graph' && graphMode === 'family', run: () => setPref({ dashboardView: 'graph', graphMode: 'family' }) },
+          { key: 'versions', label: 'Versions map', checked: view === 'graph' && graphMode === 'versions', run: () => setPref({ dashboardView: 'graph', graphMode: 'versions' }) },
           { key: 'list', label: 'List', checked: view === 'list', run: () => setPref({ dashboardView: 'list' }) },
-          { key: 'browse', label: 'Folders', separatorBefore: true, checked: folderMode === 'browse', run: () => setPref({ folderMode: 'browse' }) },
-          { key: 'grouped', label: 'All, grouped by folder', checked: folderMode === 'grouped', run: () => setPref({ folderMode: 'grouped' }) },
+          { key: 'grouped', label: 'Expanded', hint: 'subfolders open', separatorBefore: true, checked: folderMode === 'grouped', run: () => setPref({ folderMode: 'grouped' }) },
+          { key: 'browse', label: 'Folders', hint: 'subfolders as folders', checked: folderMode === 'browse', run: () => setPref({ folderMode: 'browse' }) },
           { key: 'archived', label: 'Show archived', separatorBefore: true, checked: showArchived, run: () => setPref({ showArchived: !showArchived }) },
           { key: 'panel', label: 'Folders panel', checked: showFolders, run: () => setPref({ showFolders: !showFolders }) },
         ],
@@ -181,12 +182,10 @@ export function Dashboard() {
                 { key: 'lines', label: 'Right-angled lines', checked: mapLines === 'angled', run: () => setPref({ mapLines: mapLines === 'angled' ? 'straight' : 'angled' }) },
                 {
                   key: 'reset',
-                  label: 'Reset card positions',
+                  label: 'Reset card positions…',
                   separatorBefore: true,
-                  run: () => {
-                    useMapPositions.getState().reset(mapDirection);
-                    setTimeout(() => mapApi.current?.fitView(), 100);
-                  },
+                  disabled: mode === 'grouped',
+                  run: () => void askResetPositions(mapDirection).then((ok) => ok && setTimeout(() => mapApi.current?.fitView(), 100)),
                 },
               ],
             },
@@ -204,6 +203,11 @@ export function Dashboard() {
   const moveDoc = async (id: string, folder: string) => {
     await moveDocsToFolder([id], folder);
     toast.success(`Moved to “${folderName(folder)}”`);
+  };
+  const moveFolder = async (path: string, into: string) => {
+    const r = await moveFolderInto(path, into);
+    if ('error' in r) toast.error(r.error);
+    else toast.success(`Moved “${folderName(path)}” into “${folderName(into)}”`);
   };
 
   const importFiles = async (files: File[] | FileList) => {
@@ -319,55 +323,18 @@ export function Dashboard() {
             <Archive className="size-3.5" /> {showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
           </Button>
         )}
-        {view === 'graph' && (
-          <div className="flex items-center gap-2">
-            {graphMode === 'versions' && (
-              <label className="flex items-center gap-1.5 text-xs text-muted">
-                <input type="checkbox" checked={showAutosaves} onChange={(e) => setPref({ showAutosaves: e.target.checked })} /> Show autosaves
-              </label>
-            )}
-            <div className="inline-flex rounded-lg bg-subtle p-0.5">
-              {(
-                [
-                  ['family', Network, 'Documents'],
-                  ['versions', GitCommitHorizontal, 'Versions'],
-                ] as const
-              ).map(([k, Icon, label]) => (
-                <button
-                  key={k}
-                  onClick={() => setPref({ graphMode: k })}
-                  className={cn('flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium', graphMode === k ? 'bg-panel shadow-sm' : 'text-muted')}
-                  data-testid={`graph-${k}`}
-                >
-                  <Icon className="size-3.5" /> {label}
-                </button>
-              ))}
-            </div>
-          </div>
+        {view === 'graph' && graphMode === 'versions' && (
+          <label className="flex items-center gap-1.5 text-xs text-muted">
+            <input type="checkbox" checked={showAutosaves} onChange={(e) => setPref({ showAutosaves: e.target.checked })} /> Show autosaves
+          </label>
         )}
-        <div className="inline-flex rounded-lg bg-subtle p-0.5">
-          {(
-            [
-              ['graph', Network, 'Map'],
-              ['list', List, 'List'],
-            ] as const
-          ).map(([k, Icon, label]) => (
-            <button
-              key={k}
-              onClick={() => setPref({ dashboardView: k })}
-              className={cn('flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium', view === k ? 'bg-panel shadow-sm' : 'text-muted')}
-              data-testid={`view-${k}`}
-            >
-              <Icon className="size-3.5" /> {label}
-            </button>
-          ))}
-        </div>
+        <ViewSwitch />
       </div>
       <div className="flex min-h-0 flex-1">
       {showFolders && docs && docs.length > 0 && <FolderSidebar docs={shown} current={current} onSelect={openFolder} actionsFor={actionsForFolder} />}
       <main className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {docs && docs.length > 0 && (view !== 'graph' || graphMode === 'family') && (
-          <FolderBar current={current} onSelect={openFolder} mode={mode} onMode={(m) => setPref({ folderMode: m })} extra={<PreviewButton docs={scopeAll} />} />
+          <FolderBar current={current} onSelect={openFolder} mode={mode} onMode={(m) => setPref({ folderMode: m })} extra={<PreviewProgress />} />
         )}
         <ActionContextMenu actions={backgroundActions} label={current ? folderName(current) : 'All documents'}>
         <div className="relative min-h-0 flex-1 overflow-auto" data-testid="dashboard-content">
@@ -397,6 +364,7 @@ export function Dashboard() {
             scopeKey={`${current ?? ''}|${q}`}
             onOpenFolder={openFolder}
             onMoveToFolder={moveDoc}
+            onMoveFolder={moveFolder}
             folderWrap={(item) => (children) => (
               <ActionContextMenu actions={folderActionsFor(item)} label={item.name}>
                 {children}
@@ -437,9 +405,103 @@ export function Dashboard() {
         <Link to="/help" className="hover:text-fg">
           Help
         </Link>
-        <span className="ml-auto">Runs in your browser · your files stay yours</span>
+        <span className="ml-auto hidden sm:inline">Runs in your browser · your files stay yours</span>
+        <KurolightMark />
       </footer>
       <NewDocDialog open={newOpen} onOpenChange={setNewOpen} folder={targetFolder} />
+    </div>
+  );
+}
+
+/**
+ * Map or List. The map has two kinds, documents (default) and versions, in a menu that opens below
+ * the Map button on hover (or on tap / keyboard focus).
+ */
+function ViewSwitch() {
+  const view = usePrefs((s) => s.dashboardView);
+  const graphMode = usePrefs((s) => s.graphMode);
+  const setPref = usePrefs((s) => s.set);
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const show = () => {
+    clearTimeout(timer.current);
+    setOpen(true);
+  };
+  const hide = (delay = 180) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setOpen(false), delay);
+  };
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+  const versions = graphMode === 'versions';
+  const MapIcon = versions ? GitCommitHorizontal : Network;
+  const tab = (on: boolean) => cn('flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium', on ? 'bg-panel shadow-sm' : 'text-muted hover:text-fg');
+  const item = (k: 'family' | 'versions', Icon: typeof Network, label: string, hint: string) => (
+    <button
+      role="menuitemradio"
+      aria-checked={view === 'graph' && graphMode === k}
+      onClick={() => {
+        setPref({ dashboardView: 'graph', graphMode: k });
+        setOpen(false);
+      }}
+      className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-subtle focus:bg-subtle focus:outline-none"
+      data-testid={`graph-${k}`}
+    >
+      <span className="flex size-4 shrink-0 items-center justify-center pt-0.5">
+        {view === 'graph' && graphMode === k ? <Check className="size-4 text-accent" /> : <Icon className="size-3.5 text-muted" />}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-medium">{label}</span>
+        <span className="block text-[11px] text-muted">{hint}</span>
+      </span>
+    </button>
+  );
+  return (
+    <div className="inline-flex rounded-lg bg-subtle p-0.5">
+      <div
+        ref={box}
+        className="relative"
+        onMouseEnter={show}
+        onMouseLeave={() => hide()}
+        onFocus={show}
+        onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && hide(0)}
+      >
+        <button
+          onClick={() => {
+            setPref({ dashboardView: 'graph' });
+            setOpen(true);
+          }}
+          className={tab(view === 'graph')}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          data-testid="view-graph"
+        >
+          <MapIcon className="size-3.5" /> {versions ? 'Versions' : 'Map'}
+          <ChevronDown className={cn('size-3 opacity-50 transition-transform', open && 'rotate-180')} />
+        </button>
+        {open && (
+          // pt-1 bridges the gap so moving the pointer down into the menu keeps it open.
+          <div className="absolute top-full right-0 z-40 pt-1" data-testid="view-menu">
+            <div role="menu" aria-label="Map kind" className="w-60 rounded-lg border border-line bg-panel p-1 shadow-xl">
+              {item('family', Network, 'Documents', 'Originals and their variants, with folders')}
+              {item('versions', GitCommitHorizontal, 'Versions', 'Every saved version of each document, over time')}
+            </div>
+          </div>
+        )}
+      </div>
+      <button onClick={() => setPref({ dashboardView: 'list' })} className={tab(view === 'list')} data-testid="view-list">
+        <List className="size-3.5" /> List
+      </button>
     </div>
   );
 }

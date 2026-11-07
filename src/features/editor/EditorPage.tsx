@@ -353,7 +353,7 @@ export function EditorPage() {
         )}
         <div className="flex-1" />
         <SyncIndicator />
-        <Tip content="LaTeX engine">
+        <Tip content="LaTeX engine: pdfLaTeX suits most templates; XeLaTeX or LuaLaTeX for your own fonts (fontspec, .ttf/.otf). Help → Compiling explains more.">
           <Select value={doc.engine} onChange={(e) => repo.updateDoc(doc.id, { engine: e.target.value as Engine })} aria-label="Engine" className="h-8 text-xs">
             <option value="pdflatex">pdfLaTeX</option>
             <option value="xelatex">XeLaTeX</option>

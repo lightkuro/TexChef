@@ -494,6 +494,10 @@ export const TOPICS: Topic[] = [
           Open it from a document menu (<b>Compare with original</b>), the editor’s <b>⌄</b> menu, or the compare button on any version. At the top
           you choose the <b>Left</b> and <b>Right</b> document, and for each one either <b>Current (editable)</b> or any saved version.
         </P>
+        <P>
+          Each side's document menu lists a few from the same folder (and the original and variants, if they're elsewhere).{' '}
+          <b>Other files…</b> opens a browser with every folder, a search box, page thumbnails and each document's saved versions.
+        </P>
         <UL>
           <li>
             Changed lines are highlighted. <b>Only changes</b> hides the unchanged parts.
@@ -616,7 +620,8 @@ export const TOPICS: Topic[] = [
     body: () => (
       <>
         <P>
-          The home page shows your documents as a <b>Map</b> or a <b>List</b>. The map has two views: <b>Documents</b> and <b>Versions</b>.
+          The home page shows your documents as a <b>Map</b> or a <b>List</b>. The map has two kinds: <b>Documents</b> (the default) and{' '}
+          <b>Versions</b>. Hover the Map button (or tap it) to switch between them.
         </P>
         <H2>Documents</H2>
         <UL>
@@ -642,17 +647,19 @@ export const TOPICS: Topic[] = [
           </li>
         </UL>
         <H3>Map options</H3>
-        <P>The small bar at the top right of the map:</P>
+        <P>The small bar at the top right of the map has the layout direction and a ☰ menu:</P>
         <Table
-          head={['Button', 'What it does']}
+          head={['Option', 'What it does']}
           rows={[
             [<b>→ / ↓</b>, 'Left to right (originals on the left), or top down (master at the top, variants branching down).'],
-            [<b>Full pages</b>, 'Cards show the whole first page instead of its top.'],
+            [<b>Full-page previews</b>, 'Cards show the whole first page instead of its top.'],
             [
-              <b>Snap</b>,
-              'Shows a grid of card-sized cells. Cards you drag land neatly in a cell, and the automatic layout uses the grid too, with a free cell between generations so lines and labels have room.',
+              <b>Snap to grid</b>,
+              'Shows a grid of card-sized cells. Cards you drag land in the middle of a cell, and the automatic layout uses the grid too, with a free cell between generations so lines and labels have room.',
             ],
-            [<b>Reset</b>, 'Appears once you have dragged cards: puts them back in the automatic layout.'],
+            [<b>Right-angled lines</b>, 'Lines with corners instead of straight ones (also in Settings → Appearance).'],
+            [<b>Fit to screen</b>, 'Zooms so every card is in view.'],
+            [<b>Reset card positions…</b>, 'Once you have dragged cards: puts them back in the automatic layout (it asks first).'],
           ]}
         />
         <P>
@@ -680,8 +687,8 @@ export const TOPICS: Topic[] = [
               'The default. The open folder’s subfolders appear as folder cards (map) or folder rows (list), next to the documents directly in it. At the top level you see only your folders and the documents in no folder. Click a folder to open it.',
             ],
             [
-              <b>All, grouped</b>,
-              'Every document inside the open folder, grouped by folder: framed groups on the map, sections in the list. Searching always looks through everything inside the open folder.',
+              <b>Expanded</b>,
+              'Every document inside the open folder, including those in subfolders, grouped by folder: framed groups on the map, sections in the list. Searching always looks through everything inside the open folder.',
             ],
           ]}
         />
@@ -696,6 +703,10 @@ export const TOPICS: Topic[] = [
             <b>Put documents in</b>: drag a document onto a folder (a folder card on the map, a folder row in the list, a folder in the panel, or
             a part of the path bar), or use ⋯ / right-click → <b>Move to folder…</b>. New documents and uploads go into the folder that is open,
             and a variant starts in its original’s folder.
+          </li>
+          <li>
+            <b>Move a folder</b> into another one: drag it onto the other folder (in the panel, the list, the path bar, or folder card onto
+            folder card on the map), or right-click → <b>Move to…</b>.
           </li>
           <li>
             <b>Rename or delete</b>: hover a folder and use its ⋯ menu. Deleting a folder never deletes documents: they move to the folder
@@ -713,10 +724,10 @@ export const TOPICS: Topic[] = [
         <UL>
           <li>
             <b>Empty space</b> on the map or in the list: new document or folder, upload files or a folder, make previews, export, view options
-            (map or list, folders or grouped, archived documents, the folders panel), map layout, and actions for the open folder.
+            (map, versions map or list, expanded or folders, archived documents, the folders panel), map layout, and actions for the open folder.
           </li>
           <li>
-            <b>A folder</b>: open, new folder inside, rename, make previews, export, delete.
+            <b>A folder</b>: open, new folder inside, rename, move, make previews, export, delete.
           </li>
           <li>
             <b>A document</b>: everything in its ⋯ menu.
@@ -724,9 +735,10 @@ export const TOPICS: Topic[] = [
         </UL>
         <H2>Previews</H2>
         <P>
-          Cards show the first page of each document’s last PDF. Documents you just imported have none until they are compiled: <b>Make
-          previews</b> in the path bar compiles every document in the open folder (and its subfolders) that has no preview or an out-of-date one,
-          one after another. Click it again to stop. Right-click → <b>Recompile all previews</b> compiles all of them.
+          Cards show the first page of each document’s last PDF. Documents you just imported have none until they are compiled: right-click
+          empty space (or a folder) → <b>Make missing previews…</b> compiles every document there (subfolders included) that has no preview or
+          an out-of-date one, one after another, after asking. Progress shows next to the folder path; click it to stop.{' '}
+          <b>Recompile all previews…</b> compiles all of them.
         </P>
         <H2>Colors and archiving</H2>
         <P>
@@ -789,7 +801,7 @@ export const TOPICS: Topic[] = [
             ['LaTeX projects (.zip)', 'Each document’s files in its own folder, as they are now (unsaved drafts included).'],
             [
               'Backup with history',
-              'The LaTeX projects, untouched, plus a .texchef folder with everything else: every saved version, drafts, folders, colors, tags, variant links and choices, previews and map positions. As a .zip, or written straight into a folder on your computer (Chrome and Edge).',
+              'The LaTeX projects, untouched, plus a .texchef folder with everything else: every saved version, drafts, folders, colors, tags, variant links and choices, previews and map positions. As a .zip, or written straight into a folder on your computer (Chrome and Edge; Brave has it behind brave://flags → File System Access API). Unzipping the .zip gives the same folder.',
             ],
           ]}
         />
@@ -817,13 +829,23 @@ export const TOPICS: Topic[] = [
           MB, once); later visits reuse it.
         </P>
         <H2>Engines</H2>
+        <P>
+          The engine is the program that turns your LaTeX into a PDF. All three read the same LaTeX; they differ in fonts and characters. Pick
+          one with the menu above the PDF. If a template's instructions name one, use that.
+        </P>
         <UL>
           <li>
-            <b>pdfLaTeX</b>: the default, fastest, works with most templates.
+            <b>pdfLaTeX</b> (default): the oldest and fastest. Uses TeX's own fonts, picked with packages such as <C>\usepackage{'{'}charter{'}'}</C>. Most
+            resume templates (Jake's Resume, most of Overleaf's gallery) are made for it.
           </li>
           <li>
-            <b>XeLaTeX</b> / <b>LuaLaTeX</b>: for <C>fontspec</C>, system-style fonts and full Unicode. Upload <C>.ttf</C>/<C>.otf</C> files into
-            the project to use your own fonts.
+            <b>XeLaTeX</b>: for <C>fontspec</C> and ordinary font files (<C>.ttf</C>, <C>.otf</C>) you upload into the project, and for
+            text in any alphabet typed straight in (accents, Greek, Chinese…). Templates that use <C>\setmainfont</C>, such as Awesome-CV,
+            need it (or LuaLaTeX).
+          </li>
+          <li>
+            <b>LuaLaTeX</b>: like XeLaTeX (same font handling) with a built-in scripting language some newer packages use. Usually a bit slower
+            to compile.
           </li>
         </UL>
         <P>
@@ -832,8 +854,28 @@ export const TOPICS: Topic[] = [
         <H2>Errors and warnings</H2>
         <P>
           The <b>Problems</b> panel under the PDF lists errors and warnings with their line; click one to jump there. Errors are also underlined in
-          the editor. <b>Raw log</b> shows the full TeX log. If a compile fails, the last good PDF stays visible.
+          the editor. <b>Raw log</b> shows the full TeX log. If a compile fails, the last good PDF stays visible. Common ones come with a
+          plain explanation underneath.
         </P>
+        <P>
+          Warnings don't stop the PDF. Errors usually do. A few you can normally ignore:
+        </P>
+        <UL>
+          <li>
+            <b>Overfull box (… too wide)</b>: a line sticks out past the margin by that much. 1pt is about a third of a millimetre, so anything
+            that small is invisible and is only listed with <b>Bad boxes</b> ticked. Bigger ones are worth a look in the PDF; dense resumes get a
+            few.
+          </li>
+          <li>
+            <b>\footskip is too small</b> or <b>\headheight is too small</b> (from <C>fancyhdr</C>): the page header or footer has less room
+            than it needs. fancyhdr fixes it after page 1; add the <C>\setlength</C> line it suggests to silence it.
+          </li>
+          <li>
+            <b>Shell escape … not enabled</b>: some packages run other programs while compiling (<C>epstopdf</C> for <C>.eps</C> images,{' '}
+            <C>svg</C>, <C>minted</C>). A browser can't do that, so it is always off in texChef. Harmless unless those images or that code
+            are used; convert such images to <C>.pdf</C> or <C>.png</C>.
+          </li>
+        </UL>
         <H2>Packages</H2>
         <P>
           Common packages are in the core download. Bigger collections are downloaded once, only when a document needs them: “recommended” (about

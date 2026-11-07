@@ -1,7 +1,7 @@
 import { ArrowUp, ChevronRight, Files, FolderTree, LayoutGrid } from 'lucide-react';
 import { Tip } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { parentFolder } from './folderTree';
+import { inFolder, parentFolder } from './folderTree';
 import { useDocDrop } from './FolderSidebar';
 import type { FolderMode } from './folderView';
 
@@ -19,7 +19,7 @@ export function FolderBar({
   onMode: (m: FolderMode) => void;
   extra?: React.ReactNode;
 }) {
-  const drop = useDocDrop();
+  const drop = useDocDrop((from, to) => current && inFolder(current, from) && onSelect(to + current.slice(from.length)));
   const parts = current ? current.split('/') : [];
   const crumb = (label: React.ReactNode, path: string | null, key: string, last: boolean) => (
     <button
@@ -63,6 +63,16 @@ export function FolderBar({
       </nav>
       {extra}
       <div className="inline-flex shrink-0 rounded-lg bg-subtle p-0.5 text-xs font-medium">
+        <Tip content="Show every document inside, including those in subfolders, grouped by folder">
+          <button
+            onClick={() => onMode('grouped')}
+            className={cn('flex h-6 items-center gap-1.5 rounded-md px-2', mode === 'grouped' ? 'bg-panel shadow-sm' : 'text-muted')}
+            aria-pressed={mode === 'grouped'}
+            data-testid="folder-mode-grouped"
+          >
+            <FolderTree className="size-3.5" /> Expanded
+          </button>
+        </Tip>
         <Tip content="Show subfolders as folders; open one to see what's inside">
           <button
             onClick={() => onMode('browse')}
@@ -71,16 +81,6 @@ export function FolderBar({
             data-testid="folder-mode-browse"
           >
             <LayoutGrid className="size-3.5" /> Folders
-          </button>
-        </Tip>
-        <Tip content="Show every document inside, grouped by folder">
-          <button
-            onClick={() => onMode('grouped')}
-            className={cn('flex h-6 items-center gap-1.5 rounded-md px-2', mode === 'grouped' ? 'bg-panel shadow-sm' : 'text-muted')}
-            aria-pressed={mode === 'grouped'}
-            data-testid="folder-mode-grouped"
-          >
-            <FolderTree className="size-3.5" /> All, grouped
           </button>
         </Tip>
       </div>

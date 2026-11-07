@@ -72,6 +72,12 @@ const workText = (id) => page.evaluate(async (id) => (await window.rc.repo.getWo
 let masterUrl;
 let variantUrl;
 
+/** Click an entry in the map's ☰ options menu. */
+async function mapOption(testId) {
+  await page.getByTestId('map-menu').click();
+  await page.getByTestId(testId).click();
+}
+
 await step('dashboard loads with welcome screen', async () => {
   await page.goto(BASE);
   await page.getByText('One master resume, many tailored versions').waitFor();
@@ -323,14 +329,22 @@ await step('map shows master → variant with a straight line and the updates by
   assert.ok(Math.abs(cx - dst.x) < Math.abs(cx - (src.x + src.width)), 'updates label is nearer the variant');
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}04-graph.png` });
+  // Versions is in the menu that opens below Map on hover.
+  await page.getByTestId('view-graph').hover();
+  await page.getByTestId('view-menu').waitFor();
+  await page.screenshot({ path: `${OUT}04d-view-menu.png` });
   await page.getByTestId('graph-versions').click();
+  assert.equal((await page.getByTestId('view-graph').textContent()).trim(), 'Versions');
   await page.locator('.react-flow__node-commit').first().waitFor();
   const commits = await page.locator('.react-flow__node-commit').count();
   assert.ok(commits >= 4, `expected ≥4 visible versions, got ${commits}`);
   await page.locator('.react-flow__node-commit').last().click();
   await page.getByTestId('commit-panel').waitFor();
   await page.screenshot({ path: `${OUT}05-versions.png` });
+  await page.getByTestId('view-graph').hover();
   await page.getByTestId('graph-family').click();
+  await page.mouse.move(5, 300);
+  await page.getByTestId('view-menu').waitFor({ state: 'detached' });
 });
 
 await step('right-click menu on the map works without opening the document; delete warns', async () => {
@@ -382,27 +396,35 @@ await step('right-click menu on the map works without opening the document; dele
   assert.equal(await page.getByTestId('doc-node-Frontend resume').getByTestId('root-indicator').count(), 0);
   // Full pages make the cards tall enough for the whole first page.
   const before = (await page.getByTestId('doc-node-Master resume').boundingBox()).height / (m.width / 232);
-  await page.getByTestId('map-full-pages').click();
+  await mapOption('map-full-pages');
   await page.waitForTimeout(600);
   const box = await page.getByTestId('doc-node-Master resume').boundingBox();
   assert.ok(box.height / (box.width / 232) > before + 150, 'full-page cards are taller');
-  await page.getByTestId('map-full-pages').click();
-  // Snap to grid: a dragged card lands on a grid cell, is remembered, and Reset puts it back.
-  await page.getByTestId('map-snap').click();
+  await mapOption('map-full-pages');
+  // Snap to grid: a dragged card lands in a grid cell, is remembered, and Reset (after asking) puts it back.
+  await mapOption('map-snap');
   await page.waitForTimeout(600);
   const card = await page.getByTestId('doc-node-Backend resume').boundingBox();
   await page.mouse.move(card.x + card.width / 2, card.y + card.height * 0.85);
   await page.mouse.down();
   await page.mouse.move(card.x + card.width / 2 + card.width * 1.2, card.y + card.height * 0.85 + 20, { steps: 12 });
   await page.mouse.up();
-  await page.getByTestId('map-reset').waitFor();
+  await page.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem('rc-map-positions') ?? '{}').vertical ?? {}).length > 0);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('rc-map-positions')).vertical);
   const [pos] = Object.values(saved);
   assert.ok(pos && pos.x % 272 === 0 && pos.y % 250 === 0, `snapped to the grid, got ${JSON.stringify(pos)}`);
+  // The grid lines sit half a gap outside the card, so the card is in the middle of its cell.
+  const pattern = await page.locator('pattern[id$="grid"]').getAttribute('patternTransform');
+  const zoom = await page.evaluate(() => Number(/scale\(([\d.]+)\)/.exec(document.querySelector('.react-flow__viewport').style.transform)[1]));
+  const shift = Number(/translate\(-([\d.]+)/.exec(pattern)[1]);
+  assert.ok(Math.abs(shift - (20 + 136) * zoom) < 0.5, `grid offset by half a gap, got ${shift} at zoom ${zoom}`);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}04e-snap.png` });
   assert.equal(new URL(page.url()).pathname, '/');
-  await page.getByTestId('map-reset').click();
-  await page.getByTestId('map-reset').waitFor({ state: 'detached' });
-  await page.getByTestId('map-snap').click();
+  await mapOption('map-reset');
+  await page.getByTestId('confirm-ok').click();
+  await page.waitForFunction(() => Object.keys(JSON.parse(localStorage.getItem('rc-map-positions')).vertical).length === 0);
+  await mapOption('map-snap');
   await page.getByTestId('map-horizontal').click();
   // Delete from the map: asks first, then removes the card and stays on the map.
   await page.getByTestId('doc-node-Backend resume').click({ button: 'right' });
@@ -449,7 +471,7 @@ await step('archive hides a document until "show archived" is on', async () => {
   await page.getByTestId('view-graph').click();
 });
 
-await step('folders: create, drag in, move via menu, browse and grouped views, rename, delete', async () => {
+await step('folders: create, drag in, move via menu, folders and expanded views, rename, move a folder, delete', async () => {
   await page.goto(BASE);
   await page.getByTestId('folder-sidebar').waitFor();
   // New folder (opens it; it is empty).
@@ -472,12 +494,15 @@ await step('folders: create, drag in, move via menu, browse and grouped views, r
   await page.getByTestId('move-folder-ok').click();
   await page.getByTestId('doc-row-Master resume').waitFor({ state: 'detached' });
   await page.getByTestId('folder-row-Applications').getByText('2 documents').waitFor();
-  // "All, grouped" shows everything, grouped by folder.
+  // "Expanded" (left of "Folders") shows everything, grouped by folder.
+  const modes = await page.getByTestId('folder-bar').locator('[data-testid^="folder-mode-"]').evaluateAll((els) => els.map((e) => e.textContent.trim()));
+  assert.deepEqual(modes, ['Expanded', 'Folders']);
   await page.getByTestId('folder-mode-grouped').click();
   await page.getByTestId('group-Applications').getByTestId('doc-row-Master resume').waitFor();
   await page.getByTestId('folder-mode-browse').click();
-  // Open the folder: its documents show, on the list and on the map.
-  await page.getByTestId('folder-row-Applications').getByRole('button', { name: 'Applications', exact: true }).click();
+  // Open the folder by clicking anywhere on its row (here, near the right end): its documents show, on the list and on the map.
+  const frow = await page.getByTestId('folder-row-Applications').boundingBox();
+  await page.mouse.click(frow.x + frow.width * 0.6, frow.y + 3);
   await page.getByTestId('doc-row-Master resume').waitFor();
   assert.equal(await page.getByTestId('doc-list').locator('[data-testid^="doc-row-"]').count(), 2);
   await page.getByTestId('view-graph').click();
@@ -495,6 +520,28 @@ await step('folders: create, drag in, move via menu, browse and grouped views, r
   await page.getByTestId('folder-Jobs').waitFor();
   await page.getByTestId('folder-Applications').waitFor({ state: 'detached' });
   await page.waitForFunction(async () => (await window.rc.repo.listDocs()).filter((d) => d.folder === 'Jobs').length === 2);
+  // The edge of a sidebar row opens the folder too.
+  const srow = await page.getByTestId('folder-Jobs').boundingBox();
+  await page.mouse.click(srow.x + srow.width * 0.4, srow.y + srow.height - 2);
+  await page.getByTestId('crumb-Jobs').waitFor();
+  await page.getByTestId('crumb-all').click();
+  // Folders move too: drag one onto another in the panel, and back out with Move to….
+  await page.getByTestId('new-folder').click();
+  await page.getByTestId('folder-name').fill('Inner');
+  await page.getByTestId('folder-dialog-ok').click();
+  await page.getByTestId('folder-Inner').dragTo(page.getByTestId('folder-Jobs'));
+  await page.getByTestId('folder-Jobs/Inner').waitFor();
+  await page.getByTestId('crumb-Jobs').waitFor(); // the open folder followed the move (Jobs/Inner)
+  await page.getByTestId('folder-Jobs/Inner').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Move to…' }).click();
+  await page.getByTestId('move-to-Jobs/Inner').waitFor({ state: 'detached' }); // can't move into itself
+  await page.getByTestId('move-to-none').click();
+  await page.getByTestId('move-folder-ok').click();
+  await page.getByTestId('folder-Inner').waitFor();
+  await page.getByTestId('folder-Inner').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: 'Delete folder…' }).click();
+  await page.getByTestId('folder-dialog-ok').click();
+  await page.getByTestId('folder-Inner').waitFor({ state: 'detached' });
   await page.getByTestId('folder-Jobs').hover();
   await page.getByLabel('Actions for folder Jobs').click();
   await page.getByRole('menuitem', { name: 'Delete folder…' }).click();
@@ -508,7 +555,13 @@ await step('folders: create, drag in, move via menu, browse and grouped views, r
 await step('right-click empty space: new folder, previews, export menu', async () => {
   const box = await page.getByTestId('dashboard-content').boundingBox();
   await page.mouse.click(box.x + 40, box.y + box.height - 60, { button: 'right' });
-  await page.getByRole('menuitem', { name: 'Make missing previews' }).waitFor();
+  // Make previews asks first (the button is gone; it lives in the menus).
+  assert.equal(await page.getByTestId('make-previews').count(), 0);
+  await page.getByRole('menuitem', { name: 'Recompile all previews' }).click();
+  await page.getByRole('dialog').getByText('so the map shows').waitFor();
+  await page.getByTestId('confirm-cancel').click();
+  await page.getByRole('dialog').waitFor({ state: 'detached' });
+  await page.mouse.click(box.x + 40, box.y + box.height - 60, { button: 'right' });
   await page.getByRole('menuitem', { name: 'Export everything' }).hover();
   await page.getByRole('menuitem', { name: 'Backup with history (.zip)' }).waitFor();
   await page.keyboard.press('Escape');
@@ -539,6 +592,17 @@ await step('compare side by side, copy a block across', async () => {
   assert.match(text, /streaming ingestion/);
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${OUT}06-compare.png` });
+  // Choosing a document: a few nearby in the menu, everything in "Other files…" (with versions).
+  await page.getByTestId('right-doc-picker').click();
+  await page.getByRole('menuitem', { name: /Master resume/ }).waitFor();
+  await page.getByRole('menuitem', { name: 'Other files…' }).click();
+  await page.getByTestId('doc-picker-search').fill('master');
+  await page.getByTestId('picker-doc-Master resume').click();
+  await page.locator('[data-testid^="picker-version-"]').nth(1).click();
+  await page.screenshot({ path: `${OUT}06b-compare-picker.png` });
+  await page.getByTestId('doc-picker-ok').click();
+  await page.waitForFunction((id) => new URL(location.href).searchParams.get('right')?.startsWith(id + '@'), m);
+  await page.getByTestId('right-doc-picker').getByText('Master resume').waitFor();
 });
 
 await step('upload a .zip as a new document and download it again', async () => {

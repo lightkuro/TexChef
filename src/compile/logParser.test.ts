@@ -50,4 +50,31 @@ describe('parseTexLog', () => {
     const log = ['! Missing } inserted.', 'l.9 }', '! Emergency stop.', 'l.9'].join('\n');
     expect(parseTexLog(log).map((d) => d.message)).toEqual(['Missing } inserted.']);
   });
+
+  it('treats tiny overfull lines as bad boxes, bigger ones as warnings, with a plain explanation', () => {
+    const log = [
+      '(./main.tex',
+      'Overfull \\hbox (0.55968pt too wide) in paragraph at lines 151--151',
+      'Overfull \\hbox (12.5pt too wide) in paragraph at lines 160--161',
+    ].join('\n');
+    const [tiny, big] = parseTexLog(log, ['main.tex']);
+    expect(tiny).toMatchObject({ severity: 'info', line: 151, message: 'Overfull box (0.55968pt too wide)' });
+    expect(tiny.hint).toMatch(/0\.20 mm.*safe to ignore/);
+    expect(big).toMatchObject({ severity: 'warning', line: 160 });
+    expect(big.hint).toMatch(/4\.4 mm past the right margin/);
+  });
+
+  it('explains fancyhdr footskip and shell escape warnings', () => {
+    const log = [
+      'Package fancyhdr Warning: \\footskip is too small (0.0pt):',
+      '(fancyhdr)                Make it at least 4.08003pt, for example:',
+      '(fancyhdr)                \\setlength{\\footskip}{4.08003pt}.',
+      'Package epstopdf Warning: Shell escape feature is not enabled.',
+    ].join('\n');
+    const [skip, shell] = parseTexLog(log);
+    expect(skip.hint).toMatch(/footer is 4\.08003pt tall.*\\setlength\{\\footskip\}\{4\.08003pt\}/);
+    expect(shell.message).toBe('Shell escape feature is not enabled.');
+    expect(shell.hint).toMatch(/can’t run programs/);
+  });
 });
+

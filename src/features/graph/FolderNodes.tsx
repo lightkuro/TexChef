@@ -4,7 +4,7 @@ import { FileText, Folder, FolderOpen } from 'lucide-react';
 import type { PreviewRecord } from '@/core/model';
 import type { FolderItem } from '@/features/folders/folderView';
 import { cn } from '@/lib/utils';
-import { CARD_W, GROUP_HEADER } from './mapLayout';
+import { cardHeight, CARD_W, GROUP_HEADER } from './mapLayout';
 
 export type FolderNodeData = {
   item: FolderItem;
@@ -15,26 +15,28 @@ export type FolderNodeData = {
   dropping: boolean;
   /** Wraps the card in its right-click menu. */
   wrap?: (children: React.ReactElement) => React.ReactNode;
+  /** On the snap grid: card height of a grid cell. */
+  snap?: boolean;
 };
 export type FolderNodeType = Node<FolderNodeData, 'folder'>;
 
 /** A folder on the map: open it with a click, drop documents on it to move them in. */
 export const FolderCard = memo(function FolderCard({ id, data }: NodeProps<FolderNodeType>) {
-  const { item, previews, vertical, fullPage, dropping, wrap } = data;
+  const { item, previews, vertical, fullPage, dropping, wrap, snap } = data;
   const updateInternals = useUpdateNodeInternals();
-  useEffect(() => updateInternals(id), [id, vertical, fullPage, updateInternals]);
+  useEffect(() => updateInternals(id), [id, vertical, fullPage, snap, updateInternals]);
   const shown = previews.slice(0, 4);
   const card = (
     <div
       className={cn(
-        'group overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow hover:shadow-md',
+        'group flex flex-col overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow hover:shadow-md',
         dropping ? 'border-accent ring-4 ring-accent/30' : 'border-line',
       )}
-      style={{ width: CARD_W }}
+      style={{ width: CARD_W, height: snap ? cardHeight(fullPage) : undefined }}
       data-testid={`folder-node-${item.name}`}
     >
       <Handle type="target" position={vertical ? Position.Top : Position.Left} className="!size-2 !border-0 !bg-line" />
-      <div className={cn('relative grid grid-cols-2 gap-1 border-b border-line bg-subtle p-1.5', fullPage ? 'h-[300px]' : 'h-[118px]')}>
+      <div className={cn('relative grid grid-cols-2 gap-1 border-b border-line bg-subtle p-1.5', snap ? 'min-h-0 flex-1' : fullPage ? 'h-[300px]' : 'h-[118px]')}>
         {shown.length === 0 && (
           <div className="col-span-2 flex items-center justify-center text-muted">
             <Folder className="size-10 opacity-40" />
@@ -55,7 +57,7 @@ export const FolderCard = memo(function FolderCard({ id, data }: NodeProps<Folde
           <div className="absolute inset-0 flex items-center justify-center bg-accent-soft/80 text-sm font-medium text-accent">Move into “{item.name}”</div>
         )}
       </div>
-      <div className="flex items-center gap-1.5 px-3 py-2">
+      <div className="flex shrink-0 items-center gap-1.5 px-3 py-2">
         {dropping ? <FolderOpen className="size-4 shrink-0 text-accent" /> : <Folder className="size-4 shrink-0 text-accent" />}
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.name}</span>
         <span className="text-[11px] text-muted">

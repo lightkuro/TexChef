@@ -5,7 +5,7 @@ import type { DocMeta, PreviewRecord } from '@/core/model';
 import { Badge } from '@/components/ui';
 import { cn, docColor, timeAgo } from '@/lib/utils';
 import { DocActionsMenu } from '@/features/dashboard/DocActions';
-import { CARD_W } from './mapLayout';
+import { cardHeight, CARD_W } from './mapLayout';
 
 export type DocNodeData = {
   doc: DocMeta;
@@ -17,37 +17,39 @@ export type DocNodeData = {
   isRoot: boolean;
   vertical: boolean;
   fullPage: boolean;
+  /** On the snap grid: every card gets the cell's card height, so it sits in the middle of its cell. */
+  snap?: boolean;
 };
 
 export type DocNodeType = Node<DocNodeData, 'doc'>;
 
 export const DocCard = memo(function DocCard({ id, data, selected }: NodeProps<DocNodeType>) {
-  const { doc, preview, behind, childCount, isRoot, vertical, fullPage } = data;
+  const { doc, preview, behind, childCount, isRoot, vertical, fullPage, snap } = data;
   const color = docColor(doc.id, doc.color);
   // Connection points move (left/right ↔ top/bottom) and the card changes height: re-measure them.
   const updateInternals = useUpdateNodeInternals();
-  useEffect(() => updateInternals(id), [id, vertical, fullPage, updateInternals]);
+  useEffect(() => updateInternals(id), [id, vertical, fullPage, snap, updateInternals]);
   return (
     <DocActionsMenu doc={doc} asContextMenu>
       <div
         className={cn(
-          'group overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow hover:shadow-md',
+          'group flex flex-col overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow hover:shadow-md',
           doc.archived && 'opacity-60',
           selected ? 'border-accent ring-2 ring-accent/30' : 'border-line',
           doc.color && !selected && 'border-2',
         )}
-        style={{ width: CARD_W, borderColor: doc.color && !selected ? doc.color : undefined }}
+        style={{ width: CARD_W, minHeight: snap ? cardHeight(fullPage) : undefined, borderColor: doc.color && !selected ? doc.color : undefined }}
         data-testid={`doc-node-${doc.name}`}
         data-root={isRoot || undefined}
       >
         <Handle type="target" position={vertical ? Position.Top : Position.Left} className="!size-2 !border-0 !bg-line" />
-        <div className={isRoot ? 'h-2' : 'h-1.5'} style={{ background: color }} />
-        <div className={cn('relative overflow-hidden border-b border-line bg-subtle', fullPage ? 'h-[300px]' : 'h-[118px]')}>
+        <div className={cn('shrink-0', isRoot ? 'h-2' : 'h-1.5')} style={{ background: color }} />
+        <div className={cn('relative overflow-hidden border-b border-line bg-subtle', snap ? (fullPage ? 'min-h-[300px] flex-1' : 'min-h-[118px] flex-1') : fullPage ? 'h-[300px]' : 'h-[118px]')}>
           {preview?.thumbnail ? (
             <img
               src={preview.thumbnail}
               alt=""
-              className={fullPage ? 'h-full w-full object-contain object-top' : 'w-full object-cover object-top'}
+              className={cn('absolute inset-0 h-full w-full object-top', fullPage ? 'object-contain' : 'object-cover')}
               draggable={false}
             />
           ) : (
@@ -61,7 +63,7 @@ export const DocCard = memo(function DocCard({ id, data, selected }: NodeProps<D
             </Badge>
           )}
         </div>
-        <div className="space-y-1 px-3 py-2">
+        <div className="shrink-0 space-y-1 px-3 py-2">
           <div className="flex items-center gap-1.5">
             {isRoot ? (
               <span title={`Top of the tree: ${childCount} variant${childCount === 1 ? '' : 's'} made from it`} data-testid="root-indicator">

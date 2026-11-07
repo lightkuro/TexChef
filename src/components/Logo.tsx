@@ -1,3 +1,5 @@
+import { Umbrella } from 'lucide-react';
+
 /** texChef mark: a chef's hat with a TeX backslash, drawn in the current theme's accent colors. */
 export function Logo({ size = 28, className }: { size?: number; className?: string }) {
   return (
@@ -12,5 +14,20 @@ export function Logo({ size = 28, className }: { size?: number; className?: stri
       </g>
       <path d="M50 53 L70 77" stroke="var(--accent)" strokeWidth="8.5" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/** Tiny "a kurolight.dev project" credit for footers. */
+export function KurolightMark({ className }: { className?: string }) {
+  return (
+    <a
+      href="https://kurolight.dev"
+      target="_blank"
+      rel="noopener"
+      className={`inline-flex items-center gap-1 text-[11px] text-muted opacity-80 transition-opacity hover:text-fg hover:opacity-100 ${className ?? ''}`}
+      data-testid="kurolight-mark"
+    >
+      <Umbrella className="size-3" aria-hidden="true" />a kurolight.dev project
+    </a>
   );
 }
