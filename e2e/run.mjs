@@ -100,7 +100,7 @@ async function mapOption(testId) {
 
 await step('dashboard loads with welcome screen', async () => {
   await page.goto(BASE);
-  await page.getByText('One master resume, many tailored versions').waitFor();
+  await page.getByTestId('landing').waitFor();
 });
 
 await step('home page links to Privacy and Terms; themes switch', async () => {
@@ -956,7 +956,7 @@ await step('full backup: export, wipe, restore everything (zip, then a folder wi
       localStorage.removeItem('rc-map-positions');
     });
     await page.goto(BASE);
-    await page.getByText('One master resume, many tailored versions').waitFor();
+    await page.getByTestId('landing').waitFor();
   };
   await wipe();
   await page.getByTestId('upload-input').setInputFiles(zipPath);

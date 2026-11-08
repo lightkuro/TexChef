@@ -10,7 +10,6 @@ import {
   CloudDownload,
   Search,
   Settings,
-  FileText,
   Archive,
   CircleHelp,
   PanelLeft,
@@ -39,6 +38,7 @@ import { askResetPositions, FamilyGraph } from '@/features/graph/FamilyGraph';
 import { VersionGraph } from '@/features/graph/VersionGraph';
 import { DocList } from './DocList';
 import { NewDocDialog } from './NewDocDialog';
+import { Landing } from './Landing';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { useSync } from '@/features/sync/controller';
 import { pickFromDrive, pickerConfigured } from '@/features/sync/picker';
@@ -342,7 +342,7 @@ export function Dashboard() {
             <Spinner />
           </div>
         ) : docs.length === 0 ? (
-          <Welcome onNew={() => setNewOpen(true)} onUpload={() => upload.current?.click()} />
+          <Landing onNew={() => setNewOpen(true)} onImport={() => upload.current?.click()} />
         ) : isEmpty && (view !== 'graph' || graphMode === 'family') ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted" data-testid="empty-folder">
             <FolderOpen className="size-8 opacity-50" />
@@ -550,57 +550,6 @@ function ViewSwitch() {
       <button onClick={() => setPref({ dashboardView: 'list' })} className={tab(view === 'list')} data-testid="view-list">
         <List className="size-3.5" /> List
       </button>
-    </div>
-  );
-}
-
-function Welcome({ onNew, onUpload }: { onNew: () => void; onUpload: () => void }) {
-  return (
-    <div className="mx-auto flex max-w-2xl flex-col items-center px-4 py-12 text-center sm:px-6 sm:py-16">
-      <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
-        <FileText className="size-7" />
-      </div>
-      <h1 className="text-2xl font-semibold">One master resume, many tailored versions</h1>
-      <p className="mt-2 text-muted">
-        Write everything once in a master resume, then branch focused variants for each role by picking sections, jobs and bullets.
-        Variants stay linked: pull master updates into them, or push a reworded bullet back up.
-      </p>
-      {/* Stacked on phones, side by side from `sm` up. */}
-      <div className="mt-6 flex w-full max-w-xs flex-col gap-2 sm:w-auto sm:max-w-none sm:flex-row">
-        <Button variant="primary" onClick={onNew}>
-          <Plus className="size-4" /> Start a master resume
-        </Button>
-        <Button variant="outline" onClick={onUpload}>
-          <Upload className="size-4" /> Upload .tex or Overleaf .zip
-        </Button>
-      </div>
-      <Link to="/help" className="mt-3 text-sm text-accent underline">
-        New here? Read how texChef works
-      </Link>
-      <ol className="mt-10 grid w-full gap-3 text-left text-sm sm:grid-cols-3">
-        {[
-          ['Write the master', 'Everything you have done, split into blocks with tags like #backend or #ml.'],
-          ['Make variants', 'Tick blocks or pick tags; see the PDF and page count live.'],
-          ['Keep them in sync', 'Bring master edits into every variant with one click; compare any two side by side.'],
-        ].map(([t, d], i) => (
-          <li key={t} className="rounded-xl border border-line bg-panel p-4">
-            <div className="text-xs font-semibold text-accent">Step {i + 1}</div>
-            <div className="mt-1 font-medium">{t}</div>
-            <div className="mt-1 text-muted">{d}</div>
-          </li>
-        ))}
-      </ol>
-      <p className="mt-8 text-xs text-muted">
-        Your documents are stored in this browser and, if you connect it, in your own Google Drive. By using texChef you agree to the{' '}
-        <Link to="/terms" className="underline hover:text-fg">
-          Terms
-        </Link>{' '}
-        and{' '}
-        <Link to="/privacy" className="underline hover:text-fg">
-          Privacy Policy
-        </Link>
-        .
-      </p>
     </div>
   );
 }
