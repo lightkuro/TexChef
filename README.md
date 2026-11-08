@@ -107,8 +107,9 @@ texChef uses the Google Identity Services token flow from the browser — no bac
    - **Clients:** Create client → **Web application**. Authorized JavaScript origins: `https://texchef.kurolight.dev`
      and `http://localhost:5173`. No redirect URIs. Copy the **Client ID** (the secret is not used).
 4. **API key** (Google Picker only): APIs & Services → Credentials → Create credentials → API key. Restrict it:
-   application restriction **Websites** with `https://texchef.kurolight.dev/*` and `http://localhost:5173/*`;
-   API restriction **Google Picker API**.
+   application restriction **Websites** with `https://texchef.kurolight.dev/*`, `http://localhost:5173/*` **and
+   `https://docs.google.com/*`** (the picker runs on docs.google.com; without it Google shows “The API developer key
+   is invalid”); API restriction **Google Picker API**.
 5. Copy `.env.example` to `.env` for local development, and set the same three values as **build** variables in
    Cloudflare (Worker → Settings → Build → Variables and secrets), then redeploy:
 
@@ -132,6 +133,9 @@ never lost: when two devices change the same document, you get a banner to merge
 an hour and are kept in the tab's session storage; after that the app shows **Reconnect Drive**.
 
 **Import from Drive** (dashboard) opens Google Picker; picking a file is what grants a `drive.file` app access to it.
+If the picker says “The API developer key is invalid”, the key's website restrictions are missing
+`https://docs.google.com/*`. If it shows “Sign in” although you are signed in, the browser is blocking Google's
+cookies on the site (Brave Shields, Safari): allow cookies for the site, or download the file and use Import → Upload.
 
 ## Deploy (Cloudflare Workers static assets, free plan)
 
@@ -157,7 +161,8 @@ about 80 MB instead of 125 MB for the engine core.
    existing DNS record for that name, delete the record and add the domain again (Cloudflare creates its own).
    To manage the domain from code instead, uncomment the `routes` line in `wrangler.toml`.
 4. In Google Cloud → Credentials → your OAuth client, add `https://texchef.kurolight.dev` to **Authorized JavaScript
-   origins** (and to the API key's allowed referrers as `https://texchef.kurolight.dev/*`).
+   origins** (and to the API key's allowed referrers as `https://texchef.kurolight.dev/*`, next to
+   `https://docs.google.com/*`).
 
 **Or deploy from your machine:**
 

@@ -42,7 +42,7 @@ import { NewDocDialog } from './NewDocDialog';
 import { Landing } from './Landing';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { connectDrive, useSync } from '@/features/sync/controller';
-import { pickFromDrive, pickerConfigured } from '@/features/sync/picker';
+import { PickerError, pickFromDrive, pickerConfigured, pickerTroubleHint } from '@/features/sync/picker';
 import { Button, Drawer, Input, Spinner, Tip } from '@/components/ui';
 import { BREAKPOINTS, useMinWidth, usePhone } from '@/lib/useMediaQuery';
 import { KurolightMark, Logo } from '@/components/Logo';
@@ -236,7 +236,7 @@ export function Dashboard() {
       const files = await pickFromDrive();
       if (files.length) await importFiles(files);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e));
+      toast.error(e instanceof Error ? e.message : String(e), { description: e instanceof PickerError ? pickerTroubleHint() : undefined });
     }
   };
 

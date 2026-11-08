@@ -829,7 +829,9 @@ export const TOPICS: Topic[] = [
             main .tex file becomes a separate document, with its images and other files. A list lets you untick or rename them before importing.
           </li>
           <li>
-            <b>Import → From Google Drive</b> opens Google’s file picker (connecting Drive first if needed). texChef can only read files you pick there.
+            <b>Import → From Google Drive</b> opens Google’s file picker (connecting Drive first if needed). texChef can only read files you pick there. If
+            Google’s window is stuck on “Sign in” or shows an error, the browser is blocking the cookies it needs (Brave’s Shields do this): allow
+            cookies for this site, or download the file from Drive and use <b>Import → Upload</b>.
           </li>
           <li>
             Inside a document, the <b>Files</b> tab has <b>upload</b> (images, <C>.cls</C>, <C>.sty</C>, <C>.bib</C>, fonts, or a .zip) and{' '}
