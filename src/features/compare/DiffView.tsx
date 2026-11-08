@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { MergeView } from '@codemirror/merge';
-import { Annotation, EditorState, type Extension } from '@codemirror/state';
+import { MergeView, getOriginalDoc, originalDocChangeEffect, unifiedMergeView } from '@codemirror/merge';
+import { Annotation, ChangeSet, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, MatchDecorator, ViewPlugin, Decoration, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { StreamLanguage, syntaxHighlighting, HighlightStyle } from '@codemirror/language';
@@ -51,6 +51,11 @@ interface Props {
   collapseUnchanged?: boolean;
   /** Changing this key rebuilds the view (e.g. when switching files). */
   resetKey?: string;
+  /**
+   * One column (for phones): `b` with the lines `a` has instead shown inline, struck through.
+   * Only `b` can be edited, and there are no copy arrows.
+   */
+  unified?: boolean;
 }
 
 function ext(editable: boolean, onChange: () => ((text: string) => void) | undefined): Extension[] {
@@ -75,10 +80,33 @@ function ext(editable: boolean, onChange: () => ((text: string) => void) | undef
 export const DiffView = forwardRef<DiffViewHandle, Props>(function DiffView(props, ref) {
   const host = useRef<HTMLDivElement>(null);
   const mv = useRef<MergeView | null>(null);
+  /** The single editor of the unified (one-column) view. */
+  const uv = useRef<EditorView | null>(null);
   const cb = useRef(props);
   cb.current = props;
 
   useEffect(() => {
+    if (props.unified) {
+      const view = new EditorView({
+        doc: props.b,
+        extensions: [
+          ext(!!props.bEditable, () => cb.current.onChangeB),
+          unifiedMergeView({
+            original: props.a,
+            highlightChanges: true,
+            gutter: true,
+            mergeControls: false,
+            collapseUnchanged: props.collapseUnchanged ? { margin: 3, minSize: 6 } : undefined,
+          }),
+        ],
+        parent: host.current!,
+      });
+      uv.current = view;
+      return () => {
+        view.destroy();
+        uv.current = null;
+      };
+    }
     const view = new MergeView({
       a: { doc: props.a, extensions: ext(!!props.aEditable, () => cb.current.onChangeA) },
       b: { doc: props.b, extensions: ext(!!props.bEditable, () => cb.current.onChangeB) },
@@ -94,10 +122,17 @@ export const DiffView = forwardRef<DiffViewHandle, Props>(function DiffView(prop
       mv.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.aEditable, props.bEditable, props.revert, props.collapseUnchanged, props.resetKey]);
+  }, [props.aEditable, props.bEditable, props.revert, props.collapseUnchanged, props.resetKey, props.unified]);
 
   const set = (side: 'a' | 'b', text: string) => {
-    const v = mv.current?.[side];
+    const u = uv.current;
+    if (u && side === 'a') {
+      // The unified view keeps `a` as its original document.
+      const cur = getOriginalDoc(u.state);
+      if (cur.toString() !== text) u.dispatch({ effects: originalDocChangeEffect(u.state, ChangeSet.of({ from: 0, to: cur.length, insert: text }, cur.length)) });
+      return;
+    }
+    const v = u ?? mv.current?.[side];
     if (!v) return;
     const cur = v.state.doc.toString();
     if (cur !== text) v.dispatch({ changes: { from: 0, to: cur.length, insert: text }, annotations: External.of(true) });
@@ -107,10 +142,13 @@ export const DiffView = forwardRef<DiffViewHandle, Props>(function DiffView(prop
   useEffect(() => set('b', props.b), [props.b]);
 
   useImperativeHandle(ref, () => ({
-    setA: (text) => mv.current?.a.dispatch({ changes: { from: 0, to: mv.current.a.state.doc.length, insert: text } }),
-    setB: (text) => mv.current?.b.dispatch({ changes: { from: 0, to: mv.current.b.state.doc.length, insert: text } }),
+    setA: (text) => (uv.current ? set('a', text) : mv.current?.a.dispatch({ changes: { from: 0, to: mv.current.a.state.doc.length, insert: text } })),
+    setB: (text) => {
+      const v = uv.current ?? mv.current?.b;
+      v?.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } });
+    },
     gotoB: (line) => {
-      const v = mv.current?.b;
+      const v = uv.current ?? mv.current?.b;
       if (!v) return;
       const l = v.state.doc.line(Math.max(1, Math.min(line, v.state.doc.lines)));
       v.dispatch({ selection: { anchor: l.from }, effects: EditorView.scrollIntoView(l.from, { y: 'center' }) });

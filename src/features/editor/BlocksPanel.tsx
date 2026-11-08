@@ -79,7 +79,7 @@ export function BlocksPanel({
     return (
       <div key={b.id}>
         <div
-          className={cn('group flex cursor-pointer items-center gap-1.5 rounded-md py-1 pr-1 text-xs hover:bg-subtle', active && 'bg-accent-soft/60')}
+          className={cn('group flex cursor-pointer items-center gap-1.5 rounded-md py-1 pr-1 text-xs hover:bg-subtle max-sm:py-2 max-sm:text-sm', active && 'bg-accent-soft/60')}
           style={{ paddingLeft: 8 + b.depth * 12 }}
           onClick={() => onGoto(b.startLine + 2)}
           title={`${b.id} (line ${b.startLine + 1})`}

@@ -12,6 +12,7 @@ import { findConflicts, resolveConflict, resolveAll, type ConflictChoice } from 
 import { DiffView, type DiffViewHandle } from '@/features/compare/DiffView';
 import { Badge, Button, Checkbox, EmptyState, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { usePhone } from '@/lib/useMediaQuery';
 import { setUnsaved, useUnsavedReason } from '@/app/unsaved';
 
 /** Get updates from the original into a variant: choose new blocks, review the combined text, resolve conflicts. */
@@ -31,6 +32,8 @@ export function PullPage() {
   const [touched, setTouched] = useState(false);
   useUnsavedReason('pull-page', (touched || Object.keys(edited).length > 0) && !busy, 'The updates you chose on this page are not applied yet.');
   const diff = useRef<DiffViewHandle>(null);
+  // Phones: the choices above the text, and the text in one column.
+  const phone = usePhone();
 
   useEffect(() => {
     if (!doc) return;
@@ -115,32 +118,40 @@ export function PullPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate(`/doc/${doc.id}`)} aria-label="Back">
           <ArrowLeft className="size-4" />
         </Button>
-        <GitPullRequestArrow className="size-4 text-accent" />
-        <span className="text-sm">
-          Get updates from <b>{parent.name}</b> into <b>{doc.name}</b>
-        </span>
+        <GitPullRequestArrow className="size-4 shrink-0 text-accent" />
+        {phone ? (
+          <span className="min-w-0 truncate text-sm">
+            Updates from <b>{parent.name}</b>
+          </span>
+        ) : (
+          <span className="text-sm max-xl:min-w-0 max-xl:truncate">
+            Get updates from <b>{parent.name}</b> into <b>{doc.name}</b>
+          </span>
+        )}
         {totalConflicts > 0 ? (
-          <Badge tone="danger">
-            <AlertTriangle className="size-3" /> {totalConflicts} conflict{totalConflicts === 1 ? '' : 's'} to resolve
+          <Badge tone="danger" className="shrink-0">
+            <AlertTriangle className="size-3" /> {totalConflicts}
+            {phone ? null : ` conflict${totalConflicts === 1 ? '' : 's'} to resolve`}
           </Badge>
         ) : (
-          <Badge tone="ok">
+          <Badge tone="ok" className="max-sm:hidden">
             <CheckCircle2 className="size-3" /> No conflicts
           </Badge>
         )}
         <div className="flex-1" />
-        <Link to="/help/updates" className="text-xs text-muted underline hover:text-fg" target="_blank">
+        <Link to="/help/updates" className="shrink-0 text-xs text-muted underline hover:text-fg max-md:hidden" target="_blank">
           How updates work
         </Link>
-        <Button variant="ghost" onClick={() => navigate(`/doc/${doc.id}`)}>
+        <Button variant="ghost" className="max-sm:hidden" onClick={() => navigate(`/doc/${doc.id}`)}>
           Cancel
         </Button>
         <Button variant="primary" onClick={finish} disabled={busy || totalConflicts > 0} data-testid="finish-pull">
-          {busy ? <Spinner /> : <CheckCircle2 className="size-4" />} Apply updates
+          {busy ? <Spinner /> : <CheckCircle2 className="size-4" />}
+          {phone ? ' Apply' : ' Apply updates'}
         </Button>
       </header>
-      <div className="flex min-h-0 flex-1">
-        <aside className="w-80 shrink-0 overflow-auto border-r border-line bg-panel p-3 text-sm">
+      <div className="flex min-h-0 flex-1 max-sm:flex-col">
+        <aside className="w-80 shrink-0 overflow-auto border-r border-line bg-panel p-3 text-sm max-lg:w-64 max-sm:max-h-[42%] max-sm:w-full max-sm:border-r-0 max-sm:border-b">
           {newBlocks && newBlocks.length > 0 && (
             <section className="mb-4">
               <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">New in {parent.name}</h3>
@@ -218,10 +229,19 @@ export function PullPage() {
           )}
         </aside>
         <section className="flex min-w-0 flex-1 flex-col">
-          <div className="grid h-8 shrink-0 grid-cols-2 border-b border-line bg-panel text-xs font-medium">
-            <div className="flex items-center px-3 text-muted">Now: {doc.name}</div>
-            <div className="flex items-center border-l border-line px-3">After updating (you can edit this)</div>
-          </div>
+          {phone ? (
+            <div className="flex min-h-8 shrink-0 items-center border-b border-line bg-panel px-3 py-1 text-xs">
+              <span>
+                <b>After updating</b> (you can edit this): <span className="text-danger line-through">removed</span> ·{' '}
+                <span className="text-ok">added</span>
+              </span>
+            </div>
+          ) : (
+            <div className="grid h-8 shrink-0 grid-cols-2 border-b border-line bg-panel text-xs font-medium">
+              <div className="flex items-center px-3 text-muted">Now: {doc.name}</div>
+              <div className="flex items-center border-l border-line px-3">After updating (you can edit this)</div>
+            </div>
+          )}
           <div className="min-h-0 flex-1">
             <DiffView
               ref={diff}
@@ -230,6 +250,7 @@ export function PullPage() {
               b={mergedText}
               bEditable
               collapseUnchanged
+              unified={phone}
               onChangeB={(t) => setEdited((e) => ({ ...e, [path]: t }))}
             />
           </div>

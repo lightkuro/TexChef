@@ -19,10 +19,11 @@ export const Button = React.forwardRef<
       className={cn(
         'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium whitespace-nowrap transition-colors',
         'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50',
-        size === 'sm' && 'h-7 px-2.5 text-xs',
-        size === 'md' && 'h-8 px-3 text-sm',
-        size === 'icon' && 'size-8',
-        size === 'icon-sm' && 'size-7',
+        // Phones (below `sm`) get larger touch targets.
+        size === 'sm' && 'h-7 px-2.5 text-xs max-sm:h-8',
+        size === 'md' && 'h-8 px-3 text-sm max-sm:h-9',
+        size === 'icon' && 'size-8 max-sm:size-9',
+        size === 'icon-sm' && 'size-7 max-sm:size-8',
         variant === 'primary' && 'bg-accent text-accent-fg hover:bg-accent-hover',
         variant === 'secondary' && 'bg-subtle text-fg hover:bg-line',
         variant === 'outline' && 'border border-line bg-panel text-fg hover:bg-subtle',
@@ -150,10 +151,73 @@ export function Dialog({
             </D.Close>
           </div>
           <div className="min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
-          {footer ? <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div> : null}
+          {footer ? <div className="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3">{footer}</div> : null}
         </D.Content>
       </D.Portal>
     </D.Root>
+  );
+}
+
+// ---------- Drawer ----------
+
+/**
+ * A panel that slides in from the left edge over the page, with a backdrop (the home page's folders
+ * and the editor's side panel on small screens). Escape or a tap on the backdrop closes it.
+ */
+export function Drawer({
+  open,
+  onOpenChange,
+  title,
+  children,
+  className,
+  testId,
+  side = 'left',
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** For screen readers. */
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+  testId?: string;
+  /** The edge it slides in from. */
+  side?: 'left' | 'right';
+}) {
+  return (
+    <D.Root open={open} onOpenChange={onOpenChange}>
+      <D.Portal>
+        <D.Overlay className="drawer-overlay fixed inset-0 z-40 bg-black/40" />
+        <D.Content
+          aria-describedby={undefined}
+          // Focus the panel itself, not its first field, so the on-screen keyboard stays down.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            (e.currentTarget as HTMLElement).focus();
+          }}
+          className={cn(
+            'drawer fixed inset-y-0 z-50 flex w-[min(20rem,calc(100vw-3rem))] flex-col border-line bg-panel pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-2xl focus:outline-none',
+            side === 'left' ? 'left-0 border-r pl-[env(safe-area-inset-left)]' : 'right-0 border-l pr-[env(safe-area-inset-right)]',
+            className,
+          )}
+          data-side={side}
+          data-testid={testId}
+        >
+          <D.Title className="sr-only">{title}</D.Title>
+          {children}
+        </D.Content>
+      </D.Portal>
+    </D.Root>
+  );
+}
+
+/** The close button for a Drawer's header. */
+export function DrawerClose({ className }: { className?: string }) {
+  return (
+    <D.Close asChild>
+      <Button variant="ghost" size="icon-sm" className={className} aria-label="Close panel" data-testid="drawer-close">
+        <X className="size-4" />
+      </Button>
+    </D.Close>
   );
 }
 
@@ -177,7 +241,7 @@ export function MenuContent({ children, align = 'end', className }: { children: 
 }
 
 const itemClass =
-  'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 outline-none select-none data-[disabled]:opacity-40 data-[highlighted]:bg-subtle';
+  'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 outline-none select-none data-[disabled]:opacity-40 data-[highlighted]:bg-subtle max-sm:py-2.5';
 
 export function MenuItem({
   children,

@@ -61,7 +61,7 @@ export function HoverMenu({
       {open && (
         // pt-1 bridges the gap so moving the pointer down into the menu keeps it open.
         <div className={cn('absolute top-full z-40 pt-1', align === 'end' ? 'right-0' : 'left-0')} data-testid={testId}>
-          <div role="menu" aria-label={label} className={cn('min-w-56 rounded-lg border border-line bg-panel p-1 text-sm shadow-xl', menuClassName)}>
+          <div role="menu" aria-label={label} className={cn('min-w-56 rounded-lg border border-line bg-panel p-1 text-sm shadow-xl max-sm:max-w-[calc(100vw-1.5rem)]', menuClassName)}>
             {children(() => setOpen(false))}
           </div>
         </div>
@@ -94,7 +94,7 @@ export function HoverMenuItem({
       aria-checked={checked}
       disabled={disabled}
       onClick={onSelect}
-      className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-subtle focus:bg-subtle focus:outline-none disabled:opacity-40"
+      className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-subtle focus:bg-subtle focus:outline-none disabled:opacity-40 max-sm:py-2"
       data-testid={testId}
     >
       <span className="flex size-4 shrink-0 items-center justify-center pt-0.5 text-muted">{checked ? <Check className="size-4 text-accent" /> : icon}</span>

@@ -17,7 +17,7 @@ import { requestPersistence, storageStatus, type StorageStatus } from '@/app/per
 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-line bg-panel p-5">
+    <section className="rounded-xl border border-line bg-panel p-5 max-sm:p-4">
       <h2 className="mb-3 flex items-center gap-2 font-semibold">
         {icon}
         {title}
@@ -50,7 +50,7 @@ export function SettingsPage() {
         </Button>
         <span className="font-semibold">Settings</span>
       </header>
-      <div className="mx-auto max-w-2xl space-y-4 p-6">
+      <div className="mx-auto max-w-2xl space-y-4 p-6 max-sm:px-4 max-sm:pt-4 max-sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         <Section icon={sync.state === 'local' ? <HardDrive className="size-4" /> : <Cloud className="size-4 text-ok" />} title="Storage">
           <p className="text-muted">
             Documents always live in this browser first. Connect Google Drive to back them up and use them on other devices. texChef asks
@@ -58,7 +58,7 @@ export function SettingsPage() {
             pick, and nothing else in your Drive.
           </p>
           {sync.state === 'local' ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge>Local only</Badge>
               <Button variant="primary" onClick={() => connectDrive().catch((e) => toast.error(String(e?.message ?? e)))} disabled={!googleConfigured}>
                 Connect Google Drive
@@ -73,7 +73,7 @@ export function SettingsPage() {
                 {sync.lastSync && <span className="text-muted">last synced {timeAgo(sync.lastSync)}</span>}
               </div>
               {sync.error && <p className="text-xs text-danger">{sync.error}</p>}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {sync.state === 'needs-signin' ? (
                   <Button variant="primary" onClick={() => connectDrive().catch((e) => toast.error(String(e?.message ?? e)))}>
                     Reconnect
@@ -101,7 +101,7 @@ export function SettingsPage() {
             Compiles in your browser with TeX Live 2026 (BusyTeX, WebAssembly). The core (about 125 MB) downloads once and is cached. Larger
             package collections download only when a document needs them.
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge tone={engine.state === 'ready' ? 'ok' : engine.state === 'error' ? 'danger' : 'neutral'}>{engine.state}</Badge>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={autoCompile} onChange={(e) => setPref({ autoCompile: e.target.checked })} /> Compile automatically while typing

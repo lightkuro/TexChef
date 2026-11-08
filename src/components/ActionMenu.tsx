@@ -12,6 +12,8 @@ export interface MenuAction {
   danger?: boolean;
   disabled?: boolean;
   separatorBefore?: boolean;
+  /** A small heading above this entry (after the separator), naming the group it starts. */
+  groupLabel?: React.ReactNode;
   /** Shows a check mark (for options that are on). */
   checked?: boolean;
   /** Muted text on the right. */
@@ -21,8 +23,9 @@ export interface MenuAction {
 }
 
 const itemClass =
-  'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 outline-none select-none data-[disabled]:opacity-40 data-[highlighted]:bg-subtle data-[state=open]:bg-subtle';
+  'flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 outline-none select-none data-[disabled]:opacity-40 data-[highlighted]:bg-subtle data-[state=open]:bg-subtle max-sm:py-2.5';
 const contentClass = 'z-50 min-w-52 rounded-lg border border-line bg-panel p-1 text-sm shadow-xl';
+const labelClass = 'truncate px-2 pt-1.5 pb-0.5 text-[11px] font-medium tracking-wide text-muted uppercase';
 
 /** Menus are portaled, but React bubbles their events to whatever owns them; stop clicks here. */
 const stop = (e: React.SyntheticEvent) => e.stopPropagation();
@@ -41,6 +44,7 @@ function contextItems(actions: MenuAction[]): React.ReactNode {
   return actions.map((a) => (
     <React.Fragment key={a.key}>
       {a.separatorBefore && <CM.Separator className="my-1 h-px bg-line" />}
+      {a.groupLabel && <CM.Label className={labelClass}>{a.groupLabel}</CM.Label>}
       {a.sub ? (
         <CM.Sub>
           <CM.SubTrigger className={itemClass} disabled={a.disabled} data-testid={a.testId}>
@@ -66,6 +70,7 @@ function dropdownItems(actions: MenuAction[]): React.ReactNode {
   return actions.map((a) => (
     <React.Fragment key={a.key}>
       {a.separatorBefore && <DM.Separator className="my-1 h-px bg-line" />}
+      {a.groupLabel && <DM.Label className={labelClass}>{a.groupLabel}</DM.Label>}
       {a.sub ? (
         <DM.Sub>
           <DM.SubTrigger className={itemClass} disabled={a.disabled} data-testid={a.testId}>

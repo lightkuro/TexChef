@@ -66,7 +66,7 @@ export function ProblemsPanel({
               {visible.map((d, i) => (
                 <li key={i}>
                   <button
-                    className="flex w-full items-start gap-2 px-3 py-1.5 text-left text-xs hover:bg-subtle"
+                    className="flex w-full items-start gap-2 px-3 py-1.5 text-left text-xs hover:bg-subtle max-sm:py-2.5"
                     onClick={() => onJump(d)}
                   >
                     {d.severity === 'error' ? (

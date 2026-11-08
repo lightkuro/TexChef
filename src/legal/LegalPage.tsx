@@ -45,18 +45,19 @@ export function LegalLayout({ title, children }: { title: string; children: Reac
   return (
     <div className="h-full overflow-auto bg-bg">
       <header className="sticky top-0 z-10 flex h-12 items-center gap-3 border-b border-line bg-panel px-4">
-        <Link to="/" className="flex items-center gap-2 font-semibold">
+        <Link to="/" className="flex shrink-0 items-center gap-2 font-semibold">
           <Logo size={26} /> {LEGAL.appName}
         </Link>
-        <span className="text-muted">/</span>
-        <span className="text-sm">{title}</span>
+        {/* Phones: the page title is right below, as the heading. */}
+        <span className="text-muted max-sm:hidden">/</span>
+        <span className="truncate text-sm max-sm:hidden">{title}</span>
         <div className="flex-1" />
-        <Link to="/" className="flex items-center gap-1 text-sm text-muted hover:text-fg">
+        <Link to="/" className="flex shrink-0 items-center gap-1 text-sm whitespace-nowrap text-muted hover:text-fg">
           <ArrowLeft className="size-4" /> Back to the app
         </Link>
       </header>
-      <article className="mx-auto max-w-3xl px-6 py-10 text-[15px] text-fg" data-testid="legal-page">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+      <article className="mx-auto max-w-3xl px-6 py-10 text-[15px] text-fg max-sm:px-4 max-sm:pt-6 max-sm:pb-[calc(2.5rem+env(safe-area-inset-bottom))]" data-testid="legal-page">
+        <h1 className="text-3xl font-semibold tracking-tight max-sm:text-2xl">{title}</h1>
         <p className="mt-1 text-sm text-muted">Effective {LEGAL.effective}</p>
         {children}
         <footer className="mt-12 border-t border-line pt-4 text-sm text-muted">

@@ -415,6 +415,8 @@ export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onM
       )}
       <Controls showInteractive={false} />
       <MiniMap
+        // Phones: the overview would cover a third of the map.
+        className="max-sm:hidden"
         pannable
         zoomable
         nodeColor={(n) => (n.type === 'doc' ? docColor(n.id, (n.data as { doc: DocMeta }).doc.color) : n.type === 'folder' ? 'var(--accent)' : 'transparent')}

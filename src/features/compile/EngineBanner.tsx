@@ -4,12 +4,13 @@ import { Spinner } from '@/components/ui';
 export function EngineBanner({ status }: { status: EngineStatus }) {
   if (status.state === 'loading') {
     return (
-      <div className="flex shrink-0 items-center gap-2 border-b border-line bg-info-soft px-3 py-1.5 text-xs text-info" data-testid="engine-banner">
+      // Small screens leave the note out; on phones the progress bar wraps under the label.
+      <div className="flex shrink-0 items-center gap-x-2 gap-y-1 border-b border-line bg-info-soft px-3 py-1.5 text-xs text-info max-sm:flex-wrap" data-testid="engine-banner">
         <Spinner />
         <span>{status.label ?? 'Starting the LaTeX engine'}</span>
         {status.percent !== undefined && (
           <>
-            <div className="h-1.5 w-40 overflow-hidden rounded-full bg-panel">
+            <div className="h-1.5 w-40 overflow-hidden rounded-full bg-panel max-sm:min-w-24 max-sm:flex-1">
               <div className="h-full bg-info transition-[width]" style={{ width: `${status.percent}%` }} />
             </div>
             <span className="tabular-nums">
@@ -17,7 +18,7 @@ export function EngineBanner({ status }: { status: EngineStatus }) {
             </span>
           </>
         )}
-        <span className="text-muted">Cached in your browser after the first time.</span>
+        <span className="text-muted max-md:hidden">Cached in your browser after the first time.</span>
       </div>
     );
   }

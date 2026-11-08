@@ -156,7 +156,7 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
         <Controls showInteractive={false} />
       </ReactFlow>
       {selected && selDoc && (
-        <div className="absolute top-3 right-3 w-80 rounded-xl border border-line bg-panel p-3 shadow-xl" data-testid="commit-panel">
+        <div className="absolute top-3 right-3 w-80 max-w-[calc(100%-1.5rem)] rounded-xl border border-line bg-panel p-3 shadow-xl" data-testid="commit-panel">
           <div className="flex items-start gap-2">
             <span className="mt-0.5">{kindIcon(selected.kind)}</span>
             <div className="min-w-0 flex-1">

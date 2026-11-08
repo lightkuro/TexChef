@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Files,
   X,
+  MoreHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
@@ -42,7 +43,8 @@ import { Landing } from './Landing';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { connectDrive, useSync } from '@/features/sync/controller';
 import { pickFromDrive, pickerConfigured } from '@/features/sync/picker';
-import { Button, Input, Spinner, Tip } from '@/components/ui';
+import { Button, Drawer, Input, Spinner, Tip } from '@/components/ui';
+import { BREAKPOINTS, useMinWidth, usePhone } from '@/lib/useMediaQuery';
 import { KurolightMark, Logo } from '@/components/Logo';
 import { ThemeMenu } from '@/components/ThemeMenu';
 import { cn } from '@/lib/utils';
@@ -107,6 +109,12 @@ export function Dashboard() {
   const upload = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const sync = useSync();
+  // The folders panel docks beside the map on wide windows; on narrower ones it opens as a drawer.
+  const docked = useMinWidth(BREAKPOINTS.dock);
+  const phone = usePhone();
+  // Small tablets: Import and Export show only their icons, so the toolbar keeps to one row.
+  const labels = useMinWidth(BREAKPOINTS.labels);
+  const [folderDrawer, setFolderDrawer] = useState(false);
 
   const archivedCount = docs?.filter((d) => d.archived).length ?? 0;
   const shown = useMemo(() => (docs ?? []).filter((d) => showArchived || !d.archived), [docs, showArchived]);
@@ -257,6 +265,51 @@ export function Dashboard() {
     }
   };
 
+  const importActions: MenuAction[] = [
+    { key: 'files', label: 'Upload files or a .zip…', hint: '.tex .zip images', icon: <Upload className="size-4" />, run: () => upload.current?.click(), testId: 'import-files' },
+    { key: 'folder', label: 'Upload a folder…', hint: 'projects or a backup', icon: <FolderUp className="size-4" />, run: () => folderInput.current?.click(), testId: 'import-folder' },
+    ...(pickerConfigured
+      ? [
+          {
+            key: 'drive',
+            label: 'From Google Drive…',
+            hint: sync.state === 'local' ? 'connects Drive' : undefined,
+            icon: <CloudDownload className="size-4" />,
+            separatorBefore: true,
+            run: () => void importFromDrive(),
+            testId: 'import-drive',
+          },
+        ]
+      : []),
+  ];
+  const exportLabel = current ? `Export “${folderName(current)}”` : 'Export everything';
+  /** Phones: one flat menu (no submenus to chase across a small screen). */
+  const phoneMenu: MenuAction[] = [
+    // Without the hints: they would squeeze the labels at phone width.
+    ...importActions.map((a, i) => ({ ...a, hint: undefined, groupLabel: i === 0 ? 'Import' : undefined })),
+    ...exportActions(scopeAll, current, docsIn(null)).flatMap((a, i): MenuAction[] =>
+      a.sub
+        ? a.sub.map((s, j) => ({ ...s, key: `${a.key}-${s.key}`, groupLabel: j === 0 ? a.label : undefined, separatorBefore: j === 0 }))
+        : [{ ...a, groupLabel: i === 0 ? exportLabel : undefined, separatorBefore: i === 0 }],
+    ),
+    ...(archivedCount > 0
+      ? [
+          {
+            key: 'archived',
+            label: `Show archived (${archivedCount})`,
+            icon: <Archive className="size-4" />,
+            checked: showArchived,
+            separatorBefore: true,
+            run: () => setPref({ showArchived: !showArchived }),
+            testId: 'toggle-archived',
+          },
+        ]
+      : []),
+    ...(view === 'graph' && graphMode === 'versions'
+      ? [{ key: 'autosaves', label: 'Show autosaves', checked: showAutosaves, separatorBefore: archivedCount === 0, run: () => setPref({ showAutosaves: !showAutosaves }) }]
+      : []),
+  ];
+
   return (
     <div
       className="flex h-full flex-col"
@@ -277,41 +330,48 @@ export function Dashboard() {
       <AppHeader>
         <HeaderSearch value={query} onChange={setQuery} />
       </AppHeader>
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2">
-        <Tip content={showFolders ? 'Hide folders' : 'Show folders'}>
-          <Button variant="ghost" size="icon" onClick={() => setPref({ showFolders: !showFolders })} aria-label="Folders" aria-pressed={showFolders} data-testid="toggle-folders">
+      <div className={cn('flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2', phone && 'flex-nowrap gap-1.5')}>
+        <Tip content={docked ? (showFolders ? 'Hide folders' : 'Show folders') : 'Folders'}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => (docked ? setPref({ showFolders: !showFolders }) : setFolderDrawer(true))}
+            aria-label="Folders"
+            aria-pressed={docked ? showFolders : folderDrawer}
+            data-testid="toggle-folders"
+          >
             <PanelLeft className="size-4" />
           </Button>
         </Tip>
         <Button variant="primary" onClick={() => setNewOpen(true)} data-testid="new-doc">
-          <Plus className="size-4" /> New document
+          <Plus className="size-4" />
+          {phone ? ' New' : ' New document'}
         </Button>
-        <ActionDropdown
-          align="start"
-          label="Import"
-          actions={[
-            { key: 'files', label: 'Upload files or a .zip…', hint: '.tex .zip images', icon: <Upload className="size-4" />, run: () => upload.current?.click(), testId: 'import-files' },
-            { key: 'folder', label: 'Upload a folder…', hint: 'projects or a backup', icon: <FolderUp className="size-4" />, run: () => folderInput.current?.click(), testId: 'import-folder' },
-            ...(pickerConfigured
-              ? [
-                  {
-                    key: 'drive',
-                    label: 'From Google Drive…',
-                    hint: sync.state === 'local' ? 'connects Drive' : undefined,
-                    icon: <CloudDownload className="size-4" />,
-                    separatorBefore: true,
-                    run: () => void importFromDrive(),
-                    testId: 'import-drive',
-                  },
-                ]
-              : []),
-          ]}
-          trigger={
-            <Button variant="outline" disabled={busy} data-testid="import-menu">
-              {busy ? <Spinner /> : <Upload className="size-4" />} Import <ChevronDown className="size-3.5 opacity-60" />
-            </Button>
-          }
-        />
+        {phone ? (
+          // Phones: Import, Export and the view toggles share one menu.
+          <ActionDropdown
+            align="start"
+            actions={phoneMenu}
+            trigger={
+              <Button variant="ghost" size="icon" disabled={busy} aria-label="Import, export and more" data-testid="home-more">
+                {busy ? <Spinner /> : <MoreHorizontal className="size-4" />}
+              </Button>
+            }
+          />
+        ) : (
+          <ActionDropdown
+            align="start"
+            label="Import"
+            actions={importActions}
+            trigger={
+              <Button variant="outline" disabled={busy} aria-label={labels ? undefined : 'Import'} data-testid="import-menu">
+                {busy ? <Spinner /> : <Upload className="size-4" />}
+                {labels ? ' Import ' : null}
+                <ChevronDown className="size-3.5 opacity-60" />
+              </Button>
+            }
+          />
+        )}
         <input ref={upload} type="file" multiple hidden accept=".tex,.zip,.cls,.sty,.bib,.png,.jpg,.jpeg,.pdf,.ttf,.otf" data-testid="upload-input" onChange={(e) => e.target.files && importFiles(e.target.files).then(() => (e.target.value = ''))} />
         <input
           ref={folderInput}
@@ -322,23 +382,27 @@ export function Dashboard() {
           data-testid="upload-folder-input"
           onChange={(e) => e.target.files && importFiles(e.target.files).then(() => (e.target.value = ''))}
         />
-        <ActionDropdown
-          align="start"
-          label={current ? `Export “${folderName(current)}”` : 'Export everything'}
-          actions={exportActions(scopeAll, current, docsIn(null))}
-          trigger={
-            <Button variant="ghost" data-testid="export-menu">
-              <Download className="size-4" /> Export <ChevronDown className="size-3.5 opacity-60" />
-            </Button>
-          }
-        />
+        {!phone && (
+          <ActionDropdown
+            align="start"
+            label={exportLabel}
+            actions={exportActions(scopeAll, current, docsIn(null))}
+            trigger={
+              <Button variant="ghost" aria-label={labels ? undefined : 'Export'} data-testid="export-menu">
+                <Download className="size-4" />
+                {labels ? ' Export ' : null}
+                <ChevronDown className="size-3.5 opacity-60" />
+              </Button>
+            }
+          />
+        )}
         <div className="flex-1" />
-        {archivedCount > 0 && (
+        {archivedCount > 0 && !phone && (
           <Button variant={showArchived ? 'secondary' : 'ghost'} size="sm" onClick={() => setPref({ showArchived: !showArchived })} data-testid="toggle-archived">
             <Archive className="size-3.5" /> {showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
           </Button>
         )}
-        {view === 'graph' && graphMode === 'versions' && (
+        {view === 'graph' && graphMode === 'versions' && !phone && (
           <label className="flex items-center gap-1.5 text-xs text-muted">
             <input type="checkbox" checked={showAutosaves} onChange={(e) => setPref({ showAutosaves: e.target.checked })} /> Show autosaves
           </label>
@@ -347,7 +411,21 @@ export function Dashboard() {
         <ViewSwitch />
       </div>
       <div className="flex min-h-0 flex-1">
-      {showFolders && docs && docs.length > 0 && <FolderSidebar docs={shown} current={current} onSelect={openFolder} actionsFor={actionsForFolder} />}
+      {docked && showFolders && docs && docs.length > 0 && <FolderSidebar docs={shown} current={current} onSelect={openFolder} actionsFor={actionsForFolder} />}
+      {!docked && docs && docs.length > 0 && (
+        <Drawer open={folderDrawer} onOpenChange={setFolderDrawer} title="Folders" testId="folder-drawer">
+          <FolderSidebar
+            docs={shown}
+            current={current}
+            onSelect={(f) => {
+              openFolder(f);
+              setFolderDrawer(false);
+            }}
+            actionsFor={actionsForFolder}
+            inDrawer
+          />
+        </Drawer>
+      )}
       <main className="relative flex min-h-0 min-w-0 flex-1 flex-col">
         {docs && docs.length > 0 && (view !== 'graph' || graphMode === 'family') && (
           <FolderBar current={current} onSelect={openFolder} mode={mode} onMode={(m) => setPref({ folderMode: m })} extra={<PreviewProgress />} />
@@ -410,7 +488,8 @@ export function Dashboard() {
       </main>
       </div>
       <FolderDialogHost docs={shown} current={current} onSelect={openFolder} />
-      <footer className="flex h-7 shrink-0 items-center gap-3 border-t border-line bg-panel px-4 text-[11px] text-muted">
+      {/* Clear of the home indicator on phones (safe area). */}
+      <footer className="flex h-[calc(1.75rem+env(safe-area-inset-bottom))] shrink-0 items-center gap-3 border-t border-line bg-panel px-4 pb-[env(safe-area-inset-bottom)] text-[11px] text-muted">
         <span>texChef</span>
         <Link to="/privacy" className="hover:text-fg" data-testid="link-privacy">
           Privacy
@@ -482,14 +561,30 @@ function HeaderSearch({ value, onChange }: { value: string; onChange: (v: string
 function ViewSwitch() {
   const view = usePrefs((s) => s.dashboardView);
   const setPref = usePrefs((s) => s.set);
-  const tab = (on: boolean) => cn('flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium', on ? 'bg-panel shadow-sm' : 'text-muted hover:text-fg');
+  // Icons only on phones.
+  const phone = usePhone();
+  const tab = (on: boolean) => cn('flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium', on ? 'bg-panel shadow-sm' : 'text-muted hover:text-fg', phone && 'h-8');
   return (
     <div className="inline-flex rounded-lg bg-subtle p-0.5">
-      <button onClick={() => setPref({ dashboardView: 'graph' })} className={tab(view === 'graph')} aria-pressed={view === 'graph'} data-testid="view-graph">
-        <Network className="size-3.5" /> Map
+      <button
+        onClick={() => setPref({ dashboardView: 'graph' })}
+        className={tab(view === 'graph')}
+        aria-pressed={view === 'graph'}
+        aria-label={phone ? 'Map' : undefined}
+        data-testid="view-graph"
+      >
+        <Network className="size-3.5" />
+        {phone ? null : ' Map'}
       </button>
-      <button onClick={() => setPref({ dashboardView: 'list' })} className={tab(view === 'list')} aria-pressed={view === 'list'} data-testid="view-list">
-        <List className="size-3.5" /> List
+      <button
+        onClick={() => setPref({ dashboardView: 'list' })}
+        className={tab(view === 'list')}
+        aria-pressed={view === 'list'}
+        aria-label={phone ? 'List' : undefined}
+        data-testid="view-list"
+      >
+        <List className="size-3.5" />
+        {phone ? null : ' List'}
       </button>
     </div>
   );
@@ -501,6 +596,8 @@ function GraphModeSwitch() {
   const setPref = usePrefs((s) => s.set);
   const versions = graphMode === 'versions';
   const Icon = versions ? GitCommitHorizontal : Files;
+  const phone = usePhone();
+  const iconOnly = !useMinWidth(BREAKPOINTS.labels);
   return (
     <HoverMenu
       label="Map shows"
@@ -508,12 +605,14 @@ function GraphModeSwitch() {
       trigger={(open, setOpen) => (
         <button
           onClick={() => setOpen(true)}
-          className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted hover:bg-subtle hover:text-fg"
+          className={cn('flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted hover:bg-subtle hover:text-fg', phone && 'h-9 gap-1 px-2')}
           aria-haspopup="menu"
           aria-expanded={open}
+          // Small screens show only the icon.
+          aria-label={iconOnly ? `Map shows: ${versions ? 'Versions' : 'Documents'}` : undefined}
           data-testid="graph-mode"
         >
-          <Icon className="size-3.5" /> {versions ? 'Versions' : 'Documents'}
+          <Icon className="size-3.5" /> {iconOnly ? null : versions ? 'Versions' : 'Documents'}
           <ChevronDown className={cn('size-3 opacity-50 transition-transform', open && 'rotate-180')} />
         </button>
       )}

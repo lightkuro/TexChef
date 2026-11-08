@@ -20,6 +20,10 @@ import {
   Save,
   Zap,
   ZapOff,
+  PanelLeft,
+  Code2,
+  Check,
+  AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EditorView } from '@codemirror/view';
@@ -36,7 +40,8 @@ import { PdfViewer } from '@/features/preview/PdfViewer';
 import { ProblemsPanel } from '@/features/preview/ProblemsPanel';
 import { isUpToDate, useAutoCompile, useEngineStatus } from '@/features/compile/useCompile';
 import { downloadPdf, downloadProjectZip, downloadText } from '@/features/importexport/io';
-import { Badge, Button, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Spinner, Tip } from '@/components/ui';
+import { Badge, Button, Drawer, DrawerClose, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Spinner, Tip } from '@/components/ui';
+import { BREAKPOINTS, readSession, usePaneLayout, usePhone, writeSession } from '@/lib/useMediaQuery';
 import { EngineBanner } from '@/features/compile/EngineBanner';
 import { HoverMenu, HoverMenuItem, HoverMenuSeparator } from '@/components/HoverMenu';
 import { engineName } from '@/compile/engineAdvice';
@@ -52,6 +57,10 @@ import type { SourceChange } from '@/pdfedit/applyEdit';
 import { applyTextToOriginal } from '@/variants/ops';
 
 type SideTab = 'files' | 'blocks' | 'history';
+type Pane = 'code' | 'pdf';
+
+const PANE_KEY = 'rc-editor-pane';
+const SIDE_KEY = 'rc-editor-side';
 
 export function EditorPage() {
   const { id } = useParams();
@@ -74,6 +83,36 @@ export function EditorPage() {
   const pdfEditing = usePrefs((s) => s.pdfEditMode);
   // Set while an edit box is open on the PDF, or edits wait for "Update PDF": auto-compile holds off.
   const [editHold, setEditHold] = useState(false);
+
+  // Layout by window width: three panes (wide), code + PDF with a side panel that folds away
+  // (split), or one pane at a time with the side panel in a drawer (single).
+  const layout = usePaneLayout();
+  const phone = usePhone();
+  const [pane, setPaneState] = useState<Pane>(() => readSession(PANE_KEY, ['code', 'pdf'], 'code'));
+  const setPane = useCallback((p: Pane) => {
+    setPaneState(p);
+    writeSession(PANE_KEY, p);
+  }, []);
+  const [sideOpen, setSideOpenState] = useState(
+    () => readSession(SIDE_KEY, ['open', 'closed'], window.innerWidth >= BREAKPOINTS.side ? 'open' : 'closed') === 'open',
+  );
+  const setSideOpen = (open: boolean) => {
+    setSideOpenState(open);
+    writeSession(SIDE_KEY, open ? 'open' : 'closed');
+  };
+  const [drawer, setDrawer] = useState(false);
+  const single = layout === 'single';
+  useEffect(() => {
+    if (!single) setDrawer(false);
+  }, [single]);
+  const singleRef = useRef(single);
+  singleRef.current = single;
+  /** One pane at a time: show the code (after a jump to a line from the PDF, a problem or a block). */
+  const revealCode = useCallback(() => {
+    if (!singleRef.current) return;
+    setDrawer(false);
+    setPane('code');
+  }, [setPane]);
 
   const path = activePath && work?.files[activePath] ? activePath : doc?.mainFile ?? null;
   const pathRef = useRef(path);
@@ -200,11 +239,15 @@ export function EditorPage() {
     [flush, id],
   );
 
-  const showInSource = useCallback((p: string, from: number, to: number) => {
-    const switching = p !== pathRef.current;
-    if (switching) setActivePath(p);
-    setTimeout(() => editor.current?.select(from, to), switching ? 60 : 0);
-  }, []);
+  const showInSource = useCallback(
+    (p: string, from: number, to: number) => {
+      const switching = p !== pathRef.current;
+      if (switching) setActivePath(p);
+      revealCode();
+      setTimeout(() => editor.current?.select(from, to), switching ? 60 : 0);
+    },
+    [revealCode],
+  );
 
   const pdfEdit = usePdfEdit({
     enabled: pdfEditing,
@@ -268,6 +311,7 @@ export function EditorPage() {
     const hit = pdfToSource(sync, page, x, y);
     if (!hit || !work?.files[hit.file]) return;
     if (hit.file !== path) setActivePath(hit.file);
+    revealCode();
     setTimeout(() => editor.current?.goto(hit.line), hit.file !== path ? 60 : 0);
   };
 
@@ -290,18 +334,227 @@ export function EditorPage() {
 
   const output = entry?.output;
   const diagnostics = (output?.diagnostics ?? []).filter((d) => (d.file ?? doc.mainFile) === path);
+  const wide = layout === 'wide';
+  const errorCount = (output?.diagnostics ?? []).filter((d) => d.severity === 'error').length;
+  const newVariant = async () => (await flush(), navigate(`/doc/${doc.id}/new-variant`));
+  const openFile = (p: string) => {
+    setActivePath(p);
+    revealCode();
+  };
+
+  /** Blocks / Files / History tabs; `touch` = in the drawer on small screens (bigger, with a close button). */
+  const sideTabs = (touch: boolean) => (
+    <div className={cn('flex h-9 shrink-0 items-center gap-0.5 border-b border-line px-1', touch && 'h-12 gap-1 px-2')}>
+      {(
+        [
+          ['blocks', Blocks, 'Blocks'],
+          ['files', Files, 'Files'],
+          ['history', History, 'History'],
+        ] as const
+      ).map(([k, Icon, label]) => (
+        <button
+          key={k}
+          onClick={() => setSide(k)}
+          className={cn(
+            'flex h-7 flex-1 items-center justify-center gap-1 rounded-md text-xs font-medium',
+            side === k ? 'bg-subtle text-fg' : 'text-muted hover:text-fg',
+            touch && 'h-9 gap-1.5 text-sm',
+          )}
+          data-testid={`tab-${k}`}
+        >
+          <Icon className={cn('size-3.5', touch && 'size-4')} /> {label}
+        </button>
+      ))}
+      {touch && <DrawerClose className="ml-1" />}
+    </div>
+  );
+
+  const sideBody = (
+    <div className="min-h-0 flex-1">
+      {side === 'files' && <FileTree doc={doc} work={work} active={path ?? ''} onOpen={openFile} />}
+      {side === 'blocks' && path?.endsWith('.tex') && (
+        <BlocksPanel
+          doc={doc}
+          parent={parent}
+          path={path}
+          text={text}
+          cursorLine={cursorLine}
+          onGoto={(l) => {
+            revealCode();
+            editor.current?.goto(l);
+          }}
+          onReplaceText={(t) => editor.current?.replaceAll(t)}
+          onInsert={(s) => {
+            revealCode();
+            editor.current?.insertAtCursor(s);
+          }}
+        />
+      )}
+      {side === 'blocks' && !path?.endsWith('.tex') && <EmptyState title="Open a .tex file to see its blocks" />}
+      {side === 'history' && <HistoryPanel doc={doc} dirty={work.dirty || pending.current.size > 0} />}
+    </div>
+  );
+
+  const codePane = (
+    <>
+      {path && (
+        <FileTabs
+          docId={doc.id}
+          files={Object.keys(work.files).sort()}
+          mainFile={doc.mainFile}
+          active={path}
+          onOpen={setActivePath}
+          right={
+            file?.kind !== 'binary' && (
+              <FormatToggle on={showFormatBar} visual={editorVisual && /\.(tex|ltx)$/i.test(path)} onToggle={() => setPref({ showFormatBar: !showFormatBar })} />
+            )
+          }
+        />
+      )}
+      {file?.kind !== 'binary' && path && showFormatBar && (
+        <FormatBar
+          view={() => editor.current?.view() ?? null}
+          visual={editorVisual}
+          onVisual={(v) => setPref({ editorVisual: v })}
+          isTex={/\.(tex|ltx)$/i.test(path)}
+          engine={doc.engine}
+        />
+      )}
+      <div className="min-h-0 flex-1">
+        {file?.kind === 'binary' ? (
+          <BinaryPreview hash={file.hash} path={path!} size={file.size} />
+        ) : path ? (
+          <CodeEditor
+            ref={editor}
+            path={path}
+            value={text}
+            onChange={onChange}
+            diagnostics={diagnostics}
+            onSave={saveVersion}
+            onCompile={compile}
+            onCursorLine={setCursorLine}
+            visual={editorVisual}
+          />
+        ) : null}
+      </div>
+    </>
+  );
+
+  const pdfPane = (
+    <>
+      <PdfViewer
+        pdf={pdf}
+        running={entry?.running}
+        pages={pages}
+        compact={phone}
+        autoCompact={!wide}
+        cursorRects={cursorRects}
+        pageOverlay={pdfEditing ? pdfEdit.renderPage : undefined}
+        banner={
+          pdfEditing && pdf && pdfEdit.pendingCount > 0 && !pdfEditAutoUpdate ? (
+            <div className="flex shrink-0 items-center gap-2 border-b border-line bg-accent-soft px-3 py-1.5 text-xs" data-testid="pdf-edit-banner">
+              <PencilLine className="size-3.5 shrink-0 text-accent" />
+              <span className="min-w-0 flex-1">
+                <b>
+                  {pdfEdit.pendingCount} change{pdfEdit.pendingCount === 1 ? '' : 's'}
+                </b>{' '}
+                not in the PDF yet.
+              </span>
+              <Button size="sm" variant="primary" className="h-6" onClick={compile} disabled={entry?.running} data-testid="pdf-edit-update">
+                {entry?.running ? <Spinner /> : <Play className="size-3" />} Update PDF
+              </Button>
+            </div>
+          ) : null
+        }
+        onSyncClick={(p) => {
+          // In edit mode the first click of a double-click opens the edit box: close it and jump instead.
+          if (pdfEditing) pdfEdit.close();
+          jumpToSource(p);
+        }}
+        actions={
+          <>
+          <Tip content={pdfEditing ? 'On: click text in the PDF to change it. Click to turn off.' : 'Click text in the PDF to change it'}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className={cn('h-7 gap-1 px-2 text-xs', pdfEditing && 'bg-accent-soft text-accent hover:bg-accent-soft')}
+              onClick={() => (pdfEditing ? stopPdfEditing() : startPdfEditing())}
+              aria-pressed={pdfEditing}
+              data-testid="pdf-edit-toggle"
+            >
+              <PencilLine className="size-3.5" />
+              {phone ? ' Edit' : ' Edit text'}
+            </Button>
+          </Tip>
+          <Tip
+            content={
+              followCursor
+                ? 'Showing the cursor’s line in the PDF. Click to turn off. (Double-click the PDF to jump to the source.)'
+                : 'Show the cursor’s line in the PDF'
+            }
+          >
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className={cn(followCursor && 'bg-accent-soft text-accent hover:bg-accent-soft')}
+              onClick={() => setPref({ followCursor: !followCursor })}
+              aria-label="Show cursor line in PDF"
+              aria-pressed={followCursor}
+              data-testid="locate-in-pdf"
+            >
+              <LocateFixed className="size-3.5" />
+            </Button>
+          </Tip>
+          </>
+        }
+        onDownload={() => pdf && downloadPdf(doc.name, pdf)}
+        emptyMessage={output && !output.ok ? 'Compilation failed — see problems below.' : 'Compile to see the PDF'}
+      />
+      <ProblemsPanel
+        output={output}
+        onSwitchEngine={(engine) => {
+          void repo.updateDoc(doc.id, { engine });
+          toast.success(`Switched to ${engineName(engine)}`, { description: 'Compiling again with it. The engine menu above the PDF changes it back.' });
+        }}
+        onJump={(d) => {
+          if (d.file && d.file !== path && work.files[d.file]) setActivePath(d.file);
+          revealCode();
+          if (d.line) setTimeout(() => editor.current?.goto(d.line!), 30);
+        }}
+      />
+    </>
+  );
 
   return (
     <div className="flex h-full flex-col" data-testid="editor-page">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-panel px-2">
+      <header className={cn('flex h-12 shrink-0 items-center gap-2 border-b border-line bg-panel px-2', phone && 'gap-1 px-1.5')}>
         <Tip content="All documents">
           <Button variant="ghost" size="icon" onClick={() => navigate('/')} aria-label="Back to documents">
             <ArrowLeft className="size-4" />
           </Button>
         </Tip>
+        {layout === 'split' && (
+          <Tip content={sideOpen ? 'Hide the side panel' : 'Show blocks, files and history'}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(sideOpen && 'bg-subtle')}
+              onClick={() => setSideOpen(!sideOpen)}
+              aria-label="Side panel"
+              aria-pressed={sideOpen}
+              data-testid="toggle-side"
+            >
+              <PanelLeft className="size-4" />
+            </Button>
+          </Tip>
+        )}
         <Tip content="Document color">
           <button
-            className="size-3 shrink-0 rounded-full ring-offset-2 ring-offset-panel hover:ring-2 hover:ring-line"
+            // Below the desktop layout the dot gets a finger-sized hit area.
+            className={cn(
+              'size-3 shrink-0 rounded-full ring-offset-2 ring-offset-panel hover:ring-2 hover:ring-line',
+              !wide && 'relative mx-1 before:absolute before:-inset-3',
+            )}
             style={{ background: docColor(doc.id, doc.color) }}
             onClick={() => setColoring(true)}
             aria-label="Document color"
@@ -309,7 +562,12 @@ export function EditorPage() {
         </Tip>
         {coloring && <ColorDialog doc={doc} open={coloring} onOpenChange={setColoring} />}
         <input
-          className="h-8 min-w-24 rounded-md bg-transparent px-1.5 text-sm font-semibold hover:bg-subtle focus:bg-subtle focus:outline-none"
+          className={cn(
+            'h-8 min-w-24 rounded-md bg-transparent px-1.5 text-sm font-semibold hover:bg-subtle focus:bg-subtle focus:outline-none',
+            // Narrower windows: the name gives way (and ends in …) before anything else does.
+            !wide && 'min-w-16 shrink text-ellipsis',
+            phone && 'h-9',
+          )}
           defaultValue={doc.name}
           key={doc.name}
           aria-label="Document name"
@@ -317,7 +575,7 @@ export function EditorPage() {
           onBlur={(e) => e.target.value.trim() && e.target.value !== doc.name && repo.updateDoc(doc.id, { name: e.target.value.trim() })}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         />
-        {work.dirty ? (
+        {single ? null : work.dirty ? (
           <Tip
             content={
               <span className="block max-w-72">
@@ -341,7 +599,7 @@ export function EditorPage() {
             </span>
           </Tip>
         )}
-        {parent && (
+        {parent && wide && (
           <div className="ml-1 flex items-center gap-1 rounded-md border border-line px-2 py-0.5 text-xs">
             <GitBranch className="size-3.5 text-muted" />
             <span className="text-muted">variant of</span>
@@ -357,16 +615,89 @@ export function EditorPage() {
             )}
           </div>
         )}
-        <div className="flex-1" />
-        <SyncIndicator />
-        <Button variant="outline" onClick={async () => (await flush(), navigate(`/doc/${doc.id}/new-variant`))} data-testid="new-variant">
-          <GitBranch className="size-3.5" /> New variant
-        </Button>
-        <Tip content={<>Save a version (Ctrl/⌘ + S)</>}>
-          <Button variant="outline" onClick={saveVersion} data-testid="save-version">
-            <Save className="size-3.5" /> Save version
+        {parent && !wide && !phone && (
+          // Compact: the original's name, then the updates button or a check.
+          <Tip content={`Variant of “${parent.name}”${behind ? '' : ', up to date'}`}>
+            <div className="flex min-w-0 shrink items-center gap-1 rounded-md border border-line py-0.5 pr-0.5 pl-2 text-xs">
+              <GitBranch className="size-3.5 shrink-0 text-muted" />
+              <Link to={`/doc/${parent.id}`} className="max-w-36 min-w-0 truncate font-medium hover:underline">
+                {parent.name}
+              </Link>
+              {behind ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="ml-0.5 h-6 px-2"
+                  onClick={() => navigate(`/doc/${doc.id}/pull`)}
+                  aria-label={`Get ${behind} update${behind === 1 ? '' : 's'}`}
+                  data-testid="pull-button"
+                >
+                  <GitPullRequestArrow className="size-3.5" /> {behind}
+                </Button>
+              ) : (
+                <Check className="mr-1 size-3.5 shrink-0 text-ok" aria-label="Up to date" />
+              )}
+            </div>
+          </Tip>
+        )}
+        {parent && phone && !!behind && (
+          <Button
+            size="sm"
+            variant="primary"
+            className="px-2"
+            onClick={() => navigate(`/doc/${doc.id}/pull`)}
+            aria-label={`Get ${behind} update${behind === 1 ? '' : 's'} from “${parent.name}”`}
+            data-testid="pull-button"
+          >
+            <GitPullRequestArrow className="size-3.5" /> {behind}
           </Button>
-        </Tip>
+        )}
+        <div className="flex-1" />
+        <SyncIndicator compact={!wide} />
+        {wide ? (
+          <>
+            <Button variant="outline" onClick={newVariant} data-testid="new-variant">
+              <GitBranch className="size-3.5" /> New variant
+            </Button>
+            <Tip content={<>Save a version (Ctrl/⌘ + S)</>}>
+              <Button variant="outline" onClick={saveVersion} data-testid="save-version">
+                <Save className="size-3.5" /> Save version
+              </Button>
+            </Tip>
+          </>
+        ) : (
+          !phone && (
+            <>
+              <Tip content="New variant">
+                <Button variant="outline" size="icon" onClick={newVariant} aria-label="New variant" data-testid="new-variant">
+                  <GitBranch className="size-4" />
+                </Button>
+              </Tip>
+              <Tip
+                content={
+                  single && work.dirty ? (
+                    <span className="block max-w-64">Save a version (Ctrl/⌘ + S). Your edits since the last version are kept as a draft.</span>
+                  ) : (
+                    <>Save a version (Ctrl/⌘ + S)</>
+                  )
+                }
+              >
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="relative"
+                  onClick={saveVersion}
+                  aria-label={single && work.dirty ? 'Save version (edits since the last version are a draft)' : 'Save version'}
+                  data-testid="save-version"
+                >
+                  <Save className="size-4" />
+                  {/* One pane at a time: the "Draft saved" badge gives way to a dot. */}
+                  {single && work.dirty && <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full border-2 border-panel bg-info" aria-hidden />}
+                </Button>
+              </Tip>
+            </>
+          )
+        )}
         {/* Compile, with its settings (engine, auto-compile) and the PDF download in a menu on hover. */}
         <HoverMenu
           label="Compile settings"
@@ -377,17 +708,19 @@ export function EditorPage() {
               <button
                 onClick={compile}
                 disabled={entry?.running}
-                className="flex h-9 items-center gap-1.5 px-3 text-sm font-medium hover:bg-black/10 disabled:opacity-70"
+                className={cn('flex h-9 items-center gap-1.5 px-3 text-sm font-medium hover:bg-black/10 disabled:opacity-70', phone && 'px-2.5')}
                 title="Compile (Ctrl/⌘ + Enter)"
+                aria-label={phone ? 'Compile' : undefined}
                 data-testid="compile-button"
                 data-engine={doc.engine}
               >
-                {entry?.running ? <Spinner /> : autoCompile ? <Zap className="size-3.5" /> : <Play className="size-3.5" />} Compile
-                {doc.engine !== 'pdflatex' && <span className="text-[11px] font-normal opacity-80">· {engineName(doc.engine)}</span>}
+                {entry?.running ? <Spinner /> : autoCompile ? <Zap className="size-3.5" /> : <Play className="size-3.5" />}
+                {phone ? null : ' Compile'}
+                {!phone && doc.engine !== 'pdflatex' && <span className="text-[11px] font-normal opacity-80">· {engineName(doc.engine)}</span>}
               </button>
               <button
                 onClick={() => setOpen(true)}
-                className="flex items-center border-l border-black/15 px-1.5 hover:bg-black/10"
+                className={cn('flex items-center border-l border-black/15 px-1.5 hover:bg-black/10', phone && 'px-2')}
                 aria-label="Compile settings"
                 aria-haspopup="menu"
                 aria-expanded={open}
@@ -455,6 +788,26 @@ export function EditorPage() {
             </Button>
           </MenuTrigger>
           <MenuContent>
+            {phone && (
+              // On phones the header keeps only Compile: the rest lives here.
+              <>
+                <div className="px-2 pt-1 pb-1.5 text-xs text-muted" data-testid="save-state">
+                  {work.dirty ? 'Draft saved in this browser' : 'Everything is saved as a version'}
+                </div>
+                <MenuItem onSelect={saveVersion}>
+                  <Save className="size-4" /> Save version
+                </MenuItem>
+                <MenuItem onSelect={newVariant}>
+                  <GitBranch className="size-4" /> New variant…
+                </MenuItem>
+                {parent && (
+                  <MenuItem onSelect={() => navigate(`/doc/${parent.id}`)}>
+                    <FileText className="size-4" /> <span className="min-w-0 truncate">Open the original, “{parent.name}”</span>
+                  </MenuItem>
+                )}
+                <MenuSeparator />
+              </>
+            )}
             <MenuItem onSelect={() => navigate('/help')}>
               <CircleHelp className="size-4" /> Help and guides
             </MenuItem>
@@ -475,170 +828,151 @@ export function EditorPage() {
         </Menu>
       </header>
       <EngineBanner status={engine} />
-      <Group orientation="horizontal" className="min-h-0 flex-1">
-        <Panel defaultSize="20%" minSize="160px" className="flex flex-col bg-panel">
-          <div className="flex h-9 shrink-0 items-center gap-0.5 border-b border-line px-1">
+      {wide ? (
+        <Group orientation="horizontal" className="min-h-0 flex-1">
+          <Panel defaultSize="20%" minSize="160px" className="flex flex-col bg-panel">
+            {sideTabs(false)}
+            {sideBody}
+          </Panel>
+          <Separator />
+          <Panel defaultSize="42%" minSize="240px" className="flex flex-col">
+            {codePane}
+          </Panel>
+          <Separator />
+          <Panel defaultSize="38%" minSize="220px" className="flex flex-col">
+            {pdfPane}
+          </Panel>
+        </Group>
+      ) : layout === 'split' ? (
+        // Code and PDF side by side; the side panel folds away (header button).
+        <div className="flex min-h-0 flex-1">
+          {sideOpen && (
+            <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-panel" data-testid="side-panel">
+              {sideTabs(false)}
+              {sideBody}
+            </aside>
+          )}
+          <Group orientation="horizontal" className="min-h-0 min-w-0 flex-1">
+            <Panel defaultSize="52%" minSize="280px" className="flex flex-col">
+              {codePane}
+            </Panel>
+            <Separator />
+            <Panel defaultSize="48%" minSize="240px" className="flex flex-col">
+              {pdfPane}
+            </Panel>
+          </Group>
+        </div>
+      ) : (
+        // One pane at a time. Both stay mounted (the hidden one invisible) so switching is instant.
+        <div className="flex min-h-0 flex-1 flex-col bg-panel pb-[env(safe-area-inset-bottom)]">
+          <PaneBar
+            pane={pane}
+            onPane={setPane}
+            sideLabel={side === 'files' ? 'Files' : side === 'history' ? 'History' : 'Blocks'}
+            onOpenSide={() => setDrawer(true)}
+            drawerOpen={drawer}
+            running={!!entry?.running}
+            errors={errorCount}
+            pages={pages}
+          />
+          <div className="relative min-h-0 flex-1">
             {(
               [
-                ['blocks', Blocks, 'Blocks'],
-                ['files', Files, 'Files'],
-                ['history', History, 'History'],
+                ['code', 'Code', codePane],
+                ['pdf', 'PDF', pdfPane],
               ] as const
-            ).map(([k, Icon, label]) => (
-              <button
+            ).map(([k, label, content]) => (
+              <section
                 key={k}
-                onClick={() => setSide(k)}
-                className={cn(
-                  'flex h-7 flex-1 items-center justify-center gap-1 rounded-md text-xs font-medium',
-                  side === k ? 'bg-subtle text-fg' : 'text-muted hover:text-fg',
-                )}
-                data-testid={`tab-${k}`}
+                className={cn('absolute inset-0 flex flex-col', pane !== k && 'invisible')}
+                inert={pane !== k}
+                aria-label={label}
+                data-testid={`pane-${k}`}
               >
-                <Icon className="size-3.5" /> {label}
-              </button>
+                {content}
+              </section>
             ))}
           </div>
-          <div className="min-h-0 flex-1">
-            {side === 'files' && <FileTree doc={doc} work={work} active={path ?? ''} onOpen={setActivePath} />}
-            {side === 'blocks' && path?.endsWith('.tex') && (
-              <BlocksPanel
-                doc={doc}
-                parent={parent}
-                path={path}
-                text={text}
-                cursorLine={cursorLine}
-                onGoto={(l) => editor.current?.goto(l)}
-                onReplaceText={(t) => editor.current?.replaceAll(t)}
-                onInsert={(s) => editor.current?.insertAtCursor(s)}
-              />
-            )}
-            {side === 'blocks' && !path?.endsWith('.tex') && <EmptyState title="Open a .tex file to see its blocks" />}
-            {side === 'history' && <HistoryPanel doc={doc} dirty={work.dirty || pending.current.size > 0} />}
-          </div>
-        </Panel>
-        <Separator />
-        <Panel defaultSize="42%" minSize="240px" className="flex flex-col">
-          {path && (
-            <FileTabs
-              docId={doc.id}
-              files={Object.keys(work.files).sort()}
-              mainFile={doc.mainFile}
-              active={path}
-              onOpen={setActivePath}
-              right={
-                file?.kind !== 'binary' && (
-                  <FormatToggle on={showFormatBar} visual={editorVisual && /\.(tex|ltx)$/i.test(path)} onToggle={() => setPref({ showFormatBar: !showFormatBar })} />
-                )
-              }
-            />
-          )}
-          {file?.kind !== 'binary' && path && showFormatBar && (
-            <FormatBar
-              view={() => editor.current?.view() ?? null}
-              visual={editorVisual}
-              onVisual={(v) => setPref({ editorVisual: v })}
-              isTex={/\.(tex|ltx)$/i.test(path)}
-              engine={doc.engine}
-            />
-          )}
-          <div className="min-h-0 flex-1">
-            {file?.kind === 'binary' ? (
-              <BinaryPreview hash={file.hash} path={path!} size={file.size} />
-            ) : path ? (
-              <CodeEditor
-                ref={editor}
-                path={path}
-                value={text}
-                onChange={onChange}
-                diagnostics={diagnostics}
-                onSave={saveVersion}
-                onCompile={compile}
-                onCursorLine={setCursorLine}
-                visual={editorVisual}
-              />
-            ) : null}
-          </div>
-        </Panel>
-        <Separator />
-        <Panel defaultSize="38%" minSize="220px" className="flex flex-col">
-          <PdfViewer
-            pdf={pdf}
-            running={entry?.running}
-            pages={pages}
-            cursorRects={cursorRects}
-            pageOverlay={pdfEditing ? pdfEdit.renderPage : undefined}
-            banner={
-              pdfEditing && pdf && pdfEdit.pendingCount > 0 && !pdfEditAutoUpdate ? (
-                <div className="flex shrink-0 items-center gap-2 border-b border-line bg-accent-soft px-3 py-1.5 text-xs" data-testid="pdf-edit-banner">
-                  <PencilLine className="size-3.5 shrink-0 text-accent" />
-                  <span className="min-w-0 flex-1">
-                    <b>
-                      {pdfEdit.pendingCount} change{pdfEdit.pendingCount === 1 ? '' : 's'}
-                    </b>{' '}
-                    not in the PDF yet.
-                  </span>
-                  <Button size="sm" variant="primary" className="h-6" onClick={compile} disabled={entry?.running} data-testid="pdf-edit-update">
-                    {entry?.running ? <Spinner /> : <Play className="size-3" />} Update PDF
-                  </Button>
-                </div>
-              ) : null
-            }
-            onSyncClick={(p) => {
-              // In edit mode the first click of a double-click opens the edit box: close it and jump instead.
-              if (pdfEditing) pdfEdit.close();
-              jumpToSource(p);
-            }}
-            actions={
-              <>
-              <Tip content={pdfEditing ? 'On: click text in the PDF to change it. Click to turn off.' : 'Click text in the PDF to change it'}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className={cn('h-7 gap-1 px-2 text-xs', pdfEditing && 'bg-accent-soft text-accent hover:bg-accent-soft')}
-                  onClick={() => (pdfEditing ? stopPdfEditing() : startPdfEditing())}
-                  aria-pressed={pdfEditing}
-                  data-testid="pdf-edit-toggle"
-                >
-                  <PencilLine className="size-3.5" /> Edit text
-                </Button>
-              </Tip>
-              <Tip
-                content={
-                  followCursor
-                    ? 'Showing the cursor’s line in the PDF. Click to turn off. (Double-click the PDF to jump to the source.)'
-                    : 'Show the cursor’s line in the PDF'
-                }
-              >
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  className={cn(followCursor && 'bg-accent-soft text-accent hover:bg-accent-soft')}
-                  onClick={() => setPref({ followCursor: !followCursor })}
-                  aria-label="Show cursor line in PDF"
-                  aria-pressed={followCursor}
-                  data-testid="locate-in-pdf"
-                >
-                  <LocateFixed className="size-3.5" />
-                </Button>
-              </Tip>
-              </>
-            }
-            onDownload={() => pdf && downloadPdf(doc.name, pdf)}
-            emptyMessage={output && !output.ok ? 'Compilation failed — see problems below.' : 'Compile to see the PDF'}
-          />
-          <ProblemsPanel
-            output={output}
-            onSwitchEngine={(engine) => {
-              void repo.updateDoc(doc.id, { engine });
-              toast.success(`Switched to ${engineName(engine)}`, { description: 'Compiling again with it. The engine menu above the PDF changes it back.' });
-            }}
-            onJump={(d) => {
-              if (d.file && d.file !== path && work.files[d.file]) setActivePath(d.file);
-              if (d.line) setTimeout(() => editor.current?.goto(d.line!), 30);
-            }}
-          />
-        </Panel>
-      </Group>
+          <Drawer open={drawer} onOpenChange={setDrawer} title="Blocks, files and history" testId="side-drawer">
+            {sideTabs(true)}
+            {sideBody}
+          </Drawer>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Small screens: switch between the code and the PDF, open the side panel, see how compiling went. */
+function PaneBar({
+  pane,
+  onPane,
+  sideLabel,
+  onOpenSide,
+  drawerOpen,
+  running,
+  errors,
+  pages,
+}: {
+  pane: Pane;
+  onPane: (p: Pane) => void;
+  sideLabel: string;
+  onOpenSide: () => void;
+  drawerOpen: boolean;
+  running: boolean;
+  errors: number;
+  pages?: number;
+}) {
+  const tab = (k: Pane, Icon: typeof Code2, label: string) => (
+    <button
+      role="tab"
+      aria-selected={pane === k}
+      onClick={() => onPane(k)}
+      className={cn(
+        'flex h-8 items-center justify-center gap-1.5 rounded-md text-sm font-medium transition-colors',
+        pane === k ? 'bg-panel text-fg shadow-sm' : 'text-muted hover:text-fg',
+      )}
+      data-testid={`pane-tab-${k}`}
+    >
+      <Icon className="size-4" /> {label}
+    </button>
+  );
+  return (
+    <div className="grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-line bg-panel px-2" data-testid="pane-bar">
+      <div className="flex min-w-0">
+        <button
+          onClick={onOpenSide}
+          className="flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium text-muted hover:bg-subtle hover:text-fg"
+          aria-label="Blocks, files and history"
+          aria-expanded={drawerOpen}
+          data-testid="open-side"
+        >
+          <PanelLeft className="size-4 shrink-0" />
+          <span className="truncate max-sm:hidden">{sideLabel}</span>
+        </button>
+      </div>
+      <div role="tablist" aria-label="Show" className="grid w-44 grid-cols-2 gap-0.5 rounded-lg bg-subtle p-0.5 sm:w-60">
+        {tab('code', Code2, 'Code')}
+        {tab('pdf', FileText, 'PDF')}
+      </div>
+      {/* How compiling went, while the PDF (whose toolbar says the same) is out of sight. */}
+      <div className="flex min-w-0 items-center justify-end pr-1 text-xs tabular-nums" data-testid="pane-status">
+        {pane === 'pdf' ? null : running ? (
+          <span className="flex items-center gap-1.5 text-muted">
+            <Spinner className="text-accent" />
+            <span className="max-sm:sr-only">Compiling…</span>
+          </span>
+        ) : errors > 0 ? (
+          <button className="flex h-9 items-center gap-1 rounded-md px-1.5 font-medium text-danger hover:bg-subtle" onClick={() => onPane('pdf')}>
+            <AlertCircle className="size-3.5" /> {errors}
+            <span className="max-sm:sr-only"> error{errors === 1 ? '' : 's'}</span>
+          </button>
+        ) : pages !== undefined ? (
+          <span className={cn('truncate', pages > 1 ? 'text-muted' : 'text-ok')}>
+            {pages} {pages === 1 ? 'page' : 'pages'}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
