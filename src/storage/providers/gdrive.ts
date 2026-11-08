@@ -238,6 +238,13 @@ export class DriveProvider implements SyncProvider {
     }
   }
 
+  /** Save one file (e.g. a backup .zip) in the user's Drive, in texChef/<sub>. Returns its id. */
+  async saveExport(sub: string, name: string, data: Uint8Array, type: string): Promise<string> {
+    const { root } = await this.ensureFolders();
+    const folder = await this.findOrCreateFolder(sub, `export-${sub.toLowerCase()}`, root);
+    return (await this.upload({ name, parents: [folder] }, new Blob([data as BlobPart], { type }))).id;
+  }
+
   async userInfo(): Promise<{ name?: string; email?: string; photo?: string }> {
     const r = await this.json<{ user?: { displayName?: string; emailAddress?: string; photoLink?: string } }>(`${API}/about?fields=user(displayName,emailAddress,photoLink)`);
     return { name: r.user?.displayName, email: r.user?.emailAddress, photo: r.user?.photoLink };

@@ -153,8 +153,12 @@ export async function backupFiles(docs: DocMeta[], scope: string | null): Promis
   return files;
 }
 
+export function zipBytes(files: Files): Uint8Array {
+  return zipSync(files, { level: 6 });
+}
+
 export function downloadZip(files: Files, name: string) {
-  downloadBlob(zipSync(files, { level: 6 }), `${safeFilename(name)}.zip`, 'application/zip');
+  downloadBlob(zipBytes(files), `${safeFilename(name)}.zip`, 'application/zip');
 }
 
 export const canWriteFolders = () => typeof window !== 'undefined' && 'showDirectoryPicker' in window;

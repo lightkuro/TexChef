@@ -275,6 +275,25 @@ await step('edit text on the PDF (and in the original too)', async () => {
   const input = page.getByTestId('pdf-edit-input');
   await input.waitFor();
   assert.equal(await input.inputValue(), 'Rebuilt the customer dashboard in React and TypeScript, improving load time by 75%.');
+  // Selecting text in the box and letting go over the page keeps this edit open (no new edit where the mouse is let go).
+  const ib = await input.boundingBox();
+  const elsewhere = await pdfPoint(v, 'Northwind Analytics');
+  await page.mouse.move(ib.x + 20, ib.y + ib.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(elsewhere.x, elsewhere.y, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  assert.equal(await input.inputValue(), 'Rebuilt the customer dashboard in React and TypeScript, improving load time by 75%.');
+  // The box's bottom corners resize it.
+  const box0 = await page.getByTestId('pdf-edit-box').boundingBox();
+  const grip = await page.getByTestId('pdf-edit-resize-right').boundingBox();
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + 60, grip.y + 70, { steps: 6 });
+  await page.mouse.up();
+  const box1 = await page.getByTestId('pdf-edit-box').boundingBox();
+  assert.ok(box1.width > box0.width + 30 && box1.height > box0.height + 40, `resized: ${JSON.stringify([box0, box1])}`);
+  assert.ok((await input.boundingBox()).height > ib.height + 30, 'the text field grows with the box');
   // "Update PDF after saving" sits in the box and is on by default; turn it off to collect changes first.
   assert.equal(await page.getByTestId('pdf-edit-auto').getAttribute('aria-checked'), 'true');
   await page.getByTestId('pdf-edit-auto').click();
@@ -332,7 +351,8 @@ await step('map shows master → variant with a straight line and the updates by
   await page.goto(BASE);
   await page.getByTestId('view-graph').click();
   assert.equal((await page.getByTestId('view-graph').textContent()).trim(), 'Map');
-  await page.getByTestId('graph-family').click();
+  // Documents / Versions is its own control next to Map / List.
+  assert.equal((await page.getByTestId('graph-mode').textContent()).trim(), 'Documents');
   await page.getByTestId('doc-node-Master resume').waitFor();
   await page.getByTestId('doc-node-Frontend resume').waitFor();
   // Edges render once React Flow has measured both nodes (a level straight line has no height, so wait for it to exist).
@@ -349,22 +369,23 @@ await step('map shows master → variant with a straight line and the updates by
   assert.ok(Math.abs(cx - dst.x) < Math.abs(cx - (src.x + src.width)), 'updates label is nearer the variant');
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}04-graph.png` });
-  // Versions is in the menu that opens below Map on hover.
-  await page.getByTestId('view-graph').hover();
-  await page.getByTestId('view-menu').waitFor();
+  // Versions is in the menu that opens below "Documents" on hover.
+  await page.getByTestId('graph-mode').hover();
+  await page.getByTestId('graph-mode-menu').waitFor();
   await page.screenshot({ path: `${OUT}04d-view-menu.png` });
   await page.getByTestId('graph-versions').click();
-  assert.equal((await page.getByTestId('view-graph').textContent()).trim(), 'Versions');
+  assert.equal((await page.getByTestId('graph-mode').textContent()).trim(), 'Versions');
+  assert.equal((await page.getByTestId('view-graph').textContent()).trim(), 'Map');
   await page.locator('.react-flow__node-commit').first().waitFor();
   const commits = await page.locator('.react-flow__node-commit').count();
   assert.ok(commits >= 4, `expected ≥4 visible versions, got ${commits}`);
   await page.locator('.react-flow__node-commit').last().click();
   await page.getByTestId('commit-panel').waitFor();
   await page.screenshot({ path: `${OUT}05-versions.png` });
-  await page.getByTestId('view-graph').hover();
+  await page.getByTestId('graph-mode').hover();
   await page.getByTestId('graph-family').click();
   await page.mouse.move(5, 300);
-  await page.getByTestId('view-menu').waitFor({ state: 'detached' });
+  await page.getByTestId('graph-mode-menu').waitFor({ state: 'detached' });
 });
 
 await step('right-click menu on the map works without opening the document; delete warns', async () => {
@@ -577,13 +598,15 @@ await step('right-click empty space: new folder, previews, export menu', async (
   await page.mouse.click(box.x + 40, box.y + box.height - 60, { button: 'right' });
   // Make previews asks first (the button is gone; it lives in the menus).
   assert.equal(await page.getByTestId('make-previews').count(), 0);
+  await page.getByTestId('previews-menu').hover();
   await page.getByRole('menuitem', { name: 'Recompile all previews' }).click();
   await page.getByRole('dialog').getByText('so the map shows').waitFor();
   await page.getByTestId('confirm-cancel').click();
   await page.getByRole('dialog').waitFor({ state: 'detached' });
   await page.mouse.click(box.x + 40, box.y + box.height - 60, { button: 'right' });
   await page.getByRole('menuitem', { name: 'Export everything' }).hover();
-  await page.getByRole('menuitem', { name: 'Backup with history (.zip)' }).waitFor();
+  await page.getByTestId('backup-menu').hover();
+  await page.getByTestId('backup-zip').waitFor();
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await page.mouse.click(box.x + 40, box.y + box.height - 60, { button: 'right' });
@@ -653,6 +676,13 @@ await step('compile errors are reported with line numbers', async () => {
   await page.getByTestId('problems').getByText(/Undefined control sequence/).waitFor({ timeout: 30_000 });
   await page.getByTestId('problems').getByText('main.tex:3').waitFor();
 });
+
+/** Pick the engine in the Compile button's menu. */
+async function setEngine(engine) {
+  await page.getByTestId('compile-settings').click();
+  await page.getByTestId(`engine-${engine}`).click();
+  await page.waitForFunction((e) => document.querySelector('[data-testid=compile-button]')?.dataset.engine === e, engine);
+}
 
 /** Double-click a word in the editor (at the word itself, not the middle of its line). */
 async function dblclickWord(word) {
@@ -785,7 +815,7 @@ await step('file types: .tex alone, then .cls .sty .bib .png together; a .ttf fo
   await page.getByTestId('tab-files').click();
   await page.getByTestId('upload-into-doc').setInputFiles(font);
   await page.getByText('Added 1 file').waitFor();
-  await page.getByLabel('Engine').selectOption('xelatex');
+  await setEngine('xelatex');
   await page.evaluate(async (id) => {
     await window.rc.repo.writeWorkText(id, 'main.tex', '\\documentclass{article}\n\\usepackage{fontspec}\n\\setmainfont{DejaVuSerif-Bold.ttf}[Path=./]\n\\begin{document}\nUploaded font in XeLaTeX.\n\\end{document}\n');
   }, id);
@@ -806,6 +836,15 @@ await step('file types: .tex alone, then .cls .sty .bib .png together; a .ttf fo
   const usesFont = fontCheck.names.some((n) => /DejaVuSerif-Bold/.test(n ?? ''));
   console.log('    font mentions in the XeLaTeX log:', fontCheck.names.join(', '));
   assert.ok(usesFont, 'the uploaded font is embedded in the PDF');
+  // Several files: tabs, and "+" opens another one.
+  await page.getByTestId('tab-file-main.tex').waitFor();
+  await page.getByTestId('open-file-tab').click();
+  await page.getByTestId('open-file-refs.bib').click();
+  await page.locator('.cm-content', { hasText: '@book{knuth' }).waitFor();
+  assert.equal(await page.getByTestId('tab-file-refs.bib').getAttribute('aria-selected'), 'true');
+  await page.getByTestId('tab-file-main.tex').click();
+  await page.locator('.cm-content', { hasText: 'Uploaded font in XeLaTeX' }).waitFor();
+  await page.screenshot({ path: `${OUT}12b-tabs.png` });
   // Download the project: every file comes back byte for byte (binaries included).
   await page.getByLabel('More').click();
   const dl = page.waitForEvent('download');
@@ -819,6 +858,30 @@ await step('file types: .tex alone, then .cls .sty .bib .png together; a .ttf fo
   assert.equal(new TextDecoder().decode(get('refs.bib')), files['refs.bib']);
   assert.ok(names.some((x) => x.endsWith('.pdf')), 'the PDF is included');
   await page.goto(BASE);
+});
+
+await step('compile menu (engine with its default, auto-compile, download) and numbered history', async () => {
+  await page.goto(masterUrl);
+  await page.getByTestId('editor-page').waitFor();
+  // One file: no tabs, just its name.
+  assert.equal(await page.locator('[data-testid^="tab-file-"]').count(), 0);
+  await page.getByTestId('compile-settings').click();
+  await page.getByTestId('compile-menu').waitFor();
+  assert.match(await page.getByTestId('engine-pdflatex').textContent(), /pdfLaTeX\s*default/);
+  assert.equal(await page.getByTestId('engine-pdflatex').getAttribute('aria-checked'), 'true');
+  await page.getByTestId('toggle-auto-compile').waitFor();
+  await page.getByTestId('download-pdf').waitFor();
+  await page.screenshot({ path: `${OUT}09-compile-menu.png` });
+  await page.keyboard.press('Escape');
+  // History numbers versions and shows how much each one changed.
+  await page.getByTestId('tab-history').click();
+  await page.getByTestId('history-panel').getByTestId('version-number').first().waitFor();
+  const numbers = await page.getByTestId('history-panel').getByTestId('version-number').allTextContents();
+  assert.ok(numbers.every((n) => /^v\d+(\.\d+)?$/.test(n)) && numbers.includes('v1'), `version numbers: ${numbers}`);
+  await page.getByTestId('history-panel').getByTestId('edit-count').first().waitFor();
+  assert.match(await page.getByTestId('history-panel').getByTestId('edit-count').first().textContent(), /^\+\d+ −\d+/);
+  await page.screenshot({ path: `${OUT}09b-history.png` });
+  await page.getByTestId('tab-blocks').click();
 });
 
 await step('visual mode, formatting toolbar, fonts, and the engine suggestion', async () => {
@@ -842,6 +905,9 @@ await step('visual mode, formatting toolbar, fonts, and the engine suggestion', 
   const id = page.url().split('/doc/')[1];
   const textNow = () => page.evaluate(async (id) => (await window.rc.repo.getWork(id)).files['visual.tex'].text, id);
   // Visual: the preamble folds away, the heading and bullets show formatted; switching changes nothing.
+  // The formatting bar (with Code / Visual) is hidden until the toggle at the right of the file bar.
+  assert.equal(await page.getByTestId('format-bar').count(), 0);
+  await page.getByTestId('toggle-format-bar').click();
   await page.getByTestId('editor-mode-visual').click();
   await page.getByTestId('preamble-show').waitFor();
   await page.locator('.cm-vis-h1', { hasText: 'Experience' }).waitFor();
@@ -880,7 +946,7 @@ await step('visual mode, formatting toolbar, fonts, and the engine suggestion', 
   await page.getByTestId('switch-engine').waitFor({ timeout: 60_000 });
   assert.match(await page.getByTestId('switch-engine').textContent(), /Switch to XeLaTeX/);
   await page.getByTestId('switch-engine').click();
-  await page.waitForFunction(() => document.querySelector('select[aria-label="Engine"]')?.value === 'xelatex');
+  await page.waitForFunction(() => document.querySelector('[data-testid=compile-button]')?.dataset.engine === 'xelatex');
   await waitPdf(/Needs XeLaTeX\./, 120_000);
   await page.getByTestId('problems').getByText('No problems').waitFor({ timeout: 120_000 });
 });
@@ -939,7 +1005,8 @@ await step('full backup: export, wipe, restore everything (zip, then a folder wi
   await page.getByTestId('folder-all').getByRole('button').first().click();
   await page.getByTestId('export-menu').click();
   const dl = page.waitForEvent('download');
-  await page.getByRole('menuitem', { name: 'Backup with history (.zip)' }).click();
+  await page.getByTestId('backup-menu').hover();
+  await page.getByTestId('backup-zip').click();
   const zipPath = `${OUT}backup.zip`;
   await (await dl).saveAs(zipPath);
   const entries = unzipSync(new Uint8Array(readFileSync(zipPath)));

@@ -125,10 +125,8 @@ export function parseTexLog(log: string, projectFiles: string[] = [], mainFile =
     if (box) {
       const over = box[1] === 'Overfull';
       const pt = Number(/([\d.]+)pt too (?:wide|high)/.exec(box[3])?.[1] ?? NaN);
-      // A line that sticks out by less than TINY_OVERFULL is invisible in print: list it with the bad boxes.
-      const tiny = over && pt <= TINY_OVERFULL_PT;
       push({
-        severity: over && !tiny ? 'warning' : 'info',
+        severity: over ? 'warning' : 'info',
         file: currentFile,
         line: box[4] ? Number(box[4]) : undefined,
         message: `${box[1]} box ${box[3]}`,
@@ -139,7 +137,7 @@ export function parseTexLog(log: string, projectFiles: string[] = [], mainFile =
   return out;
 }
 
-/** Overfull boxes up to this size (about 0.35 mm) can't be seen, so they aren't counted as warnings. */
+/** Overfull boxes up to this size (about 0.35 mm) can't be seen; their explanation says so. */
 export const TINY_OVERFULL_PT = 1;
 
 const mm = (pt: number) => (pt * 0.3515).toFixed(pt < 3 ? 2 : 1);

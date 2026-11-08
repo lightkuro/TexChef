@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { GitBranch, GitCompare, GitMerge, History, RotateCcw, Save, Download, ArrowUpFromLine, Sparkles, FileInput } from 'lucide-react';
 import { toast } from 'sonner';
@@ -7,6 +7,31 @@ import type { Commit, DocMeta } from '@/core/model';
 import { Button, Input, Tip, Badge } from '@/components/ui';
 import { timeAgo } from '@/lib/utils';
 import { downloadProjectZip } from '@/features/importexport/io';
+import { editStats, versionNumbers, type EditStats } from './versionStats';
+
+/** Edit counts per version (they never change: versions are immutable). */
+const statsCache = new Map<string, EditStats>();
+
+function useEditStats(commits: Commit[]): Map<string, EditStats> {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      for (const c of commits) {
+        if (cancelled) return;
+        if (statsCache.has(c.id)) continue;
+        const after = await repo.readCommitFiles(c.id);
+        const before = c.parents[0] ? await repo.readCommitFiles(c.parents[0]).catch(() => undefined) : undefined;
+        statsCache.set(c.id, editStats(before, after));
+        bump((n) => n + 1);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [commits]);
+  return statsCache;
+}
 
 export function kindIcon(kind: Commit['kind']) {
   switch (kind) {
@@ -44,6 +69,8 @@ export function HistoryPanel({ doc, dirty }: { doc: DocMeta; dirty: boolean }) {
 
   const visible = (commits ?? []).filter((c) => showAuto || c.kind !== 'auto' || c.id === doc.head);
   const hidden = (commits?.length ?? 0) - visible.length;
+  const numbers = useMemo(() => versionNumbers(commits ?? []), [commits]);
+  const stats = useEditStats(visible);
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="history-panel">
@@ -65,11 +92,17 @@ export function HistoryPanel({ doc, dirty }: { doc: DocMeta; dirty: boolean }) {
             <div className="flex items-start gap-2">
               <span className="mt-0.5">{kindIcon(c.kind)}</span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-medium" title={c.message}>
-                  {c.message}
+                <div className="flex min-w-0 items-baseline gap-1.5">
+                  <span className="shrink-0 font-mono text-[11px] text-muted tabular-nums" data-testid="version-number">
+                    v{numbers.get(c.id)}
+                  </span>
+                  <span className="truncate text-xs font-medium" title={c.message}>
+                    {c.message}
+                  </span>
                 </div>
-                <div className="text-[11px] text-muted" title={new Date(c.createdAt).toLocaleString()}>
+                <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted" title={new Date(c.createdAt).toLocaleString()}>
                   {timeAgo(c.createdAt)}
+                  {stats.get(c.id) && <EditCount s={stats.get(c.id)!} />}
                   {c.id === doc.head && (
                     <Badge tone="accent" className="ml-1.5 px-1.5 py-0 text-[10px]">
                       current
@@ -123,5 +156,16 @@ export function HistoryPanel({ doc, dirty }: { doc: DocMeta; dirty: boolean }) {
         )}
       </ol>
     </div>
+  );
+}
+
+/** “+12 −3” lines changed (and how many files), compared with the version before. */
+function EditCount({ s }: { s: EditStats }) {
+  if (!s.added && !s.removed && !s.files) return <span>no changes</span>;
+  return (
+    <span className="tabular-nums" title={`${s.added} line${s.added === 1 ? '' : 's'} added, ${s.removed} removed, in ${s.files} file${s.files === 1 ? '' : 's'}`} data-testid="edit-count">
+      <span className="text-ok">+{s.added}</span> <span className="text-danger">−{s.removed}</span>
+      {s.files > 1 && <span> · {s.files} files</span>}
+    </span>
   );
 }

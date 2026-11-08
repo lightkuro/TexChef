@@ -280,6 +280,7 @@ export function usePdfEdit(opts: PdfEditOptions) {
     [session],
   );
 
+  const downOnPage = useRef(false);
   const renderPage = useCallback(
     (info: PageInfo) => {
       if (!opts.enabled) return null;
@@ -299,7 +300,11 @@ export function usePdfEdit(opts: PdfEditOptions) {
             setHover(line ? { page: info.page, rect: line } : null);
           }}
           onMouseLeave={() => setHover(null)}
+          // A click counts only if the button went down on the page too: selecting text in the edit box and
+          // letting go over the page must not open another edit there.
+          onMouseDown={(e) => (downOnPage.current = e.target === e.currentTarget)}
           onClick={(e) => {
+            if (!downOnPage.current) return;
             const { x, y } = toPt(e);
             void onPageClick(info, x, y);
           }}
@@ -382,25 +387,84 @@ export function usePdfEdit(opts: PdfEditOptions) {
   };
 }
 
-/** A card attached below (or above) a box on the page. */
-function Popover({ info, anchor, width, children, testId }: { info: PageInfo; anchor: Rect; width: number; children: React.ReactNode; testId?: string }) {
+/** A card attached below (or above) a box on the page. With `resizable`, its bottom corners drag to resize it. */
+function Popover({
+  info,
+  anchor,
+  width,
+  children,
+  testId,
+  resizable,
+}: {
+  info: PageInfo;
+  anchor: Rect;
+  width: number;
+  children: React.ReactNode;
+  testId?: string;
+  resizable?: boolean;
+}) {
   const k = info.k;
   const pageW = info.pw * k;
   const pageH = info.ph * k;
-  const w = Math.min(pageW - 16, Math.max(width, anchor.w * k + 24));
-  const left = Math.max(8, Math.min(anchor.x * k - 12, pageW - w - 8));
+  const ref = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number; left: number } | null>(null);
+  const baseW = Math.min(pageW - 16, Math.max(width, anchor.w * k + 24));
+  const baseLeft = Math.max(8, Math.min(anchor.x * k - 12, pageW - baseW - 8));
+  const w = size?.w ?? baseW;
+  const left = size?.left ?? baseLeft;
   const below = (anchor.y + anchor.h) * k + 8;
   const placeAbove = below + 200 > pageH && anchor.y * k > 220;
+  const drag = (corner: 'left' | 'right') => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = ref.current;
+    if (!el) return;
+    const start = { x: e.clientX, y: e.clientY, w: el.offsetWidth, h: el.offsetHeight, left };
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - start.x;
+      const dy = ev.clientY - start.y;
+      const maxW = corner === 'right' ? pageW - start.left - 8 : start.left + start.w - 8;
+      const nw = Math.max(260, Math.min(maxW, start.w + (corner === 'right' ? dx : -dx)));
+      setSize({ w: nw, h: Math.max(150, start.h + (placeAbove ? -dy : dy)), left: corner === 'right' ? start.left : start.left + start.w - nw });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  const grip = (corner: 'left' | 'right') => (
+    <div
+      className={cn('absolute bottom-0 size-3.5 touch-none text-muted/70 hover:text-accent', corner === 'right' ? 'right-0 cursor-nwse-resize' : 'left-0 cursor-nesw-resize')}
+      onPointerDown={drag(corner)}
+      onClick={(e) => e.stopPropagation()}
+      title="Drag to resize"
+      data-testid={`pdf-edit-resize-${corner}`}
+    >
+      <svg viewBox="0 0 10 10" className={cn('size-full', corner === 'left' && '-scale-x-100')} aria-hidden>
+        <path d="M9 3 L3 9 M9 6 L6 9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
   return (
     <div
-      className="absolute z-30 rounded-lg border border-line bg-panel p-2.5 text-fg shadow-xl"
-      style={{ left, width: w, ...(placeAbove ? { bottom: pageH - anchor.y * k + 8 } : { top: below }) }}
+      ref={ref}
+      className={cn('absolute z-30 rounded-lg border border-line bg-panel p-2.5 text-fg shadow-xl', size && 'flex flex-col')}
+      style={{ left, width: w, height: size?.h, ...(placeAbove ? { bottom: pageH - anchor.y * k + 8 } : { top: below }) }}
       onClick={(e) => e.stopPropagation()}
       onMouseMove={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}
       data-testid={testId}
+      data-resized={size ? 'true' : undefined}
     >
       {children}
+      {resizable && (
+        <>
+          {grip('left')}
+          {grip('right')}
+        </>
+      )}
     </div>
   );
 }
@@ -483,7 +547,7 @@ function EditBox({
   };
 
   return (
-    <Popover info={info} anchor={anchor} width={360} testId="pdf-edit-box">
+    <Popover info={info} anchor={anchor} width={360} testId="pdf-edit-box" resizable>
       <div className="mb-1.5 flex items-center gap-2">
         <div className="flex rounded-md bg-subtle p-0.5 text-[11px] font-medium">
           <button
@@ -527,7 +591,7 @@ function EditBox({
           } else if (e.key === 'Enter' && mode === 'text') e.preventDefault();
         }}
         className={cn(
-          'block w-full resize-none rounded-md border border-line bg-bg px-2 py-1.5 leading-snug focus:border-accent focus:outline-none',
+          'block min-h-[3.2em] w-full flex-1 resize-none rounded-md border border-line bg-bg px-2 py-1.5 leading-snug focus:border-accent focus:outline-none',
           mode === 'text' ? 'text-[13px]' : 'font-mono text-[12px]',
         )}
         rows={2}

@@ -23,6 +23,7 @@ export function ProblemsPanel({
   const errors = diags.filter((d) => d.severity === 'error');
   const warnings = diags.filter((d) => d.severity === 'warning');
   const visible = diags.filter((d) => showInfo || d.severity !== 'info');
+  const hidden = diags.filter((d) => d.severity === 'info').length;
   if (!output) return null;
 
   return (
@@ -37,9 +38,19 @@ export function ProblemsPanel({
         {errors.length === 0 && warnings.length === 0 && <Badge tone="ok">No problems</Badge>}
         <span className="text-muted">{output.durationMs ? `${(output.durationMs / 1000).toFixed(1)}s` : ''}</span>
         <div className="flex-1" />
-        <label className="flex items-center gap-1 text-muted">
-          <input type="checkbox" checked={showInfo} onChange={(e) => setShowInfo(e.target.checked)} /> Bad boxes
-        </label>
+        {hidden > 0 && (
+          <button
+            className={cn('text-muted hover:text-fg', showInfo && 'text-fg')}
+            onClick={() => {
+              setShowInfo(!showInfo);
+              setOpen(true);
+            }}
+            title="Notes that don't affect the PDF: loosely spaced lines (underfull boxes), rerun notices, and harmless messages"
+            data-testid="toggle-hidden-problems"
+          >
+            {showInfo ? `Hide ${hidden} minor` : `${hidden} hidden`}
+          </button>
+        )}
         <button className={cn('flex items-center gap-1 text-muted hover:text-fg', showLog && 'text-fg')} onClick={() => setShowLog(!showLog)}>
           <ScrollText className="size-3.5" /> Raw log
         </button>

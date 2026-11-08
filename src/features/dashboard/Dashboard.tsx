@@ -23,7 +23,7 @@ import {
   Pencil,
   Trash2,
   ChevronDown,
-  Check,
+  Files,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,7 +40,7 @@ import { VersionGraph } from '@/features/graph/VersionGraph';
 import { DocList } from './DocList';
 import { NewDocDialog } from './NewDocDialog';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
-import { useSync } from '@/features/sync/controller';
+import { connectDrive, useSync } from '@/features/sync/controller';
 import { pickFromDrive, pickerConfigured } from '@/features/sync/picker';
 import { Button, Input, Spinner, Tip } from '@/components/ui';
 import { KurolightMark, Logo } from '@/components/Logo';
@@ -53,6 +53,7 @@ import { folderView, type FolderItem } from '@/features/folders/folderView';
 import { FolderBar } from '@/features/folders/FolderBar';
 import { FolderDialogHost, folderActions, openFolderDialog } from '@/features/folders/folderDialogs';
 import { ActionContextMenu, ActionDropdown, type MenuAction } from '@/components/ActionMenu';
+import { HoverMenu, HoverMenuItem } from '@/components/HoverMenu';
 import type { MapApi } from '@/features/graph/FamilyGraph';
 
 export function AppHeader({ children }: { children?: React.ReactNode }) {
@@ -150,10 +151,19 @@ export function Dashboard() {
     return [
       { key: 'new-doc', label: 'New document…', icon: <Plus className="size-4" />, run: () => setNewOpen(true) },
       { key: 'new-folder', label: 'New folder…', icon: <FolderPlus className="size-4" />, run: () => openFolderDialog({ kind: 'new', parent: current ?? undefined }) },
-      { key: 'upload', label: 'Upload files or a .zip…', icon: <Upload className="size-4" />, separatorBefore: true, run: () => upload.current?.click() },
-      { key: 'upload-folder', label: 'Upload a folder…', icon: <FolderUp className="size-4" />, run: () => folderInput.current?.click() },
+      {
+        key: 'import',
+        label: 'Import',
+        icon: <Upload className="size-4" />,
+        separatorBefore: true,
+        sub: [
+          { key: 'upload', label: 'Upload files or a .zip…', icon: <Upload className="size-4" />, run: () => upload.current?.click() },
+          { key: 'upload-folder', label: 'Upload a folder…', icon: <FolderUp className="size-4" />, run: () => folderInput.current?.click() },
+          ...(pickerConfigured ? [{ key: 'drive', label: 'From Google Drive…', icon: <CloudDownload className="size-4" />, run: () => void importFromDrive() }] : []),
+        ],
+      },
       ...withSeparator(previewActions(scopeAll)),
-      { key: 'export', label: current ? 'Export this folder' : 'Export everything', icon: <Download className="size-4" />, sub: exportActions(scopeAll, current) },
+      { key: 'export', label: current ? 'Export this folder' : 'Export everything', icon: <Download className="size-4" />, sub: exportActions(scopeAll, current, docsIn(null)) },
       {
         key: 'view',
         label: 'View',
@@ -212,6 +222,16 @@ export function Dashboard() {
     else toast.success(`Moved “${folderName(path)}” into “${folderName(into)}”`);
   };
 
+  const importFromDrive = async () => {
+    try {
+      if (sync.state === 'local' || sync.state === 'needs-signin') await connectDrive();
+      const files = await pickFromDrive();
+      if (files.length) await importFiles(files);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const importFiles = async (files: File[] | FileList) => {
     if (!files.length) return;
     setBusy(true);
@@ -268,13 +288,27 @@ export function Dashboard() {
         </Button>
         <ActionDropdown
           align="start"
+          label="Import"
           actions={[
-            { key: 'files', label: 'Files or a .zip…', hint: '.tex .zip images', icon: <Upload className="size-4" />, run: () => upload.current?.click() },
-            { key: 'folder', label: 'A folder…', hint: 'projects or a backup', icon: <FolderUp className="size-4" />, run: () => folderInput.current?.click() },
+            { key: 'files', label: 'Upload files or a .zip…', hint: '.tex .zip images', icon: <Upload className="size-4" />, run: () => upload.current?.click(), testId: 'import-files' },
+            { key: 'folder', label: 'Upload a folder…', hint: 'projects or a backup', icon: <FolderUp className="size-4" />, run: () => folderInput.current?.click(), testId: 'import-folder' },
+            ...(pickerConfigured
+              ? [
+                  {
+                    key: 'drive',
+                    label: 'From Google Drive…',
+                    hint: sync.state === 'local' ? 'connects Drive' : undefined,
+                    icon: <CloudDownload className="size-4" />,
+                    separatorBefore: true,
+                    run: () => void importFromDrive(),
+                    testId: 'import-drive',
+                  },
+                ]
+              : []),
           ]}
           trigger={
-            <Button variant="outline" disabled={busy} data-testid="upload-menu">
-              {busy ? <Spinner /> : <Upload className="size-4" />} Upload <ChevronDown className="size-3.5 opacity-60" />
+            <Button variant="outline" disabled={busy} data-testid="import-menu">
+              {busy ? <Spinner /> : <Upload className="size-4" />} Import <ChevronDown className="size-3.5 opacity-60" />
             </Button>
           }
         />
@@ -288,28 +322,10 @@ export function Dashboard() {
           data-testid="upload-folder-input"
           onChange={(e) => e.target.files && importFiles(e.target.files).then(() => (e.target.value = ''))}
         />
-        {sync.state !== 'local' && pickerConfigured && (
-          <Button
-            variant="outline"
-            onClick={async () => {
-              try {
-                const files = await pickFromDrive();
-                if (files.length) await importFiles(files);
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : String(e));
-              }
-            }}
-          >
-            <CloudDownload className="size-4" /> Import from Drive
-          </Button>
-        )}
         <ActionDropdown
           align="start"
           label={current ? `Export “${folderName(current)}”` : 'Export everything'}
-          actions={[
-            ...exportActions(scopeAll, current),
-            ...(current ? [{ key: 'everything', label: 'Everything', icon: <Download className="size-4" />, separatorBefore: true, sub: exportActions(docsIn(null), null) }] : []),
-          ]}
+          actions={exportActions(scopeAll, current, docsIn(null))}
           trigger={
             <Button variant="ghost" data-testid="export-menu">
               <Download className="size-4" /> Export <ChevronDown className="size-3.5 opacity-60" />
@@ -327,6 +343,7 @@ export function Dashboard() {
             <input type="checkbox" checked={showAutosaves} onChange={(e) => setPref({ showAutosaves: e.target.checked })} /> Show autosaves
           </label>
         )}
+        {view === 'graph' && <GraphModeSwitch />}
         <ViewSwitch />
       </div>
       <div className="flex min-h-0 flex-1">
@@ -461,96 +478,67 @@ function HeaderSearch({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
-/**
- * Map or List. The map has two kinds, documents (default) and versions, in a menu that opens below
- * the Map button on hover (or on tap / keyboard focus).
- */
+/** Map or List. */
 function ViewSwitch() {
   const view = usePrefs((s) => s.dashboardView);
-  const graphMode = usePrefs((s) => s.graphMode);
   const setPref = usePrefs((s) => s.set);
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const show = () => {
-    clearTimeout(timer.current);
-    setOpen(true);
-  };
-  const hide = (delay = 180) => {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setOpen(false), delay);
-  };
-  useEffect(() => {
-    if (!open) return;
-    const outside = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('pointerdown', outside);
-    document.addEventListener('keydown', esc);
-    return () => {
-      document.removeEventListener('pointerdown', outside);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [open]);
-  const versions = graphMode === 'versions';
-  const MapIcon = versions ? GitCommitHorizontal : Network;
   const tab = (on: boolean) => cn('flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium', on ? 'bg-panel shadow-sm' : 'text-muted hover:text-fg');
-  const item = (k: 'family' | 'versions', Icon: typeof Network, label: string, hint: string) => (
-    <button
-      role="menuitemradio"
-      aria-checked={view === 'graph' && graphMode === k}
-      onClick={() => {
-        setPref({ dashboardView: 'graph', graphMode: k });
-        setOpen(false);
-      }}
-      className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-subtle focus:bg-subtle focus:outline-none"
-      data-testid={`graph-${k}`}
-    >
-      <span className="flex size-4 shrink-0 items-center justify-center pt-0.5">
-        {view === 'graph' && graphMode === k ? <Check className="size-4 text-accent" /> : <Icon className="size-3.5 text-muted" />}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-xs font-medium">{label}</span>
-        <span className="block text-[11px] text-muted">{hint}</span>
-      </span>
-    </button>
-  );
   return (
     <div className="inline-flex rounded-lg bg-subtle p-0.5">
-      <div
-        ref={box}
-        className="relative"
-        onMouseEnter={show}
-        onMouseLeave={() => hide()}
-        onFocus={show}
-        onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && hide(0)}
-      >
-        <button
-          onClick={() => {
-            setPref({ dashboardView: 'graph' });
-            setOpen(true);
-          }}
-          className={tab(view === 'graph')}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          data-testid="view-graph"
-        >
-          <MapIcon className="size-3.5" /> {versions ? 'Versions' : 'Map'}
-          <ChevronDown className={cn('size-3 opacity-50 transition-transform', open && 'rotate-180')} />
-        </button>
-        {open && (
-          // pt-1 bridges the gap so moving the pointer down into the menu keeps it open.
-          <div className="absolute top-full right-0 z-40 pt-1" data-testid="view-menu">
-            <div role="menu" aria-label="Map kind" className="w-60 rounded-lg border border-line bg-panel p-1 shadow-xl">
-              {item('family', Network, 'Documents', 'Originals and their variants, with folders')}
-              {item('versions', GitCommitHorizontal, 'Versions', 'Every saved version of each document, over time')}
-            </div>
-          </div>
-        )}
-      </div>
-      <button onClick={() => setPref({ dashboardView: 'list' })} className={tab(view === 'list')} data-testid="view-list">
+      <button onClick={() => setPref({ dashboardView: 'graph' })} className={tab(view === 'graph')} aria-pressed={view === 'graph'} data-testid="view-graph">
+        <Network className="size-3.5" /> Map
+      </button>
+      <button onClick={() => setPref({ dashboardView: 'list' })} className={tab(view === 'list')} aria-pressed={view === 'list'} data-testid="view-list">
         <List className="size-3.5" /> List
       </button>
     </div>
+  );
+}
+
+/** What the map shows: documents (default) or their versions. Hover (or tap) to choose. */
+function GraphModeSwitch() {
+  const graphMode = usePrefs((s) => s.graphMode);
+  const setPref = usePrefs((s) => s.set);
+  const versions = graphMode === 'versions';
+  const Icon = versions ? GitCommitHorizontal : Files;
+  return (
+    <HoverMenu
+      label="Map shows"
+      testId="graph-mode-menu"
+      trigger={(open, setOpen) => (
+        <button
+          onClick={() => setOpen(true)}
+          className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted hover:bg-subtle hover:text-fg"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          data-testid="graph-mode"
+        >
+          <Icon className="size-3.5" /> {versions ? 'Versions' : 'Documents'}
+          <ChevronDown className={cn('size-3 opacity-50 transition-transform', open && 'rotate-180')} />
+        </button>
+      )}
+    >
+      {(close) => (
+        <>
+          <HoverMenuItem
+            icon={<Files className="size-3.5" />}
+            label="Documents"
+            hint="Originals and their variants, with folders"
+            checked={!versions}
+            onSelect={() => (setPref({ graphMode: 'family' }), close())}
+            testId="graph-family"
+          />
+          <HoverMenuItem
+            icon={<GitCommitHorizontal className="size-3.5" />}
+            label="Versions"
+            hint="Every saved version of each document, over time"
+            checked={versions}
+            onSelect={() => (setPref({ graphMode: 'versions' }), close())}
+            testId="graph-versions"
+          />
+        </>
+      )}
+    </HoverMenu>
   );
 }
 

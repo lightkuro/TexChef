@@ -178,6 +178,10 @@ export class BusyTexCompiler implements Compiler {
           d.hint = `“${file}” comes with TeX Live’s “${b}” package set (${BUNDLE_SIZE_MB[b]} MB), but it didn’t load in this browser. Check your connection and free disk space, then press Compile. Settings → Clear downloaded TeX packages makes texChef fetch them fresh.`;
         }
       }
+      // "Shell escape is not enabled" comes from graphicx loading epstopdf even when no .eps image is used:
+      // harmless then, so it goes with the hidden notes.
+      const needsShell = input.files.some((f) => /\.(eps|svg)$/i.test(f.path)) || /\\usepackage(\[[^\]]*\])?\{[^}]*\b(minted|svg|gnuplottex|auto-pst-pdf|pythontex)\b/.test(mainText);
+      if (!needsShell) for (const d of diagnostics) if (d.severity === 'warning' && /shell[- ]?escape|write18/i.test(d.message)) d.severity = 'info';
       // Written for another engine (fontspec under pdfLaTeX, \pdfgentounicode under XeLaTeX, …): say which.
       if (diagnostics.some((d) => d.severity === 'error')) {
         const advice = engineAdvice(log, input.engine, mainText);

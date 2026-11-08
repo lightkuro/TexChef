@@ -28,6 +28,8 @@ interface Prefs {
   pdfEditAutoUpdate: boolean;
   /** The editor shows LaTeX formatted (headings, bold, bullets) instead of as code. */
   editorVisual: boolean;
+  /** The formatting bar (code/visual switch, bold, lists, fonts…) under the file name. */
+  showFormatBar: boolean;
   theme: Theme;
   palette: Palette;
   graphMode: 'family' | 'versions';
@@ -78,6 +80,7 @@ export const usePrefs = create<Prefs>((set, get) => ({
   pdfEditMode: true,
   pdfEditAutoUpdate: true,
   editorVisual: false,
+  showFormatBar: false,
   theme: 'system',
   palette: 'forest',
   graphMode: 'family',

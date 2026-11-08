@@ -51,14 +51,14 @@ describe('parseTexLog', () => {
     expect(parseTexLog(log).map((d) => d.message)).toEqual(['Missing } inserted.']);
   });
 
-  it('treats tiny overfull lines as bad boxes, bigger ones as warnings, with a plain explanation', () => {
+  it('reports overfull lines as warnings, with a plain explanation of how far they stick out', () => {
     const log = [
       '(./main.tex',
       'Overfull \\hbox (0.55968pt too wide) in paragraph at lines 151--151',
       'Overfull \\hbox (12.5pt too wide) in paragraph at lines 160--161',
     ].join('\n');
     const [tiny, big] = parseTexLog(log, ['main.tex']);
-    expect(tiny).toMatchObject({ severity: 'info', line: 151, message: 'Overfull box (0.55968pt too wide)' });
+    expect(tiny).toMatchObject({ severity: 'warning', line: 151, message: 'Overfull box (0.55968pt too wide)' });
     expect(tiny.hint).toMatch(/0\.20 mm.*safe to ignore/);
     expect(big).toMatchObject({ severity: 'warning', line: 160 });
     expect(big.hint).toMatch(/4\.4 mm past the right margin/);

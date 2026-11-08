@@ -29,14 +29,16 @@ import type { FileMap } from '@/core/repo';
 import { CodeEditor, type CodeEditorHandle } from './CodeEditor';
 import { FileTree } from './FileTree';
 import { FormatBar } from './FormatBar';
+import { FileTabs, FormatToggle } from './FileTabs';
 import { BlocksPanel } from './BlocksPanel';
 import { HistoryPanel } from '@/features/history/HistoryPanel';
 import { PdfViewer } from '@/features/preview/PdfViewer';
 import { ProblemsPanel } from '@/features/preview/ProblemsPanel';
 import { isUpToDate, useAutoCompile, useEngineStatus } from '@/features/compile/useCompile';
 import { downloadPdf, downloadProjectZip, downloadText } from '@/features/importexport/io';
-import { Badge, Button, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Select, Spinner, Tip } from '@/components/ui';
+import { Badge, Button, EmptyState, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Spinner, Tip } from '@/components/ui';
 import { EngineBanner } from '@/features/compile/EngineBanner';
+import { HoverMenu, HoverMenuItem, HoverMenuSeparator } from '@/components/HoverMenu';
 import { engineName } from '@/compile/engineAdvice';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { cn, docColor, formatBytes } from '@/lib/utils';
@@ -103,6 +105,7 @@ export function EditorPage() {
   const [sync, setSync] = useState<SyncData | null>(null);
   const followCursor = usePrefs((s) => s.followCursor);
   const editorVisual = usePrefs((s) => s.editorVisual);
+  const showFormatBar = usePrefs((s) => s.showFormatBar);
   const pdfEditAutoUpdate = usePrefs((s) => s.pdfEditAutoUpdate);
   const [cursorRects, setCursorRects] = useState<SyncRect[]>();
 
@@ -356,31 +359,95 @@ export function EditorPage() {
         )}
         <div className="flex-1" />
         <SyncIndicator />
-        <Tip content="LaTeX engine: pdfLaTeX suits most templates; XeLaTeX or LuaLaTeX for your own fonts (fontspec, .ttf/.otf). Help → Compiling explains more.">
-          <Select value={doc.engine} onChange={(e) => repo.updateDoc(doc.id, { engine: e.target.value as Engine })} aria-label="Engine" className="h-8 text-xs">
-            <option value="pdflatex">pdfLaTeX</option>
-            <option value="xelatex">XeLaTeX</option>
-            <option value="lualatex">LuaLaTeX</option>
-          </Select>
-        </Tip>
-        <Tip content={autoCompile ? 'Auto-compile is on' : 'Auto-compile is off'}>
-          <Button variant="ghost" size="icon" onClick={() => setPref({ autoCompile: !autoCompile })} aria-label="Toggle auto-compile">
-            {autoCompile ? <Zap className="size-4 text-accent" /> : <ZapOff className="size-4 text-muted" />}
-          </Button>
-        </Tip>
-        <Tip content={<>Compile (Ctrl/⌘ + Enter)</>}>
-          <Button variant="outline" onClick={compile} disabled={entry?.running} data-testid="compile-button">
-            {entry?.running ? <Spinner /> : <Play className="size-3.5" />} Compile
-          </Button>
-        </Tip>
+        <Button variant="outline" onClick={async () => (await flush(), navigate(`/doc/${doc.id}/new-variant`))} data-testid="new-variant">
+          <GitBranch className="size-3.5" /> New variant
+        </Button>
         <Tip content={<>Save a version (Ctrl/⌘ + S)</>}>
           <Button variant="outline" onClick={saveVersion} data-testid="save-version">
             <Save className="size-3.5" /> Save version
           </Button>
         </Tip>
-        <Button variant="primary" onClick={async () => (await flush(), navigate(`/doc/${doc.id}/new-variant`))} data-testid="new-variant">
-          <GitBranch className="size-3.5" /> New variant
-        </Button>
+        {/* Compile, with its settings (engine, auto-compile) and the PDF download in a menu on hover. */}
+        <HoverMenu
+          label="Compile settings"
+          testId="compile-menu"
+          menuClassName="w-64"
+          trigger={(open, setOpen) => (
+            <div className="flex items-stretch overflow-hidden rounded-md bg-accent text-accent-fg shadow-sm">
+              <button
+                onClick={compile}
+                disabled={entry?.running}
+                className="flex h-9 items-center gap-1.5 px-3 text-sm font-medium hover:bg-black/10 disabled:opacity-70"
+                title="Compile (Ctrl/⌘ + Enter)"
+                data-testid="compile-button"
+                data-engine={doc.engine}
+              >
+                {entry?.running ? <Spinner /> : autoCompile ? <Zap className="size-3.5" /> : <Play className="size-3.5" />} Compile
+                {doc.engine !== 'pdflatex' && <span className="text-[11px] font-normal opacity-80">· {engineName(doc.engine)}</span>}
+              </button>
+              <button
+                onClick={() => setOpen(true)}
+                className="flex items-center border-l border-black/15 px-1.5 hover:bg-black/10"
+                aria-label="Compile settings"
+                aria-haspopup="menu"
+                aria-expanded={open}
+                data-testid="compile-settings"
+              >
+                <ChevronDown className="size-3.5" />
+              </button>
+            </div>
+          )}
+        >
+          {(close) => (
+            <>
+              <HoverMenuItem
+                icon={autoCompile ? <Zap className="size-3.5" /> : <ZapOff className="size-3.5" />}
+                label={autoCompile ? 'Auto-compile is on' : 'Auto-compile is off'}
+                hint={autoCompile ? 'The PDF updates a moment after you stop typing' : 'Compile when you choose (Ctrl/⌘ Enter)'}
+                onSelect={() => setPref({ autoCompile: !autoCompile })}
+                testId="toggle-auto-compile"
+              />
+              <HoverMenuSeparator />
+              <div className="px-2 pt-1 pb-0.5 text-[11px] font-medium tracking-wide text-muted uppercase">Engine</div>
+              {(
+                [
+                  ['pdflatex', 'pdfLaTeX', 'Default. Fastest; most templates use it'],
+                  ['xelatex', 'XeLaTeX', 'Your own fonts (fontspec, .ttf/.otf), any alphabet'],
+                  ['lualatex', 'LuaLaTeX', 'Like XeLaTeX, plus Lua code'],
+                ] as const
+              ).map(([e, label, hint]) => (
+                <HoverMenuItem
+                  key={e}
+                  label={
+                    <>
+                      {label}
+                      {e === 'pdflatex' && <span className="ml-1.5 rounded bg-subtle px-1 text-[10px] font-normal text-muted">default</span>}
+                    </>
+                  }
+                  hint={hint}
+                  checked={doc.engine === e}
+                  icon={<span className="size-3.5" />}
+                  onSelect={() => {
+                    void repo.updateDoc(doc.id, { engine: e as Engine });
+                    close();
+                  }}
+                  testId={`engine-${e}`}
+                />
+              ))}
+              <HoverMenuSeparator />
+              <HoverMenuItem
+                icon={<Download className="size-3.5" />}
+                label="Download PDF"
+                disabled={!pdf}
+                onSelect={() => {
+                  if (pdf) downloadPdf(doc.name, pdf);
+                  close();
+                }}
+                testId="download-pdf"
+              />
+            </>
+          )}
+        </HoverMenu>
         <Menu>
           <MenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="More">
@@ -451,11 +518,21 @@ export function EditorPage() {
         </Panel>
         <Separator />
         <Panel defaultSize="42%" minSize="240px" className="flex flex-col">
-          <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line bg-panel px-3 text-xs text-muted">
-            <span className="font-mono text-fg">{path}</span>
-            {path === doc.mainFile && <span>main file</span>}
-          </div>
-          {file?.kind !== 'binary' && path && (
+          {path && (
+            <FileTabs
+              docId={doc.id}
+              files={Object.keys(work.files).sort()}
+              mainFile={doc.mainFile}
+              active={path}
+              onOpen={setActivePath}
+              right={
+                file?.kind !== 'binary' && (
+                  <FormatToggle on={showFormatBar} visual={editorVisual && /\.(tex|ltx)$/i.test(path)} onToggle={() => setPref({ showFormatBar: !showFormatBar })} />
+                )
+              }
+            />
+          )}
+          {file?.kind !== 'binary' && path && showFormatBar && (
             <FormatBar
               view={() => editor.current?.view() ?? null}
               visual={editorVisual}

@@ -26,43 +26,48 @@ export const FolderCard = memo(function FolderCard({ id, data }: NodeProps<Folde
   const updateInternals = useUpdateNodeInternals();
   useEffect(() => updateInternals(id), [id, vertical, fullPage, snap, updateInternals]);
   const shown = previews.slice(0, 4);
+  // A folder tab on top and a tinted footer tell folders apart from documents at a glance.
   const card = (
-    <div
-      className={cn(
-        'group flex flex-col overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow hover:shadow-md',
-        dropping ? 'border-accent ring-4 ring-accent/30' : 'border-line',
-      )}
-      style={{ width: CARD_W, height: snap ? cardHeight(fullPage) : undefined }}
-      data-testid={`folder-node-${item.name}`}
-    >
+    <div className="group flex flex-col" style={{ width: CARD_W, height: snap ? cardHeight(fullPage) : undefined }} data-testid={`folder-node-${item.name}`}>
       <Handle type="target" position={vertical ? Position.Top : Position.Left} className="!size-2 !border-0 !bg-line" />
-      <div className={cn('relative grid grid-cols-2 gap-1 border-b border-line bg-subtle p-1.5', snap ? 'min-h-0 flex-1' : fullPage ? 'h-[300px]' : 'h-[118px]')}>
-        {shown.length === 0 && (
-          <div className="col-span-2 flex items-center justify-center text-muted">
-            <Folder className="size-10 opacity-40" />
-          </div>
+      <div
+        className={cn('-mb-px ml-3 h-2.5 w-20 shrink-0 rounded-t-md border border-b-0', dropping ? 'border-accent bg-accent' : 'border-accent/35 bg-accent-soft')}
+        aria-hidden
+      />
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow group-hover:shadow-md',
+          dropping ? 'border-accent ring-4 ring-accent/30' : 'border-accent/35',
         )}
-        {shown.map((p, i) => (
-          <div key={i} className={cn('overflow-hidden rounded bg-panel', shown.length === 1 && 'col-span-2', shown.length === 3 && i === 0 && 'row-span-2')}>
-            {p?.thumbnail ? (
-              <img src={p.thumbnail} alt="" className="h-full w-full object-cover object-top" draggable={false} />
-            ) : (
-              <div className="flex h-full items-center justify-center text-muted">
-                <FileText className="size-5 opacity-40" />
-              </div>
-            )}
-          </div>
-        ))}
-        {dropping && (
-          <div className="absolute inset-0 flex items-center justify-center bg-accent-soft/80 text-sm font-medium text-accent">Move into “{item.name}”</div>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-1.5 px-3 py-2">
-        {dropping ? <FolderOpen className="size-4 shrink-0 text-accent" /> : <Folder className="size-4 shrink-0 text-accent" />}
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.name}</span>
-        <span className="text-[11px] text-muted">
-          {item.count} document{item.count === 1 ? '' : 's'}
-        </span>
+      >
+        <div className={cn('relative grid grid-cols-2 gap-1 border-b border-accent/20 bg-subtle p-1.5', snap ? 'min-h-0 flex-1' : fullPage ? 'h-[300px]' : 'h-[118px]')}>
+          {shown.length === 0 && (
+            <div className="col-span-2 flex items-center justify-center text-muted">
+              <Folder className="size-10 opacity-40" />
+            </div>
+          )}
+          {shown.map((p, i) => (
+            <div key={i} className={cn('overflow-hidden rounded bg-panel', shown.length === 1 && 'col-span-2', shown.length === 3 && i === 0 && 'row-span-2')}>
+              {p?.thumbnail ? (
+                <img src={p.thumbnail} alt="" className="h-full w-full object-cover object-top" draggable={false} />
+              ) : (
+                <div className="flex h-full items-center justify-center text-muted">
+                  <FileText className="size-5 opacity-40" />
+                </div>
+              )}
+            </div>
+          ))}
+          {dropping && (
+            <div className="absolute inset-0 flex items-center justify-center bg-accent-soft/80 text-sm font-medium text-accent">Move into “{item.name}”</div>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5 bg-accent-soft/50 px-3 py-2">
+          {dropping ? <FolderOpen className="size-4 shrink-0 fill-accent/20 text-accent" /> : <Folder className="size-4 shrink-0 fill-accent/20 text-accent" />}
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.name}</span>
+          <span className="text-[11px] text-muted">
+            {item.count} document{item.count === 1 ? '' : 's'}
+          </span>
+        </div>
       </div>
       <Handle type="source" position={vertical ? Position.Bottom : Position.Right} className="!size-2 !border-0 !bg-line" />
     </div>
