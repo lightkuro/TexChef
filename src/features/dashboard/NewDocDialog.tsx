@@ -12,9 +12,29 @@ const ICONS: Record<string, React.ReactNode> = {
   article: <BookOpen className="size-5" />,
 };
 
-export function NewDocDialog({ open, onOpenChange, folder }: { open: boolean; onOpenChange: (o: boolean) => void; folder?: string }) {
-  const [tpl, setTpl] = useState(TEMPLATES[0].id);
+/** A known template id, or the first template. */
+const pick = (id?: string) => (id && TEMPLATES.some((x) => x.id === id) ? id : TEMPLATES[0].id);
+
+export function NewDocDialog({
+  open,
+  onOpenChange,
+  folder,
+  initialTemplate,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  folder?: string;
+  /** Template picked when the dialog opens (e.g. from a template card on the home page). */
+  initialTemplate?: string;
+}) {
+  const [tpl, setTpl] = useState(() => pick(initialTemplate));
   const [name, setName] = useState('');
+  // Each time the dialog opens with a template asked for, start on that template.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open && initialTemplate) setTpl(pick(initialTemplate));
+  }
   const navigate = useNavigate();
   const t = TEMPLATES.find((x) => x.id === tpl)!;
 
