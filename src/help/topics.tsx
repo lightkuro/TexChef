@@ -99,7 +99,8 @@ export const TOPICS: Topic[] = [
               highlighted, and the box shows which file and line it comes from.
             </>,
             <>
-              Change the text and press <Kbd>Enter</Kbd> (or <b>Save</b>). <Kbd>Esc</Kbd> cancels.
+              Change the text and press <Kbd>Enter</Kbd> (or <b>Save</b>). <Kbd>Esc</Kbd> cancels. Drag the box's bottom corners to make it
+              bigger for long text.
             </>,
             <>
               With <b>Update PDF after saving</b> ticked (at the bottom of the box, on by default) the PDF recompiles straight away. Untick it to
@@ -173,7 +174,8 @@ export const TOPICS: Topic[] = [
     body: () => (
       <>
         <P>
-          Above the editor, <b>Code</b> shows the LaTeX as typed and <b>Visual</b> shows it formatted: headings look like headings,{' '}
+          The <b>Aa</b> button at the right of the bar above the editor opens the formatting bar (it stays out of the way until you want it).
+          There, <b>Code</b> shows the LaTeX as typed and <b>Visual</b> shows it formatted: headings look like headings,{' '}
           <C>\textbf{'{'}…{'}'}</C> shows bold text, <C>\item</C> a bullet, <C>\&amp;</C> an ampersand, and links are underlined. The settings
           before <C>\begin{'{'}document{'}'}</C> (the preamble) fold into a bar; <b>Show</b> opens it.
         </P>
@@ -625,7 +627,7 @@ export const TOPICS: Topic[] = [
         </UL>
         <Note kind="info">
           Without Drive, closing the tab never loses work: drafts stay in this browser. The one exception is clearing the browser’s site data;
-          export a backup (Export → Backup with history) if you want a copy elsewhere.
+          export a backup (Export → Backup texChef) if you want a copy elsewhere.
         </Note>
       </>
     ),
@@ -650,6 +652,11 @@ export const TOPICS: Topic[] = [
             [<b>Restore</b>, 'When you restore an older version.'],
           ]}
         />
+        <P>
+          Versions are numbered: <b>v1</b>, <b>v2</b>… for saved versions, and autosaves after v3 as <b>v3.1</b>, <b>v3.2</b>. Next to each,{' '}
+          <span className="text-ok">+12</span> <span className="text-danger">−3</span> is how many lines it added and removed compared with the
+          version before.
+        </P>
         <P>Hover a version to:</P>
         <UL>
           <li>
@@ -677,7 +684,7 @@ export const TOPICS: Topic[] = [
       <>
         <P>
           The home page shows your documents as a <b>Map</b> or a <b>List</b>. The map has two kinds: <b>Documents</b> (the default) and{' '}
-          <b>Versions</b>. Hover the Map button (or tap it) to switch between them.
+          <b>Versions</b>: hover the <b>Documents</b> button next to Map / List (or tap it) to switch between them.
         </P>
         <H2>Documents</H2>
         <UL>
@@ -792,7 +799,7 @@ export const TOPICS: Topic[] = [
         <H2>Previews</H2>
         <P>
           Cards show the first page of each document’s last PDF. Documents you just imported have none until they are compiled: right-click
-          empty space (or a folder) → <b>Make missing previews…</b> compiles every document there (subfolders included) that has no preview or
+          empty space (or a folder) → <b>Previews → Make missing previews…</b> compiles every document there (subfolders included) that has no preview or
           an out-of-date one, one after another, after asking. Progress shows next to the folder path; click it to stop.{' '}
           <b>Recompile all previews…</b> compiles all of them.
         </P>
@@ -814,7 +821,7 @@ export const TOPICS: Topic[] = [
         <H2>Bringing work in</H2>
         <UL>
           <li>
-            <b>Upload</b> on the home page (files or a .zip, or a whole folder; or drop files onto the page) makes a new document. An <b>Overleaf</b> project downloaded as .zip
+            <b>Import</b> on the home page (<b>Upload files or a .zip</b>, <b>Upload a folder</b>, or <b>From Google Drive</b>; or drop files onto the page) makes a new document. An <b>Overleaf</b> project downloaded as .zip
             works as is; the file with <C>\documentclass</C> becomes the main file.
           </li>
           <li>
@@ -822,11 +829,14 @@ export const TOPICS: Topic[] = [
             main .tex file becomes a separate document, with its images and other files. A list lets you untick or rename them before importing.
           </li>
           <li>
-            <b>Import from Drive</b> (when Drive is connected) opens Google’s file picker. texChef can only read files you pick there.
+            <b>Import → From Google Drive</b> opens Google’s file picker (connecting Drive first if needed). texChef can only read files you pick there.
           </li>
           <li>
             Inside a document, the <b>Files</b> tab has <b>upload</b> (images, <C>.cls</C>, <C>.sty</C>, <C>.bib</C>, fonts, or a .zip) and{' '}
             <b>new file</b>. Use paths like <C>sections/experience.tex</C> for folders.
+          </li>
+          <li>
+            A document with several files shows them as <b>tabs</b> above the editor; <b>+</b> opens another file, × closes a tab (the file stays).
           </li>
         </UL>
         <H2>The main file</H2>
@@ -840,15 +850,15 @@ export const TOPICS: Topic[] = [
         <H2>Getting work out</H2>
         <UL>
           <li>
-            Editor ⌄ menu: <b>Download PDF</b>, the current file, or the whole project as <b>.zip</b> (sources + PDF).
+            The <b>Compile</b> button’s menu has <b>Download PDF</b>; the editor’s ⌄ menu also has the current file and the whole project as <b>.zip</b> (sources + PDF).
           </li>
           <li>Any version in History can be downloaded as a .zip.</li>
           <li>With Drive connected, each document also has a readable folder in your Drive with its sources and latest PDF.</li>
         </UL>
         <H2>Export</H2>
         <P>
-          <b>Export</b> on the home page (or right-click a folder or empty space) covers the open folder and everything inside it; at the top
-          level, everything. Folders become folders in the export.
+          <b>Export</b> on the home page (or right-click a folder or empty space) gives PDFs or LaTeX projects of the open folder and everything
+          inside it (at the top level, everything); folders become folders in the export. <b>Backup texChef</b> always covers everything.
         </P>
         <Table
           head={['Format', 'What you get']}
@@ -856,14 +866,14 @@ export const TOPICS: Topic[] = [
             ['PDFs (.zip)', 'One PDF per document. Documents without an up-to-date PDF are compiled first.'],
             ['LaTeX projects (.zip)', 'Each document’s files in its own folder, as they are now (unsaved drafts included).'],
             [
-              'Backup with history',
-              'The LaTeX projects, untouched, plus a .texchef folder with everything else: every saved version, drafts, folders, colors, tags, variant links and choices, previews and map positions. As a .zip, or written straight into a folder on your computer (Chrome and Edge; Brave has it behind brave://flags → File System Access API). Unzipping the .zip gives the same folder.',
+              'Backup texChef',
+              'The LaTeX projects, untouched, plus a .texchef folder with everything else: every saved version, drafts, folders, colors, tags, variant links and choices, previews and map positions. As a .zip; written straight into a folder on your computer (Chrome and Edge; Brave has it behind brave://flags → File System Access API); or saved to your Google Drive, in texChef/Backups. Unzipping the .zip gives the same folder.',
             ],
           ]}
         />
         <H3>Restoring a backup</H3>
         <P>
-          Upload the backup .zip, or <b>Upload → A folder…</b> and pick the backup folder, on any texChef, even an empty one: texChef recognises
+          Import the backup .zip (<b>Import → Upload files</b>, or <b>From Google Drive</b> for one saved there), or <b>Import → Upload a folder…</b> and pick the backup folder, on any texChef, even an empty one: texChef recognises
           it and restores everything with the same documents, history and links. Documents already there keep what they have and get the
           backup’s versions added. If you edited the LaTeX files in the backup outside texChef, those edits come in as changes.
         </P>
@@ -887,7 +897,8 @@ export const TOPICS: Topic[] = [
         <H2>Engines</H2>
         <P>
           The engine is the program that turns your LaTeX into a PDF. All three read the same LaTeX; they differ in fonts and characters. Pick
-          one with the menu above the PDF. If a template's instructions name one, use that.
+          one in the <b>Compile</b> button’s menu (hover it, or tap its arrow); pdfLaTeX is marked as the default, so you can always find your way
+          back. If a template's instructions name one, use that.
         </P>
         <UL>
           <li>
@@ -905,7 +916,7 @@ export const TOPICS: Topic[] = [
           </li>
         </UL>
         <P>
-          The ⚡ button turns automatic compiling on or off; <b>Compile</b> (<Kbd>Ctrl/⌘ Enter</Kbd>) compiles now.
+          The same menu turns automatic compiling on or off (⚡ on the button means it is on) and downloads the PDF; <b>Compile</b> (<Kbd>Ctrl/⌘ Enter</Kbd>) compiles now.
         </P>
         <P>
           <b>Wrong engine?</b> When a compile fails because the document was written for another engine (fontspec or emoji under pdfLaTeX,
@@ -921,7 +932,8 @@ export const TOPICS: Topic[] = [
         <P>
           The <b>Problems</b> panel under the PDF lists errors and warnings with their line; click one to jump there. Errors are also underlined in
           the editor. <b>Raw log</b> shows the full TeX log. If a compile fails, the last good PDF stays visible. Common ones come with a
-          plain explanation underneath.
+          plain explanation underneath. Notes that don't change the PDF (loosely spaced lines, rerun notices, harmless messages) are tucked
+          behind <b>N hidden</b> at the top of the panel; click it to see them.
         </P>
         <P>
           Warnings don't stop the PDF. Errors usually do. A few you can normally ignore:
@@ -929,7 +941,7 @@ export const TOPICS: Topic[] = [
         <UL>
           <li>
             <b>Overfull box (… too wide)</b>: a line sticks out past the margin by that much. 1pt is about a third of a millimetre, so anything
-            that small is invisible and is only listed with <b>Bad boxes</b> ticked. Bigger ones are worth a look in the PDF; dense resumes get a
+            that small is invisible; the explanation under it says how far it sticks out. Bigger ones are worth a look in the PDF; dense resumes get a
             few.
           </li>
           <li>
