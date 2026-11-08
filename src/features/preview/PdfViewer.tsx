@@ -22,6 +22,10 @@ interface Props {
   className?: string;
   /** Show the zoom toolbar. */
   toolbar?: boolean;
+  /** Phone-sized toolbar: bigger buttons, without "fit width" and the download button. */
+  compact?: boolean;
+  /** Leave out "fit width" and the download button while the viewer is narrow (a narrow pane on a small screen). */
+  autoCompact?: boolean;
   onDownload?: () => void;
   emptyMessage?: React.ReactNode;
   running?: boolean;
@@ -92,7 +96,7 @@ function CanvasSlot({ canvas }: { canvas: HTMLCanvasElement }) {
 }
 
 /** Renders every page of a PDF to canvases, keeping the scroll position across recompiles. */
-export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMessage, running, pages, onSyncClick, highlights, cursorRects, actions, banner, pageOverlay }: Props) {
+export function PdfViewer({ pdf, className, toolbar = true, compact, autoCompact, onDownload, emptyMessage, running, pages, onSyncClick, highlights, cursorRects, actions, banner, pageOverlay }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   // A number when zoomed by hand; otherwise fit to the width or the whole page (a saved preference).
@@ -106,6 +110,22 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
   const [rendered, setRendered] = useState<RenderedPage[]>([]);
   const highlightRef = useRef<{ rects: SyncRect[]; at: number } | null>(null);
   const scrollTopRef = useRef(0);
+  /** The last tap on a touch screen, to treat two quick taps like a double-click. */
+  const doubleTap = useRef<{ last: { t: number; x: number; y: number } | null; handled: number }>({ last: null, handled: 0 });
+
+  /** Double-click (or double tap) at a point: report it in PDF points on its page. */
+  const syncAt = (target: HTMLElement, clientX: number, clientY: number) => {
+    const wrap = target.closest<HTMLElement>('[data-page]');
+    if (!wrap || !onSyncClick) return;
+    const rect = wrap.getBoundingClientRect();
+    const pw = Number(wrap.dataset.pw);
+    const ph = Number(wrap.dataset.ph);
+    onSyncClick({
+      page: Number(wrap.dataset.page),
+      x: ((clientX - rect.left) / rect.width) * pw,
+      y: ((clientY - rect.top) / rect.height) * ph,
+    });
+  };
 
   useEffect(() => {
     if (!highlights?.length) return;
@@ -190,39 +210,44 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
   }, [cursorRects, rendered]);
 
   const currentScale = zoom ?? appliedScale.current;
+  const tight = compact || (autoCompact && width > 0 && width < 420);
   const wholePage = fit === 'page' && zoom === null;
 
   return (
     <div className={cn('relative flex h-full min-h-0 flex-col bg-subtle', className)}>
       {toolbar && (
-        <div className="flex h-9 shrink-0 items-center gap-1 border-b border-line bg-panel px-2">
+        <div className={cn('flex h-9 shrink-0 items-center gap-1 border-b border-line bg-panel px-2', compact && 'h-11 gap-0.5 px-1.5')}>
           <Tip content="Zoom out">
-            <Button size="icon-sm" variant="ghost" onClick={() => setZoom(Math.max(0.3, currentScale - 0.15))} aria-label="Zoom out">
+            <Button size={compact ? 'icon' : 'icon-sm'} variant="ghost" onClick={() => setZoom(Math.max(0.3, currentScale - 0.15))} aria-label="Zoom out">
               <Minus className="size-3.5" />
             </Button>
           </Tip>
-          <span className="w-12 text-center text-xs text-muted tabular-nums">{zoom === null ? (fit === 'page' ? 'Page' : 'Fit') : `${Math.round(zoom * 100)}%`}</span>
+          <span className={cn('w-12 text-center text-xs text-muted tabular-nums', compact && 'w-10')}>
+            {zoom === null ? (fit === 'page' ? 'Page' : 'Fit') : `${Math.round(zoom * 100)}%`}
+          </span>
           <Tip content="Zoom in">
-            <Button size="icon-sm" variant="ghost" onClick={() => setZoom(currentScale + 0.15)} aria-label="Zoom in">
+            <Button size={compact ? 'icon' : 'icon-sm'} variant="ghost" onClick={() => setZoom(currentScale + 0.15)} aria-label="Zoom in">
               <Plus className="size-3.5" />
             </Button>
           </Tip>
-          <Tip content="Fit width">
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              onClick={() => {
-                setZoom(null);
-                setPref({ pdfFit: 'width' });
-              }}
-              aria-label="Fit width"
-            >
-              <Maximize2 className="size-3.5" />
-            </Button>
-          </Tip>
+          {!tight && (
+            <Tip content="Fit width">
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => {
+                  setZoom(null);
+                  setPref({ pdfFit: 'width' });
+                }}
+                aria-label="Fit width"
+              >
+                <Maximize2 className="size-3.5" />
+              </Button>
+            </Tip>
+          )}
           <Tip content={wholePage ? 'Showing whole pages. Click to fit the width.' : 'Show the whole page'}>
             <Button
-              size="icon-sm"
+              size={compact ? 'icon' : 'icon-sm'}
               variant="ghost"
               className={cn(wholePage && 'bg-accent-soft text-accent hover:bg-accent-soft')}
               onClick={() => {
@@ -239,12 +264,12 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
           <div className="flex-1" />
           {actions}
           {pages !== undefined && (
-            <span className={cn('text-xs tabular-nums', pages > 1 ? 'text-muted' : 'text-ok')} data-testid="page-count">
+            <span className={cn('text-xs tabular-nums', pages > 1 ? 'text-muted' : 'text-ok', tight && 'whitespace-nowrap')} data-testid="page-count">
               {pages} {pages === 1 ? 'page' : 'pages'}
             </span>
           )}
           {running && <Spinner className="ml-2 text-accent" />}
-          {onDownload && pdf && (
+          {onDownload && pdf && !tight && (
             <Tip content="Download PDF">
               <Button size="icon-sm" variant="ghost" onClick={onDownload} aria-label="Download PDF">
                 <Download className="size-3.5" />
@@ -256,19 +281,24 @@ export function PdfViewer({ pdf, className, toolbar = true, onDownload, emptyMes
       {banner}
       <div
         ref={scroller}
-        className="min-h-0 flex-1 overflow-auto px-4 pt-4"
+        // touch-manipulation: no double-tap zoom, so two taps can jump to the source.
+        className="min-h-0 flex-1 touch-manipulation overflow-auto px-4 pt-4"
         data-testid="pdf-viewer"
         onDoubleClick={(e) => {
-          const wrap = (e.target as HTMLElement).closest<HTMLElement>('[data-page]');
-          if (!wrap || !onSyncClick) return;
-          const rect = wrap.getBoundingClientRect();
-          const pw = Number(wrap.dataset.pw);
-          const ph = Number(wrap.dataset.ph);
-          onSyncClick({
-            page: Number(wrap.dataset.page),
-            x: ((e.clientX - rect.left) / rect.width) * pw,
-            y: ((e.clientY - rect.top) / rect.height) * ph,
-          });
+          // Already handled as a double tap (touch screens fire both, or only the taps).
+          if (performance.now() - doubleTap.current.handled < 600) return;
+          syncAt(e.target as HTMLElement, e.clientX, e.clientY);
+        }}
+        onPointerUp={(e) => {
+          if (e.pointerType !== 'touch' || !onSyncClick) return;
+          const now = performance.now();
+          const last = doubleTap.current.last;
+          if (last && now - last.t < 350 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 30) {
+            doubleTap.current = { last: null, handled: now };
+            // After the tap's click (which edit mode answers with an edit box), like a double-click.
+            const { target, clientX, clientY } = e;
+            setTimeout(() => syncAt(target as HTMLElement, clientX, clientY), 0);
+          } else doubleTap.current.last = { t: now, x: e.clientX, y: e.clientY };
         }}
       >
         {!pdf && (

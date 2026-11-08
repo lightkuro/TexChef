@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Files, Folder, FolderOpen, FolderPlus, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import type { DocMeta } from '@/core/model';
-import { Button } from '@/components/ui';
+import { Button, DrawerClose } from '@/components/ui';
 import { ActionContextMenu, ActionDropdown, type MenuAction } from '@/components/ActionMenu';
 import { cn } from '@/lib/utils';
 import { buildFolderTree, flattenTree, folderName, inFolder } from './folderTree';
@@ -70,12 +70,15 @@ export function FolderSidebar({
   current,
   onSelect,
   actionsFor,
+  inDrawer,
 }: {
   docs: DocMeta[];
   current: string | null;
   onSelect: (f: string | null) => void;
   /** Menu for a folder (defaults to open / new inside / rename / delete). */
   actionsFor?: (path: string) => MenuAction[];
+  /** Shown in a drawer (small screens): full width, bigger rows, a close button. */
+  inDrawer?: boolean;
 }) {
   const empty = useEmptyFolders((s) => s.list);
   const tree = useMemo(() => buildFolderTree(docs.map((d) => d.folder), empty), [docs, empty]);
@@ -90,6 +93,7 @@ export function FolderSidebar({
       key={key}
       className={cn(
         'group flex h-8 cursor-pointer items-center gap-1.5 rounded-md pr-1 text-sm',
+        inDrawer && 'h-10',
         active ? 'bg-accent-soft font-medium text-fg' : 'text-muted hover:bg-subtle hover:text-fg',
         drop.over === key && 'ring-2 ring-accent',
       )}
@@ -108,19 +112,24 @@ export function FolderSidebar({
     </div>
   );
 
+  const newFolder = (
+    <Button size="icon-sm" variant="ghost" onClick={() => openFolderDialog({ kind: 'new', parent: current ?? undefined })} aria-label="New folder" data-testid="new-folder">
+      <FolderPlus className="size-4" />
+    </Button>
+  );
+
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-line bg-panel" data-testid="folder-sidebar">
-      <div className="flex h-9 shrink-0 items-center justify-between px-3 text-xs font-semibold tracking-wide text-muted uppercase">
+    <aside className={cn('flex w-56 shrink-0 flex-col border-r border-line bg-panel', inDrawer && 'min-h-0 w-full flex-1 border-r-0')} data-testid="folder-sidebar">
+      <div className={cn('flex h-9 shrink-0 items-center justify-between px-3 text-xs font-semibold tracking-wide text-muted uppercase', inDrawer && 'h-12 pr-2')}>
         Folders
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          onClick={() => openFolderDialog({ kind: 'new', parent: current ?? undefined })}
-          aria-label="New folder"
-          data-testid="new-folder"
-        >
-          <FolderPlus className="size-4" />
-        </Button>
+        {inDrawer ? (
+          <span className="flex items-center gap-1">
+            {newFolder}
+            <DrawerClose />
+          </span>
+        ) : (
+          newFolder
+        )}
       </div>
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-auto px-2 pb-3">
         {row('all', 'All documents', <Files className="size-4 shrink-0" />, docs.length, current === null, () => onSelect(null), undefined, 0, undefined)}
@@ -148,7 +157,7 @@ export function FolderSidebar({
               ) : (
                 <span className="w-4" />
               )}
-              <span className="order-last opacity-0 group-hover:opacity-100 focus-within:opacity-100" onClick={(e) => e.stopPropagation()}>
+              <span className="order-last opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100" onClick={(e) => e.stopPropagation()}>
                 <ActionDropdown
                   align="start"
                   label={n.name}

@@ -42,6 +42,7 @@ export function DocPicker({
   other,
   onChange,
   label,
+  className,
 }: {
   docs: DocMeta[];
   value?: SideRef;
@@ -49,6 +50,8 @@ export function DocPicker({
   other?: SideRef;
   onChange: (s: SideRef) => void;
   label: string;
+  /** Extra classes for the button (e.g. to fill a column). */
+  className?: string;
 }) {
   const [browsing, setBrowsing] = useState(false);
   const current = docs.find((d) => d.id === value?.docId);
@@ -68,7 +71,7 @@ export function DocPicker({
       <Menu>
         <MenuTrigger asChild>
           <button
-            className="flex h-8 max-w-56 min-w-0 items-center gap-1.5 rounded-md border border-line bg-panel px-2 text-xs hover:bg-subtle"
+            className={cn('flex h-8 max-w-56 min-w-0 items-center gap-1.5 rounded-md border border-line bg-panel px-2 text-xs hover:bg-subtle', className)}
             aria-label={`${label} document`}
             data-testid={`${label.toLowerCase()}-doc-picker`}
           >

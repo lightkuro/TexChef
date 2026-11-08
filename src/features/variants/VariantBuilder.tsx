@@ -13,6 +13,7 @@ import { PdfViewer } from '@/features/preview/PdfViewer';
 import { EngineBanner } from '@/features/compile/EngineBanner';
 import { Badge, Button, Checkbox, EmptyState, Input, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { usePhone } from '@/lib/useMediaQuery';
 
 export function VariantBuilder() {
   const { id } = useParams();
@@ -26,6 +27,9 @@ export function VariantBuilder() {
   const [name, setName] = useState('');
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [creating, setCreating] = useState(false);
+  // Phones: the block list and the preview take turns.
+  const phone = usePhone();
+  const [pane, setPane] = useState<'blocks' | 'preview'>('blocks');
 
   useEffect(() => {
     if (from) void repo.readCommitFiles(from).then(setCommitFiles);
@@ -112,7 +116,7 @@ export function VariantBuilder() {
     return (
       <div key={b.id}>
         <label
-          className={cn('flex cursor-pointer items-center gap-2 rounded-md py-1 pr-2 text-sm hover:bg-subtle', !parentOn && 'opacity-45')}
+          className={cn('flex cursor-pointer items-center gap-2 rounded-md py-1 pr-2 text-sm hover:bg-subtle max-sm:py-2', !parentOn && 'opacity-45')}
           style={{ paddingLeft: 8 + b.depth * 18 }}
         >
           <Checkbox
@@ -140,34 +144,83 @@ export function VariantBuilder() {
     );
   };
 
+  const nameInput = (
+    <Input
+      className={cn('w-72', phone ? 'w-full' : 'max-lg:w-52')}
+      placeholder={defaultName(parent.name, recipe.tags)}
+      value={name}
+      onChange={(e) => setName(e.target.value)}
+      aria-label="Variant name"
+      data-testid="variant-name"
+    />
+  );
+
   return (
     <div className="flex h-full flex-col" data-testid="variant-builder">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-panel px-2">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
           <ArrowLeft className="size-4" />
         </Button>
-        <GitBranch className="size-4 text-accent" />
-        <span className="text-sm font-semibold">New variant of “{parent.name}”</span>
-        {from && <Badge tone="info">from an earlier version</Badge>}
+        <GitBranch className="size-4 shrink-0 text-accent" />
+        <span className="text-sm font-semibold max-xl:min-w-0 max-xl:truncate">
+          {phone ? 'Variant of' : 'New variant of'} “{parent.name}”
+        </span>
+        {from && (
+          <Badge tone="info" className="max-md:hidden">
+            from an earlier version
+          </Badge>
+        )}
         <div className="flex-1" />
-        <Link to="/help/variants" className="text-xs text-muted underline hover:text-fg" target="_blank">
+        <Link to="/help/variants" className="shrink-0 text-xs text-muted underline hover:text-fg max-lg:hidden" target="_blank">
           How variants work
         </Link>
-        <Input
-          className="w-72"
-          placeholder={defaultName(parent.name, recipe.tags)}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          aria-label="Variant name"
-          data-testid="variant-name"
-        />
+        {!phone && nameInput}
         <Button variant="primary" onClick={create} disabled={creating} data-testid="create-variant">
-          {creating ? <Spinner /> : <GitBranch className="size-4" />} Create variant
+          {creating ? <Spinner /> : <GitBranch className="size-4" />}
+          {phone ? ' Create' : ' Create variant'}
         </Button>
       </header>
+      {phone && <div className="shrink-0 border-b border-line bg-panel px-3 py-2">{nameInput}</div>}
       <EngineBanner status={engine} />
+      {phone && (
+        <div className="flex h-12 shrink-0 items-center justify-center border-b border-line bg-panel px-2">
+          <div role="tablist" aria-label="Show" className="grid w-full max-w-sm grid-cols-2 gap-0.5 rounded-lg bg-subtle p-0.5">
+            {(
+              [
+                ['blocks', 'Blocks', <span className="text-xs font-normal text-muted tabular-nums">{selectedCount}/{allIds.length}</span>],
+                [
+                  'preview',
+                  'Preview',
+                  entry?.running ? (
+                    <Spinner className="text-accent" />
+                  ) : entry?.pages !== undefined ? (
+                    <Badge tone={entry.pages === 1 ? 'ok' : 'warn'}>{entry.pages === 1 ? '1 page' : `${entry.pages} pages`}</Badge>
+                  ) : null,
+                ],
+              ] as const
+            ).map(([k, label, extra]) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={pane === k}
+                onClick={() => setPane(k)}
+                className={cn('flex h-8 items-center justify-center gap-1.5 rounded-md text-sm font-medium', pane === k ? 'bg-panel text-fg shadow-sm' : 'text-muted')}
+                data-testid={`variant-pane-${k}`}
+              >
+                {label} {extra}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[44%] min-w-80 flex-col border-r border-line bg-panel">
+        <aside
+          className={cn(
+            'flex w-[44%] min-w-80 flex-col border-r border-line bg-panel max-lg:min-w-72',
+            phone && 'w-full min-w-0 border-r-0',
+            phone && pane !== 'blocks' && 'hidden',
+          )}
+        >
           <div className="space-y-3 border-b border-line p-4">
             <div>
               <div className="text-xs font-semibold tracking-wide text-muted uppercase">Focus by tag</div>
@@ -181,7 +234,7 @@ export function VariantBuilder() {
                     key={t}
                     onClick={() => toggleTag(t)}
                     className={cn(
-                      'rounded-full border px-2.5 py-0.5 text-xs font-medium',
+                      'rounded-full border px-2.5 py-0.5 text-xs font-medium max-sm:px-3 max-sm:py-1.5',
                       recipe.tags.includes(t) ? 'border-accent bg-accent text-accent-fg' : 'border-line hover:bg-subtle',
                     )}
                     data-testid={`tag-${t}`}
@@ -218,7 +271,7 @@ export function VariantBuilder() {
             )}
           </div>
         </aside>
-        <section className="flex min-w-0 flex-1 flex-col">
+        <section className={cn('flex min-w-0 flex-1 flex-col', phone && pane !== 'preview' && 'hidden')}>
           <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line bg-panel px-3 text-xs">
             <span className="font-medium">Live preview</span>
             {entry?.pages !== undefined && (

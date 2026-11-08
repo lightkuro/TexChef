@@ -58,7 +58,7 @@ function DivergedBanner() {
   const other = doc?.divergedHeads?.[0];
   if (!doc || !other) return null;
   return (
-    <div className="flex shrink-0 items-center gap-2 border-b border-line bg-warn-soft px-3 py-1.5 text-xs text-warn">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-warn-soft px-3 py-1.5 text-xs text-warn">
       <AlertTriangle className="size-3.5" />
       “{doc.name}” was also edited on another device.
       <Button

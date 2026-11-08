@@ -77,8 +77,8 @@ export function HelpPage() {
               ))}
             </select>
           </div>
-          <article className="mx-auto max-w-3xl px-6 py-10 text-[15px] text-fg" data-testid="help-page">
-            <h1 className="text-3xl font-semibold tracking-tight">{current.title}</h1>
+          <article className="mx-auto max-w-3xl px-6 py-10 text-[15px] text-fg max-sm:px-4 max-sm:pt-6 max-sm:pb-[calc(2.5rem+env(safe-area-inset-bottom))]" data-testid="help-page">
+            <h1 className="text-3xl font-semibold tracking-tight max-sm:text-2xl">{current.title}</h1>
             <p className="mt-1 text-muted">{current.summary}</p>
             {current.body()}
             <div className="mt-12 flex gap-3 border-t border-line pt-4 text-sm">
