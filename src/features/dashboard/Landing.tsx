@@ -100,7 +100,7 @@ export function Landing({ onNew, onImport }: { onNew: () => void; onImport: () =
             <Shot
               src="/landing/map.webp"
               width={860}
-              height={312}
+              height={310}
               loading="lazy"
               alt="The map: Master resume, linked to its Frontend resume variant."
               className="absolute bottom-0 -left-2 w-[58%] shadow-2xl sm:-left-4 lg:-left-10"
