@@ -55,6 +55,9 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: { port: 5173 },
+  // Both pdf.js builds are loaded on demand (src/compile/pdf.ts); pre-bundle both so the dev server
+  // doesn't stop to optimise one mid-session.
+  optimizeDeps: { include: ['pdfjs-dist', 'pdfjs-dist/legacy/build/pdf.mjs'] },
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 2500,

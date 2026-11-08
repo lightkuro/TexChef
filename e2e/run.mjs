@@ -15,6 +15,9 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 900 
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
+// pdf.js comes in a modern and a legacy build; this browser has everything, so it must never load the legacy one.
+const legacyRequests = [];
+page.on('request', (r) => /pdfjs-dist.*legacy/.test(r.url()) && legacyRequests.push(r.url()));
 page.on('console', (m) => m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text()) && errors.push(m.text()));
 
 const step = async (name, fn) => {
@@ -1034,6 +1037,9 @@ await step('PDFs render on browsers without the newest JavaScript (as on Safari)
   const p = await ctx.newPage();
   const errs = [];
   p.on('pageerror', (e) => errs.push(e.message));
+  // Meanwhile the normal page (a browser with everything) has only ever loaded the modern build.
+  assert.equal(await page.evaluate(async () => (await (await import('/src/compile/pdf.ts')).loadPdfJs(), window.rcPdfJs)), 'modern');
+  assert.deepEqual(legacyRequests, []);
   await p.goto(BASE);
   // Gone before the app loaded (pdf.js's legacy build then brings its own).
   assert.equal(await p.evaluate(() => window.__removedNewJs), true);
@@ -1043,6 +1049,8 @@ await step('PDFs render on browsers without the newest JavaScript (as on Safari)
   await p.getByTestId('page-count').waitFor({ timeout: 180_000 });
   await p.locator('canvas').first().waitFor();
   assert.equal(await p.getByText('Could not render PDF').count(), 0);
+  // This one needed the legacy build, and got it.
+  assert.equal(await p.evaluate(() => window.rcPdfJs), 'legacy');
   assert.deepEqual(errs.filter((m) => /getOrInsert/.test(m)), []);
   await p.screenshot({ path: `${OUT}14-no-new-js.png` });
   await ctx.close();

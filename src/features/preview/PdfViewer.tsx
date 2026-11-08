@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Minus, Plus, Maximize2, Download, RectangleVertical } from 'lucide-react';
-import { Util } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { openPdf, type LoadedPdf } from '@/compile/pdf';
 import type { SyncRect } from '@/compile/synctex';
 import type { PdfTextItem } from '@/pdfedit/locate';
@@ -73,13 +72,25 @@ function drawHighlights(target: HTMLElement, rects: SyncRect[], scrollIntoView: 
   if (scrollIntoView && first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
+/** Product of two PDF transform matrices [a b c d e f] (what pdf.js's Util.transform does). */
+function multiply(m1: number[], m2: number[]): number[] {
+  return [
+    m1[0] * m2[0] + m1[2] * m2[1],
+    m1[1] * m2[0] + m1[3] * m2[1],
+    m1[0] * m2[2] + m1[2] * m2[3],
+    m1[1] * m2[2] + m1[3] * m2[3],
+    m1[0] * m2[4] + m1[2] * m2[5] + m1[4],
+    m1[1] * m2[4] + m1[3] * m2[5] + m1[5],
+  ];
+}
+
 /** Text runs of a page in PDF points (top-left origin); rotated text is skipped. */
 async function textItems(page: Awaited<ReturnType<LoadedPdf['doc']['getPage']>>, transform: number[]): Promise<PdfTextItem[]> {
   const tc = await page.getTextContent();
   const out: PdfTextItem[] = [];
   for (const it of tc.items) {
     if (!('str' in it) || !it.str.trim()) continue;
-    const m = Util.transform(transform, it.transform);
+    const m = multiply(transform, it.transform);
     if (Math.abs(m[1]) > 0.01 || Math.abs(m[2]) > 0.01) continue;
     const size = Math.abs(m[3]);
     if (!size) continue;
