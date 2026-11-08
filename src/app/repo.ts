@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { RCDatabase } from '@/storage/db';
 import { Repo } from '@/core/repo';
@@ -16,8 +17,29 @@ export function useDoc(id: string | undefined): DocMeta | undefined | null {
   return useLiveQuery(async () => (id ? (await db.docs.get(id)) ?? null : null), [id]);
 }
 
+/**
+ * A document's working copy, plus why it couldn't be made. The copy is created the first time a
+ * document is opened on this device (e.g. one that arrived from Google Drive). That happens outside
+ * the live query, because Dexie refuses writes inside one.
+ */
+export function useWorkState(id: string | undefined): { work: WorkingCopy | undefined; error?: string; retry: () => void } {
+  const work = useLiveQuery(async () => (id ? ((await db.work.get(id)) ?? null) : undefined), [id]);
+  const [error, setError] = useState<string>();
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!id || work !== null) return;
+    let cancelled = false;
+    setError(undefined);
+    repo.getWork(id).catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [id, work, attempt]);
+  return { work: work ?? undefined, error: work ? undefined : error, retry: () => setAttempt((n) => n + 1) };
+}
+
 export function useWork(id: string | undefined): WorkingCopy | undefined {
-  return useLiveQuery(async () => (id ? repo.getWork(id).catch(() => undefined) : undefined), [id]);
+  return useWorkState(id).work;
 }
 
 export function useDocCommits(id: string | undefined): Commit[] | undefined {

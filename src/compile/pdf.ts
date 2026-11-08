@@ -1,5 +1,8 @@
-import * as pdfjs from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+// The "legacy" build of pdf.js includes polyfills for very new JavaScript (Map.getOrInsertComputed,
+// Promise.withResolvers…) that Safari doesn't have yet; the modern build fails there with
+// "getOrInsertComputed is not a function".
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;

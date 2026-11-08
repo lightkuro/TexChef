@@ -84,11 +84,13 @@ export class Repo {
     return undefined;
   }
 
-  async treeToFiles(tree: FileTree): Promise<FileMap> {
+  /** `strict`: fail when a text file's contents can't be had (instead of reading it as empty). */
+  async treeToFiles(tree: FileTree, strict = false): Promise<FileMap> {
     const out: FileMap = {};
     for (const [path, hash] of Object.entries(tree)) {
       if (isTextPath(path)) {
         const data = await this.getBlob(hash);
+        if (!data && strict) throw new Error(`“${path}” hasn’t been downloaded to this device yet.`);
         out[path] = { kind: 'text', text: data ? decodeText(data) : '' };
       } else {
         const rec = await this.db.blobs.get(hash);
@@ -286,7 +288,12 @@ export class Repo {
     if (existing) return existing;
     const doc = await this.getDoc(docId);
     if (!doc) throw new Error('Document not found');
-    const files = doc.head ? await this.readCommitFiles(doc.head) : {};
+    // A working copy with an empty file would overwrite it on the next save: only make one with everything.
+    const head = doc.head ? await this.getCommit(doc.head) : undefined;
+    if (doc.head && !head) throw new Error('This document’s latest version hasn’t arrived on this device yet.');
+    const files = head ? await this.treeToFiles(head.tree, true) : {};
+    const raced = await this.db.work.get(docId);
+    if (raced) return raced;
     const wc: WorkingCopy = { docId, files, baseCommitId: doc.head, dirty: false, updatedAt: Date.now() };
     await this.db.work.put(wc);
     return wc;

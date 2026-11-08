@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EditorView } from '@codemirror/view';
-import { repo, useBehind, useDoc, useWork, usePreview } from '@/app/repo';
+import { repo, useBehind, useDoc, useWorkState, usePreview } from '@/app/repo';
 import { isTexPath, type Engine } from '@/core/model';
 import type { FileMap } from '@/core/repo';
 import { CodeEditor, type CodeEditorHandle } from './CodeEditor';
@@ -65,7 +65,7 @@ const SIDE_KEY = 'rc-editor-side';
 export function EditorPage() {
   const { id } = useParams();
   const doc = useDoc(id);
-  const work = useWork(id);
+  const { work, error: workError, retry: retryWork } = useWorkState(id);
   const parent = useDoc(doc?.parent?.docId);
   const behind = useBehind(doc ?? undefined);
   const navigate = useNavigate();
@@ -324,10 +324,38 @@ export function EditorPage() {
       </EmptyState>
     );
   }
+  if (doc === null) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted" data-testid="doc-missing">
+        <p className="font-medium text-fg">This document isn’t on this device.</p>
+        <p>It may have been deleted, or it hasn’t synced here yet.</p>
+        <Button variant="outline" onClick={() => navigate('/')}>
+          Back to all documents
+        </Button>
+      </div>
+    );
+  }
   if (!doc || !work) {
     return (
-      <div className="flex h-full items-center justify-center text-muted">
-        <Spinner />
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted" data-testid="doc-loading">
+        {workError ? (
+          <>
+            <p className="font-medium text-fg">Couldn’t open “{doc?.name}” yet</p>
+            <p className="max-w-sm">
+              {workError} Its files come from your Google Drive; make sure Drive is connected (top right), then try again.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="primary" onClick={retryWork} data-testid="doc-retry">
+                Try again
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/')}>
+                Back
+              </Button>
+            </div>
+          </>
+        ) : (
+          <Spinner />
+        )}
       </div>
     );
   }

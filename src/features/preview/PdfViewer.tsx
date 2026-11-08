@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Minus, Plus, Maximize2, Download, RectangleVertical } from 'lucide-react';
-import { Util } from 'pdfjs-dist';
+import { Util } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { openPdf, type LoadedPdf } from '@/compile/pdf';
 import type { SyncRect } from '@/compile/synctex';
 import type { PdfTextItem } from '@/pdfedit/locate';

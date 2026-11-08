@@ -991,6 +991,63 @@ const snapshot = () =>
     };
   });
 
+await step('a document that came from Drive (no working copy on this device yet) opens; missing files explain themselves', async () => {
+  writeFileSync(`${OUT}synced.tex`, '\\documentclass{article}\n\\begin{document}\nArrived from Drive.\n\\end{document}\n');
+  await page.goto(BASE);
+  await page.getByTestId('upload-input').setInputFiles(`${OUT}synced.tex`);
+  await page.getByTestId('editor-page').waitFor();
+  const id = page.url().split('/doc/')[1];
+  // Like a sync from Drive: the document and its versions are here, but no working copy yet.
+  await page.evaluate(async (id) => {
+    await window.rc.repo.commitWork(id, 'Saved version', 'save');
+    await window.rc.db.work.delete(id);
+  }, id);
+  await page.goto(BASE);
+  await page.goto(`${BASE}/doc/${id}`);
+  await page.locator('.cm-content', { hasText: 'Arrived from Drive.' }).waitFor({ timeout: 15_000 });
+  // A version whose file contents aren't on this device (and Drive isn't connected): an explanation, not an endless spinner.
+  const missing = await page.evaluate(async (id) => {
+    const { db } = window.rc;
+    const doc = await db.docs.get(id);
+    const head = await db.commits.get(doc.head);
+    const copy = { ...doc, id: `${id}x`, name: 'Not downloaded', head: `${head.id}x` };
+    await db.commits.put({ ...head, id: `${head.id}x`, docId: copy.id, tree: { 'synced.tex': 'f'.repeat(64) } });
+    await db.docs.put(copy);
+    return copy.id;
+  }, id);
+  await page.goto(`${BASE}/doc/${missing}`);
+  await page.getByTestId('doc-retry').waitFor({ timeout: 15_000 });
+  await page.getByTestId('doc-loading').getByText('hasn’t been downloaded').waitFor();
+  await page.evaluate((id) => window.rc.db.docs.delete(id), missing);
+});
+
+await step('PDFs render on browsers without the newest JavaScript (as on Safari)', async () => {
+  // Safari doesn't have Map.prototype.getOrInsertComputed yet; the modern pdf.js build relies on it.
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await ctx.addInitScript(() => {
+    for (const C of [Map, WeakMap]) {
+      delete C.prototype.getOrInsertComputed;
+      delete C.prototype.getOrInsert;
+    }
+    window.__removedNewJs = typeof Map.prototype.getOrInsertComputed === 'undefined';
+  });
+  const p = await ctx.newPage();
+  const errs = [];
+  p.on('pageerror', (e) => errs.push(e.message));
+  await p.goto(BASE);
+  // Gone before the app loaded (pdf.js's legacy build then brings its own).
+  assert.equal(await p.evaluate(() => window.__removedNewJs), true);
+  await p.getByTestId('new-doc').click();
+  await p.getByTestId('template-cover-letter').click();
+  await p.getByTestId('create-doc').click();
+  await p.getByTestId('page-count').waitFor({ timeout: 180_000 });
+  await p.locator('canvas').first().waitFor();
+  assert.equal(await p.getByText('Could not render PDF').count(), 0);
+  assert.deepEqual(errs.filter((m) => /getOrInsert/.test(m)), []);
+  await p.screenshot({ path: `${OUT}14-no-new-js.png` });
+  await ctx.close();
+});
+
 await step('full backup: export, wipe, restore everything (zip, then a folder with outside edits)', async () => {
   await page.goto(BASE);
   // A draft that is not a saved version yet must survive too.
