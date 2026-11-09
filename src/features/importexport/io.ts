@@ -88,7 +88,7 @@ const isMainTex = (path: string, data: Uint8Array) =>
 export interface ImportPlan {
   /** Name of the upload (the .zip without its extension). */
   name: string;
-  /** The upload is a texChef backup: restore it instead of importing projects. */
+  /** The upload is a TexChef backup: restore it instead of importing projects. */
   backup?: RestorePlan;
   /** One entry for an ordinary upload, several for a bundle of documents. */
   projects: ImportedProject[];
@@ -181,6 +181,6 @@ export async function downloadAllPdfs(): Promise<number> {
     if (prev) entries[`${safeFilename(d.name)}.pdf`] = prev.pdf;
   }
   const n = Object.keys(entries).length;
-  if (n) downloadBlob(zipSync(entries), 'texChef PDFs.zip', 'application/zip');
+  if (n) downloadBlob(zipSync(entries), 'TexChef PDFs.zip', 'application/zip');
   return n;
 }

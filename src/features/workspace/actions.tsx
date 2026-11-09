@@ -17,7 +17,7 @@ export async function runExport(kind: ExportKind, docs: DocMeta[], scope: string
     toast.info('There are no documents here to export.');
     return;
   }
-  const label = scope ? scope.split('/').pop()! : 'texChef';
+  const label = scope ? scope.split('/').pop()! : 'TexChef';
   const id = toast.loading(kind === 'pdf' ? 'Making the PDFs…' : 'Preparing the export…');
   try {
     if (kind === 'pdf') {
@@ -44,12 +44,12 @@ export async function runExport(kind: ExportKind, docs: DocMeta[], scope: string
         const fileId = await drive.saveExport('Backups', `${safeFilename(name)}.zip`, zipBytes(files), 'application/zip');
         toast.success(`Saved “${name}.zip” to Google Drive`, {
           id,
-          description: 'In the texChef/Backups folder. To restore it: Import → From Google Drive.',
+          description: 'In the TexChef/Backups folder. To restore it: Import → From Google Drive.',
           action: { label: 'Open', onClick: () => window.open(`https://drive.google.com/file/d/${fileId}/view`, '_blank', 'noopener') },
         });
       } else if (kind === 'backup-zip') {
         downloadZip(files, name);
-        toast.success(`Backed up ${docs.length} document${docs.length === 1 ? '' : 's'}`, { id, description: 'Upload the .zip on any texChef to restore it.' });
+        toast.success(`Backed up ${docs.length} document${docs.length === 1 ? '' : 's'}`, { id, description: 'Upload the .zip on any TexChef to restore it.' });
       } else if (await saveToFolder(files, name)) {
         toast.success(`Backed up ${docs.length} document${docs.length === 1 ? '' : 's'} to the folder “${name}”`, { id, description: 'Use Upload → A folder to restore it.' });
       } else toast.dismiss(id);
@@ -72,7 +72,7 @@ function explainNoFolders() {
   });
 }
 
-/** "Backup texChef" choices: everything (documents, history, folders, settings), as a .zip, into a folder, or to Drive. */
+/** "Backup TexChef" choices: everything (documents, history, folders, settings), as a .zip, into a folder, or to Drive. */
 export function backupActions(allDocs: DocMeta[]): MenuAction[] {
   const folders = canWriteFolders();
   return [
@@ -92,7 +92,7 @@ export function backupActions(allDocs: DocMeta[]): MenuAction[] {
 }
 
 /**
- * The export formats, as menu entries, for `docs` (a folder's, or everything), plus "Backup texChef",
+ * The export formats, as menu entries, for `docs` (a folder's, or everything), plus "Backup TexChef",
  * which always covers everything (pass all documents as `allDocs`).
  */
 export function exportActions(docs: DocMeta[], scope: string | null, allDocs?: DocMeta[]): MenuAction[] {
@@ -103,7 +103,7 @@ export function exportActions(docs: DocMeta[], scope: string | null, allDocs?: D
       ? [
           {
             key: 'backup',
-            label: 'Backup texChef',
+            label: 'Backup TexChef',
             hint: 'with history',
             icon: <HardDriveDownload className="size-4" />,
             separatorBefore: true,
@@ -132,7 +132,7 @@ export async function askMakePreviews(docs: DocMeta[], all = false) {
     body: (
       <>
         <p>
-          texChef compiles {n === 1 ? `“${todo[0].name}”` : `these ${n} documents one after another`} so the map shows {n === 1 ? 'its' : 'their'} first page.
+          TexChef compiles {n === 1 ? `“${todo[0].name}”` : `these ${n} documents one after another`} so the map shows {n === 1 ? 'its' : 'their'} first page.
           {n > 1 && ' That takes a few seconds per document.'}
         </p>
         <p className="text-muted">You can keep working meanwhile, and stop it from the progress button next to the folder path. Nothing in the documents changes.</p>

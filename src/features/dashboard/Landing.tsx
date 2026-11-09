@@ -1,10 +1,18 @@
 import { useState, type ImgHTMLAttributes, type ReactNode } from 'react';
-import { Link } from 'react-router';
-import { ArrowRight, Cpu, GitBranch, HardDrive, MousePointerClick, Plus, Upload, type LucideIcon } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { ArrowRight, BookOpen, ChevronDown, Cpu, GitBranch, HardDrive, MousePointerClick, Plus, type LucideIcon } from 'lucide-react';
 import { TEMPLATES } from '@/templates';
-import { Button, Tip } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { ActionDropdown, type MenuAction } from '@/components/ActionMenu';
+import { Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { NewDocDialog } from './NewDocDialog';
+
+const PITCH: { icon: LucideIcon; text: string }[] = [
+  { icon: MousePointerClick, text: 'Compile, preview and edit right on the PDF.' },
+  { icon: GitBranch, text: 'Split master documents into multiple versions.' },
+  { icon: HardDrive, text: 'Processed locally, with optional Drive backup.' },
+];
 
 const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: Cpu, title: 'Compiles in your browser', text: 'Full TeX Live on your device. No server, no install.' },
@@ -21,33 +29,47 @@ const STARTERS: Record<string, { blurb: string; sketch: ReactNode }> = {
 };
 
 /** What new users see on the home page before they have any documents. */
-export function Landing({ onNew, onImport }: { onNew: () => void; onImport: () => void }) {
+export function Landing({ onNew, uploadActions }: { onNew: () => void; uploadActions: MenuAction[] }) {
   const [template, setTemplate] = useState<string | null>(null);
+  const navigate = useNavigate();
   return (
     <div className="overflow-x-clip" data-testid="landing">
       <div className="mx-auto w-full max-w-6xl px-4 pt-12 pb-10 sm:px-6 sm:pt-20">
         <section className="mx-auto max-w-3xl text-center">
           <h1 className="text-[2rem] leading-tight font-semibold tracking-tight text-balance sm:text-5xl sm:leading-[1.1]">
-            The LaTeX editor that runs in your browser
+            <span className="inline-flex items-center gap-2.5 text-accent sm:gap-3.5">
+              <Logo size={44} className="size-9 sm:size-12" /> TexChef:
+            </span>
+            <span className="block">Edit with LaTeX easily, all in the browser</span>
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-base text-pretty text-muted sm:text-lg">
-            Compile, preview and edit right on the PDF, with nothing to install. Great for resumes too: keep one master and make tailored
-            variants.
-          </p>
+          <ul className="mx-auto mt-6 inline-flex flex-col items-start gap-2 text-left text-base text-muted sm:mt-7 sm:text-lg" aria-label="What TexChef does">
+            {PITCH.map(({ icon: Icon, text }) => (
+              <li key={text} className="flex items-center gap-2.5">
+                <Icon className="size-[18px] shrink-0 text-accent" aria-hidden="true" />
+                {text}
+              </li>
+            ))}
+          </ul>
           <div className="mx-auto mt-8 flex max-w-xs flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
-            <Button variant="primary" className="h-10 px-5" onClick={onNew} data-testid="landing-new">
-              <Plus className="size-4" /> New document
-            </Button>
-            <Tip content="A .tex file, an Overleaf or Prism .zip, or a texChef backup">
-              <Button variant="outline" className="h-10 px-5" onClick={onImport} data-testid="landing-import">
-                <Upload className="size-4" /> Import
+            <div className="flex">
+              <Button variant="primary" className="h-10 flex-1 rounded-r-none px-5" onClick={onNew} data-testid="landing-new">
+                <Plus className="size-4" /> New document
               </Button>
-            </Tip>
+              <ActionDropdown
+                align="end"
+                label="Or upload"
+                actions={uploadActions}
+                trigger={
+                  <Button variant="primary" className="h-10 rounded-l-none border-l border-accent-fg/25 px-2.5" aria-label="Upload files or a folder instead" data-testid="landing-upload">
+                    <ChevronDown className="size-4" />
+                  </Button>
+                }
+              />
+            </div>
+            <Button variant="outline" className="h-10 px-5" onClick={() => navigate('/help')} data-testid="landing-guide">
+              <BookOpen className="size-4" /> TexChef Guide
+            </Button>
           </div>
-          <Link to="/help" className="group mt-6 inline-flex items-center gap-1 text-sm text-muted hover:text-fg">
-            New here? <span className="font-medium text-accent group-hover:underline">Read how texChef works</span>
-            <ArrowRight className="size-3.5 text-accent transition-transform group-hover:translate-x-0.5" />
-          </Link>
         </section>
 
         <div className="relative isolate mx-auto mt-12 max-w-5xl sm:mt-16">
@@ -57,9 +79,9 @@ export function Landing({ onNew, onImport }: { onNew: () => void; onImport: () =
             srcSet="/landing/editor-1280.webp 1280w, /landing/editor.webp 1920w"
             sizes="(min-width: 1072px) 1024px, calc(100vw - 48px)"
             width={1920}
-            height={1067}
+            height={1147}
             fetchPriority="high"
-            alt="The texChef editor: a resume's blocks and tags on the left, its LaTeX source in the middle and the compiled PDF on the right."
+            alt="The TexChef editor: a resume's blocks and tags on the left, its LaTeX source in the middle and the compiled PDF on the right."
           />
         </div>
 
@@ -93,17 +115,40 @@ export function Landing({ onNew, onImport }: { onNew: () => void; onImport: () =
             <Shot
               src="/landing/variants.webp"
               width={1400}
-              height={854}
+              height={836}
               loading="lazy"
               alt="Making a variant: the #frontend tag is picked, and the live preview shows the tailored one-page resume."
             />
             <Shot
               src="/landing/map.webp"
-              width={860}
-              height={310}
+              width={1000}
+              height={371}
               loading="lazy"
               alt="The map: Master resume, linked to its Frontend resume variant."
               className="absolute bottom-0 -left-2 w-[58%] shadow-2xl sm:-left-4 lg:-left-10"
+            />
+          </div>
+        </section>
+
+        <section className="mx-auto mt-20 grid max-w-5xl items-center gap-10 sm:mt-28 lg:grid-cols-12 lg:gap-14" data-testid="landing-pdf-edit">
+          <div className="max-w-xl lg:order-2 lg:col-span-5">
+            <p className="text-sm font-medium text-accent">Edit on the PDF</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">Click the PDF, type the change</h2>
+            <p className="mt-4 text-pretty text-muted">
+              No hunting through LaTeX for the right line. Click any sentence in the preview and edit it right there: TexChef changes the
+              matching source and recompiles.
+            </p>
+            <Link to="/help/edit-on-pdf" className="group mt-5 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
+              How editing on the PDF works <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+          <div className="lg:order-1 lg:col-span-7">
+            <Shot
+              src="/landing/pdf-edit.webp"
+              width={1400}
+              height={953}
+              loading="lazy"
+              alt="Editing on the PDF: a clicked bullet in the preview opens a small box with its text, ready to change."
             />
           </div>
         </section>
@@ -138,7 +183,7 @@ export function Landing({ onNew, onImport }: { onNew: () => void; onImport: () =
         </section>
 
         <p className="mx-auto mt-16 max-w-xl text-center text-xs text-pretty text-muted sm:mt-20">
-          Your documents are stored in this browser and, if you connect it, in your own Google Drive. By using texChef you agree to the{' '}
+          Your documents are stored in this browser and, if you connect it, in your own Google Drive. By using TexChef you agree to the{' '}
           <Link to="/terms" className="underline hover:text-fg">
             Terms
           </Link>{' '}

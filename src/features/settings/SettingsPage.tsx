@@ -53,7 +53,7 @@ export function SettingsPage() {
       <div className="mx-auto max-w-2xl space-y-4 p-6 max-sm:px-4 max-sm:pt-4 max-sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         <Section icon={sync.state === 'local' ? <HardDrive className="size-4" /> : <Cloud className="size-4 text-ok" />} title="Storage">
           <p className="text-muted">
-            Documents always live in this browser first. Connect Google Drive to back them up and use them on other devices. texChef asks
+            Documents always live in this browser first. Connect Google Drive to back them up and use them on other devices. TexChef asks
             only for the <code className="rounded bg-subtle px-1">drive.file</code> permission, so it can see the files it creates and the files you
             pick, and nothing else in your Drive.
           </p>
@@ -88,8 +88,8 @@ export function SettingsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted">
-                In Drive you will find a <b>texChef</b> folder with a readable copy of each document and its latest PDF. History lives in
-                <code className="mx-1 rounded bg-subtle px-1">texChef/.texchef</code>; leave it as it is.
+                In Drive you will find a <b>TexChef</b> folder with a readable copy of each document and its latest PDF. History lives in
+                <code className="mx-1 rounded bg-subtle px-1">TexChef/.texchef</code>; leave it as it is.
                 {!pickerConfigured && ' Importing existing Drive files needs VITE_GOOGLE_API_KEY and VITE_GOOGLE_APP_ID.'}
               </p>
             </div>
@@ -159,7 +159,7 @@ export function SettingsPage() {
 
         <Section icon={<ShieldCheck className="size-4" />} title="Privacy">
           <p className="text-muted">
-            There is no texChef server. Your documents go only to this browser and, if you connect it, your own Google Drive. The Google access
+            There is no TexChef server. Your documents go only to this browser and, if you connect it, your own Google Drive. The Google access
             token stays in this tab's session storage and expires after an hour.
           </p>
           <p className="text-muted">
@@ -192,7 +192,7 @@ export function SettingsPage() {
                   onClick={async () => {
                     const ok = await requestPersistence();
                     setStorage(await storageStatus());
-                    if (ok) toast.success('The browser will keep texChef data');
+                    if (ok) toast.success('The browser will keep TexChef data');
                     else toast.info('The browser declined for now. Chrome grants it automatically once you use or bookmark the site; Drive sync keeps a backup either way.');
                   }}
                 >

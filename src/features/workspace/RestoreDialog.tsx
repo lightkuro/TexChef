@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { Button, Dialog, Spinner } from '@/components/ui';
 import { restoreBackup, type RestorePlan } from './backup';
 
-/** Confirm and run the restore of a texChef backup. */
+/** Confirm and run the restore of a TexChef backup. */
 export function RestoreDialog({ plan, onClose }: { plan: RestorePlan; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const m = plan.manifest;
@@ -15,7 +15,7 @@ export function RestoreDialog({ plan, onClose }: { plan: RestorePlan; onClose: (
       const r = await restoreBackup(plan);
       toast.success(`Restored ${r.added} document${r.added === 1 ? '' : 's'}${r.merged ? `; added history to ${r.merged} already here` : ''}`, {
         description: r.editedOutside.length
-          ? `Edited outside texChef since the backup: ${r.editedOutside.join(', ')}. Those edits are in the documents as unsaved changes.`
+          ? `Edited outside TexChef since the backup: ${r.editedOutside.join(', ')}. Those edits are in the documents as unsaved changes.`
           : undefined,
         duration: 8000,
       });
@@ -29,7 +29,7 @@ export function RestoreDialog({ plan, onClose }: { plan: RestorePlan; onClose: (
     <Dialog
       open
       onOpenChange={(o) => !o && !busy && onClose()}
-      title="Restore a texChef backup"
+      title="Restore a TexChef backup"
       description={`Made ${new Date(m.createdAt).toLocaleString()}${m.scope ? ` from the folder “${m.scope}”` : ''}.`}
       footer={
         <>

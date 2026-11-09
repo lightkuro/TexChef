@@ -51,8 +51,8 @@ export function SyncIndicator({ compact }: { compact?: boolean }) {
         <MenuItem onSelect={() => void syncNow()}>
           <RefreshCw className="size-4" /> Sync now
         </MenuItem>
-        <MenuItem onSelect={() => window.open('https://drive.google.com/drive/search?q=texChef', '_blank', 'noopener')}>
-          <FolderOpen className="size-4" /> Open texChef folder in Drive
+        <MenuItem onSelect={() => window.open('https://drive.google.com/drive/search?q=TexChef', '_blank', 'noopener')}>
+          <FolderOpen className="size-4" /> Open TexChef folder in Drive
         </MenuItem>
         <MenuSeparator />
         <MenuItem onSelect={disconnectDrive}>

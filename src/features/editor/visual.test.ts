@@ -55,7 +55,7 @@ describe('visual mode', () => {
     expect(p.find((x) => x.from === at(' -- ') + 1)?.text).toBe('–');
   });
 
-  it('shows list items as bullets and texChef blocks as labels', () => {
+  it('shows list items as bullets and TexChef blocks as labels', () => {
     expect(p.filter((x) => x.text === '•')).toHaveLength(2);
     expect(p.find((x) => x.from === at('\\begin{itemize}'))?.text).toBe('Bulleted list');
     expect(p.find((x) => x.from === at('%% @block'))?.text).toBe('block acme  #backend #lead');

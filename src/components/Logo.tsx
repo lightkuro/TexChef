@@ -1,6 +1,6 @@
 import { Umbrella } from 'lucide-react';
 
-/** texChef mark: a chef's hat with a TeX backslash, drawn in the current theme's accent colors. */
+/** TexChef mark: a chef's hat with a TeX backslash, drawn in the current theme's accent colors. */
 export function Logo({ size = 28, className }: { size?: number; className?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 120 120" className={className} aria-hidden="true">

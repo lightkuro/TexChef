@@ -98,7 +98,7 @@ function latexCompletions(ctx: CompletionContext) {
     return {
       from: marker.from,
       options: [
-        snippetCompletion('%% @block ${id} tags=${tags}\n${}\n%% @end', { label: '%% @block … %% @end', detail: 'texChef block', boost: 10 }),
+        snippetCompletion('%% @block ${id} tags=${tags}\n${}\n%% @end', { label: '%% @block … %% @end', detail: 'TexChef block', boost: 10 }),
         snippetCompletion('%% @end', { label: '%% @end' }),
       ],
     };

@@ -170,7 +170,7 @@ function useDocActions(doc: DocMeta) {
         <div className="space-y-2 text-sm" data-testid="delete-warning">
           <p className="flex gap-2 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-danger">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            <span>This can’t be undone. The document and all of its versions disappear from texChef on every device that syncs with this one.</span>
+            <span>This can’t be undone. The document and all of its versions disappear from TexChef on every device that syncs with this one.</span>
           </p>
           {variants.length > 0 && (
             <p>

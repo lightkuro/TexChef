@@ -1,11 +1,11 @@
 /**
- * Exports and the texChef backup format.
+ * Exports and the TexChef backup format.
  *
- * A backup is an ordinary folder tree of LaTeX projects, exactly as they are in texChef (nothing is
+ * A backup is an ordinary folder tree of LaTeX projects, exactly as they are in TexChef (nothing is
  * added to or changed in the documents), plus a `.texchef/` folder with everything else: document
  * details (folders, colors, tags, variant links and choices), the full version history, drafts not
  * yet saved as versions, previews, empty folders and map positions. Importing it into an empty
- * texChef restores everything; edits made to the readable files outside texChef come in as changes.
+ * TexChef restores everything; edits made to the readable files outside TexChef come in as changes.
  */
 import { zipSync } from 'fflate';
 import { db, repo } from '@/app/repo';
@@ -49,7 +49,7 @@ async function fileBytes(f: WorkFile): Promise<Uint8Array> {
   return f.kind === 'text' ? encodeText(f.text) : ((await repo.getBlob(f.hash)) ?? new Uint8Array());
 }
 
-/** The LaTeX projects of some documents as files in folders (what is in texChef now, drafts included). */
+/** The LaTeX projects of some documents as files in folders (what is in TexChef now, drafts included). */
 export async function sourceFiles(docs: DocMeta[]): Promise<{ files: Files; paths: Record<string, string> }> {
   const paths = readablePaths(docs);
   const files: Files = {};
@@ -141,12 +141,12 @@ export async function backupFiles(docs: DocMeta[], scope: string | null): Promis
   files[COMMITS] = encodeText(JSON.stringify(commits.map(({ synced: _s, ...c }) => (void _s, c))));
   files[`${BACKUP_DIR}/README.txt`] = encodeText(
     [
-      'texChef backup',
+      'TexChef backup',
       '',
       'The folders next to this one are your LaTeX projects, unchanged; they compile like any other.',
-      'This folder holds what texChef adds: version history, document details, drafts, previews.',
-      'To restore, upload the .zip (or this whole folder) on the texChef home page.',
-      'If you edit the projects outside texChef, the edits come in as changes when you restore.',
+      'This folder holds what TexChef adds: version history, document details, drafts, previews.',
+      'To restore, upload the .zip (or this whole folder) on the TexChef home page.',
+      'If you edit the projects outside TexChef, the edits come in as changes when you restore.',
       '',
     ].join('\n'),
   );
@@ -192,7 +192,7 @@ export async function saveToFolder(files: Files, name: string): Promise<boolean>
   return true;
 }
 
-export const backupName = (scope: string | null) => `texChef backup${scope ? ` - ${scope.split('/').pop()}` : ''} ${stamp()}`;
+export const backupName = (scope: string | null) => `TexChef backup${scope ? ` - ${scope.split('/').pop()}` : ''} ${stamp()}`;
 
 // ---------------------------------------------------------------------------------------------
 // Restore
@@ -205,13 +205,13 @@ export interface RestorePlan {
   manifest: BackupManifest;
   entries: Files;
   versions: number;
-  /** Documents already in this texChef (their history is added; what is here is kept). */
+  /** Documents already in this TexChef (their history is added; what is here is kept). */
   existing: DocMeta[];
 }
 
 export async function readBackup(entries: Files): Promise<RestorePlan> {
   const manifest = JSON.parse(decodeText(entries[MANIFEST])) as BackupManifest;
-  if (manifest.format !== 'texchef-backup') throw new Error('This is not a texChef backup.');
+  if (manifest.format !== 'texchef-backup') throw new Error('This is not a TexChef backup.');
   const commits = entries[COMMITS] ? (JSON.parse(decodeText(entries[COMMITS])) as unknown[]).length : 0;
   const existing: DocMeta[] = [];
   for (const d of manifest.docs) {
@@ -238,7 +238,7 @@ function readableByDoc(manifest: BackupManifest, entries: Files): Map<string, Fi
 export interface RestoreResult {
   added: number;
   merged: number;
-  /** Documents whose readable files were changed outside texChef (the changes are now drafts). */
+  /** Documents whose readable files were changed outside TexChef (the changes are now drafts). */
   editedOutside: string[];
 }
 

@@ -257,14 +257,14 @@ export function visualDecorations(state: EditorState, open = state.field(preambl
   while ((m = re.exec(text)) && m.index < bodyEnd) {
     const at = m.index;
     const tok = m[0];
-    // Comments, texChef block markers.
+    // Comments, TexChef block markers.
     if (tok === '%') {
       const line = lineAt(at);
       const marker = /^%%?\s*@(block|end)\b\s*(\S*)\s*(.*)$/.exec(text.slice(at, line.to));
       if (marker && !touched(line.from, line.to)) {
         const label = marker[1] === 'end' ? 'end of block' : `block ${marker[2]}`;
         const tags = marker[1] === 'block' ? marker[3].replace(/^tags=/, '').split(',').filter(Boolean).map((t) => `#${t.trim()}`).join(' ') : '';
-        out.push(widget(tags ? `${label}  ${tags}` : label, marker[1] === 'end' ? 'cm-vis-block cm-vis-block-end' : 'cm-vis-block', 'texChef block: variants pick these').range(at, line.to));
+        out.push(widget(tags ? `${label}  ${tags}` : label, marker[1] === 'end' ? 'cm-vis-block cm-vis-block-end' : 'cm-vis-block', 'TexChef block: variants pick these').range(at, line.to));
       } else if (at < line.to) {
         out.push(mark('cm-vis-comment').range(at, line.to));
       }

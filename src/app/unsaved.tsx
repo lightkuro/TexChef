@@ -48,7 +48,7 @@ async function checkPendingUpload() {
 
 /**
  * Warns before losing work: the browser's "Leave site?" prompt when closing the tab, and a dialog
- * when moving to another page inside texChef.
+ * when moving to another page inside TexChef.
  */
 export function LeaveGuard() {
   const reasons = useUnsaved((s) => s.reasons);

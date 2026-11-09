@@ -23,9 +23,9 @@ export function HelpPage() {
 
   useEffect(() => {
     scroller.current?.scrollTo({ top: 0 });
-    document.title = `${current.title} · texChef help`;
+    document.title = `${current.title} · TexChef help`;
     return () => {
-      document.title = 'texChef';
+      document.title = 'TexChef';
     };
   }, [current]);
 
@@ -33,7 +33,7 @@ export function HelpPage() {
     <div className="flex h-full flex-col bg-bg">
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-line bg-panel px-4">
         <Link to="/" className="flex items-center gap-2 font-semibold">
-          <Logo size={26} /> texChef
+          <Logo size={26} /> TexChef
         </Link>
         <span className="text-muted">/</span>
         <span className="text-sm">Help</span>
@@ -56,7 +56,7 @@ export function HelpPage() {
             </NavLink>
           ))}
           <div className="mt-auto px-3 pt-6 pb-1 text-[11px] leading-relaxed text-muted">
-            <p>texChef is free and runs entirely in your browser.</p>
+            <p>TexChef is free and runs entirely in your browser.</p>
             <div className="mt-1.5">
               <KurolightMark />
             </div>
@@ -77,9 +77,15 @@ export function HelpPage() {
               ))}
             </select>
           </div>
-          <article className="mx-auto max-w-3xl px-6 py-10 text-[15px] text-fg max-sm:px-4 max-sm:pt-6 max-sm:pb-[calc(2.5rem+env(safe-area-inset-bottom))]" data-testid="help-page">
-            <h1 className="text-3xl font-semibold tracking-tight max-sm:text-2xl">{current.title}</h1>
-            <p className="mt-1 text-muted">{current.summary}</p>
+          <article
+            className={cn(
+              'mx-auto max-w-3xl px-6 py-10 text-fg max-sm:px-4 max-sm:pt-6 max-sm:pb-[calc(2.5rem+env(safe-area-inset-bottom))]',
+              current.large ? 'text-[17px]' : 'text-[15px]',
+            )}
+            data-testid="help-page"
+          >
+            <h1 className={cn('font-semibold tracking-tight', current.large ? 'text-4xl max-sm:text-3xl' : 'text-3xl max-sm:text-2xl')}>{current.title}</h1>
+            <p className={cn('mt-1 text-muted', current.large && 'mt-2 text-lg')}>{current.summary}</p>
             {current.body()}
             <div className="mt-12 flex gap-3 border-t border-line pt-4 text-sm">
               {prev && (

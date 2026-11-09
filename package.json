@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "node e2e/run.mjs",
+    "shots": "node scripts/screenshots.mjs",
     "tex:assets": "texlyre-busytex download-assets tex-assets",
     "e2e:engines": "node e2e/engines.mjs"
   },

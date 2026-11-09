@@ -105,6 +105,15 @@ describe('DriveProvider against a fake Drive API', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it('renames a folder made before the TexChef rename instead of making another', async () => {
+    drive.files.set('old', { id: 'old', name: 'texChef', mimeType: 'application/vnd.google-apps.folder', parents: [], appProperties: { rc: 'root' }, data: new Uint8Array(), version: 1, trashed: false });
+    const A = device();
+    await A.repo.createDoc({ name: 'Doc', files: { 'main.tex': { kind: 'text', text: 'x' } } });
+    await A.engine.sync();
+    const roots = [...drive.files.values()].filter((f) => f.appProperties.rc === 'root');
+    expect(roots.map((f) => [f.id, f.name])).toEqual([['old', 'TexChef']]);
+  });
+
   it('creates its folders once and syncs documents between two devices', async () => {
     const A = device();
     const B = device();
@@ -115,7 +124,7 @@ describe('DriveProvider against a fake Drive API', () => {
     await A.engine.sync();
     await B.engine.sync();
     const folders = [...drive.files.values()].filter((f) => f.mimeType === 'application/vnd.google-apps.folder');
-    expect(folders.map((f) => f.name).sort()).toEqual(['.texchef', 'blobs', 'packs', 'texChef']);
+    expect(folders.map((f) => f.name).sort()).toEqual(['.texchef', 'TexChef', 'blobs', 'packs']);
 
     B.repo.blobFetcher = (h) => B.provider.readBlob(h);
     const work = await B.repo.getWork(doc.id);

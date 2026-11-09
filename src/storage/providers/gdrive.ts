@@ -16,7 +16,7 @@ interface DriveFile {
 /**
  * Google Drive storage with the `drive.file` scope. Layout:
  *
- *   texChef/                      (visible; readable copies of each document + PDFs)
+ *   TexChef/                      (visible; readable copies of each document + PDFs)
  *     <Document name>/ main.tex, …, <Document name>.pdf
  *     .texchef/
  *       index.json                   document metadata + heads (compare-and-swap via Drive `version`)
@@ -67,7 +67,17 @@ export class DriveProvider implements SyncProvider {
     const q = [`mimeType='${FOLDER}'`, 'trashed=false', `appProperties has { key='rc' and value='${role}' }`];
     if (parent) q.push(`'${parent}' in parents`);
     const found = await this.list(q.join(' and '));
-    if (found[0]) return found[0].id;
+    if (found[0]) {
+      // Folders are found by role, so a new name (texChef → TexChef) is just a rename.
+      if (found[0].name !== name && role === 'root') {
+        await this.json(`${API}/files/${found[0].id}?fields=id`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        }).catch(() => undefined);
+      }
+      return found[0].id;
+    }
     const created = await this.json<DriveFile>(`${API}/files?fields=id`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -79,7 +89,7 @@ export class DriveProvider implements SyncProvider {
   private ensureFolders() {
     if (!this.folders) {
       this.folders = (async () => {
-        const root = await this.findOrCreateFolder('texChef', 'root');
+        const root = await this.findOrCreateFolder('TexChef', 'root');
         const data = await this.findOrCreateFolder('.texchef', 'data', root);
         const [packs, blobs] = await Promise.all([
           this.findOrCreateFolder('packs', 'packs', data),
@@ -238,7 +248,7 @@ export class DriveProvider implements SyncProvider {
     }
   }
 
-  /** Save one file (e.g. a backup .zip) in the user's Drive, in texChef/<sub>. Returns its id. */
+  /** Save one file (e.g. a backup .zip) in the user's Drive, in TexChef/<sub>. Returns its id. */
   async saveExport(sub: string, name: string, data: Uint8Array, type: string): Promise<string> {
     const { root } = await this.ensureFolders();
     const folder = await this.findOrCreateFolder(sub, `export-${sub.toLowerCase()}`, root);

@@ -858,7 +858,7 @@ export function EditorPage() {
       <EngineBanner status={engine} />
       {wide ? (
         <Group orientation="horizontal" className="min-h-0 flex-1">
-          <Panel defaultSize="20%" minSize="160px" className="flex flex-col bg-panel">
+          <Panel defaultSize="20%" minSize="160px" className="flex flex-col bg-panel" data-testid="side-panel">
             {sideTabs(false)}
             {sideBody}
           </Panel>

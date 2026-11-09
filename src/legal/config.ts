@@ -3,7 +3,7 @@
  * (Cloudflare → Worker → Settings → Build → Variables) or in .env for local builds.
  */
 export const LEGAL = {
-  appName: 'texChef',
+  appName: 'TexChef',
   site: 'https://texchef.kurolight.dev',
   /** Person or entity operating the site, e.g. "Jane Doe" or "Kurolight". */
   operator: (import.meta.env.VITE_LEGAL_OPERATOR as string | undefined)?.trim() || '',

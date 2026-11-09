@@ -85,16 +85,24 @@ describe('formatting commands', () => {
     expect(w.state.doc.toString()).toContain('Hello world');
   });
 
+  it('document font: a block written before the TexChef rename is still found and replaced', () => {
+    const old = DOC.replace('\\begin{document}', '% texChef font: times (change it with the Font menu)\n\\usepackage{tgtermes}\n% end texChef font\n\\begin{document}');
+    const v = fakeView(old, 0);
+    expect(currentFont(old)).toBe('times');
+    setDocumentFont(v, 'default');
+    expect(v.state.doc.toString()).toBe(DOC);
+  });
+
   it('document font: one marked block, replaced and removed', () => {
     const v = fakeView(DOC, 0);
     setDocumentFont(v, 'times');
     let out = v.state.doc.toString();
     expect(currentFont(out)).toBe('times');
-    expect(out).toMatch(/% texChef font: times[^\n]*\n\\usepackage\[T1\]\{fontenc\}\n\\usepackage\{tgtermes\}\n\\renewcommand\{\\familydefault\}\{\\rmdefault\}\n% end texChef font\n\\begin\{document\}/);
+    expect(out).toMatch(/% TexChef font: times[^\n]*\n\\usepackage\[T1\]\{fontenc\}\n\\usepackage\{tgtermes\}\n\\renewcommand\{\\familydefault\}\{\\rmdefault\}\n% end TexChef font\n\\begin\{document\}/);
     setDocumentFont(v, 'helvetica');
     out = v.state.doc.toString();
     expect(currentFont(out)).toBe('helvetica');
-    expect(out.match(/texChef font:/g)).toHaveLength(1);
+    expect(out.match(/TexChef font:/g)).toHaveLength(1);
     expect(out).toContain('\\renewcommand{\\familydefault}{\\sfdefault}');
     setDocumentFont(v, 'default');
     expect(v.state.doc.toString()).toBe(DOC);

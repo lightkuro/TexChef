@@ -175,7 +175,7 @@ export class BusyTexCompiler implements Compiler {
         const file = /File [`'](.+?\.(?:sty|cls))' not found/.exec(d.message)?.[1];
         const b = file && (await this.packages.locate(file.replace(/\.(sty|cls)$/, ''), file.endsWith('.cls') ? 'cls' : 'sty'));
         if (b) {
-          d.hint = `“${file}” comes with TeX Live’s “${b}” package set (${BUNDLE_SIZE_MB[b]} MB), but it didn’t load in this browser. Check your connection and free disk space, then press Compile. Settings → Clear downloaded TeX packages makes texChef fetch them fresh.`;
+          d.hint = `“${file}” comes with TeX Live’s “${b}” package set (${BUNDLE_SIZE_MB[b]} MB), but it didn’t load in this browser. Check your connection and free disk space, then press Compile. Settings → Clear downloaded TeX packages makes TexChef fetch them fresh.`;
         }
       }
       // "Shell escape is not enabled" comes from graphicx loading epstopdf even when no .eps image is used:

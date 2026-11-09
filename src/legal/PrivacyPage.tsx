@@ -37,7 +37,7 @@ export function PrivacyPage() {
           files you explicitly choose with the Google file picker. It cannot see any other files in your Drive.
         </li>
         <li>
-          {app} uses this access only to provide the sync feature you see in the app: it creates a “texChef” folder in your Drive, saves copies
+          {app} uses this access only to provide the sync feature you see in the app: it creates a “TexChef” folder in your Drive, saves copies
           of your documents, their version history and PDFs there, reads them back to keep your devices in sync, removes outdated history
           files it created, and opens files you pick for import.
         </li>

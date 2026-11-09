@@ -151,7 +151,7 @@ function overfullHint(kind: 'h' | 'v', pt: number): string {
 /** Plain-language notes for common warnings. */
 export function warningHint(msg: string): string | undefined {
   if (/shell[- ]?escape|write18/i.test(msg)) {
-    return 'Some packages (epstopdf, svg, minted, gnuplottex) run other programs during a compile; that is called shell escape. A browser can’t run programs, so it is always off in texChef. Harmless unless the document uses .eps or .svg images or minted code: convert those images to .pdf or .png and upload them instead.';
+    return 'Some packages (epstopdf, svg, minted, gnuplottex) run other programs during a compile; that is called shell escape. A browser can’t run programs, so it is always off in TexChef. Harmless unless the document uses .eps or .svg images or minted code: convert those images to .pdf or .png and upload them instead.';
   }
   const skip = /\\(footskip|headheight) is too small \(([\d.]+)pt\): Make it at least ([\d.]+)pt/.exec(msg);
   if (skip) {

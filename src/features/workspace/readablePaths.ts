@@ -1,7 +1,7 @@
 import type { DocMeta } from '@/core/model';
 import { safeFilename } from '@/lib/utils';
 
-/** Folder in a backup that holds texChef's own data (history, details, previews). */
+/** Folder in a backup that holds TexChef's own data (history, details, previews). */
 export const BACKUP_DIR = '.texchef';
 
 /** A readable folder for each document: its folder path plus its name, never clashing with a folder or another document. */

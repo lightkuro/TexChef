@@ -6,7 +6,8 @@ import {
   Network,
   List,
   GitCommitHorizontal,
-  Download,
+  Import,
+  Share,
   CloudDownload,
   Search,
   Settings,
@@ -64,7 +65,7 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
     <header className="relative flex h-12 shrink-0 items-center gap-2 border-b border-line bg-panel px-4 sm:gap-3">
       <Link to="/" className="flex shrink-0 items-center gap-2 font-semibold">
         <Logo size={28} />
-        texChef
+        TexChef
       </Link>
       <div className="flex min-w-0 flex-1 items-center gap-2">{children}</div>
       <SyncIndicator />
@@ -136,6 +137,8 @@ export function Dashboard() {
   }, [shown, emptyFolders, targetFolder, folderMode, q, scopeDocs]);
   const mode = q ? 'grouped' : folderMode;
   const isEmpty = fv.docs.length === 0 && fv.folders.length === 0;
+  /** Documents or folders exist; otherwise the home page is the landing page, with no folders to show. */
+  const hasContent = !!docs && (docs.length > 0 || emptyFolders.length > 0);
 
   /** Every document in a folder (archived ones too: exports and previews cover them). */
   const docsIn = (path: string | null) => (docs ?? []).filter((d) => !d.deleted && (path ? inFolder(d.folder, path) : true));
@@ -146,7 +149,7 @@ export function Dashboard() {
     return [
       ...base,
       ...withSeparator(previewActions(docsIn(path))),
-      { key: 'export', label: 'Export', icon: <Download className="size-4" />, sub: exportActions(docsIn(path), path) },
+      { key: 'export', label: 'Export', icon: <Share className="size-4" />, sub: exportActions(docsIn(path), path) },
       del,
     ];
   };
@@ -162,7 +165,7 @@ export function Dashboard() {
       {
         key: 'import',
         label: 'Import',
-        icon: <Upload className="size-4" />,
+        icon: <Import className="size-4" />,
         separatorBefore: true,
         sub: [
           { key: 'upload', label: 'Upload files or a .zip…', icon: <Upload className="size-4" />, run: () => upload.current?.click() },
@@ -171,7 +174,7 @@ export function Dashboard() {
         ],
       },
       ...withSeparator(previewActions(scopeAll)),
-      { key: 'export', label: current ? 'Export this folder' : 'Export everything', icon: <Download className="size-4" />, sub: exportActions(scopeAll, current, docsIn(null)) },
+      { key: 'export', label: current ? 'Export this folder' : 'Export everything', icon: <Share className="size-4" />, sub: exportActions(scopeAll, current, docsIn(null)) },
       {
         key: 'view',
         label: 'View',
@@ -331,6 +334,7 @@ export function Dashboard() {
         <HeaderSearch value={query} onChange={setQuery} />
       </AppHeader>
       <div className={cn('flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2', phone && 'flex-nowrap gap-1.5')}>
+{hasContent && (
         <Tip content={docked ? (showFolders ? 'Hide folders' : 'Show folders') : 'Folders'}>
           <Button
             variant="ghost"
@@ -343,6 +347,7 @@ export function Dashboard() {
             <PanelLeft className="size-4" />
           </Button>
         </Tip>
+        )}
         <Button variant="primary" onClick={() => setNewOpen(true)} data-testid="new-doc">
           <Plus className="size-4" />
           {phone ? ' New' : ' New document'}
@@ -365,7 +370,7 @@ export function Dashboard() {
             actions={importActions}
             trigger={
               <Button variant="outline" disabled={busy} aria-label={labels ? undefined : 'Import'} data-testid="import-menu">
-                {busy ? <Spinner /> : <Upload className="size-4" />}
+                {busy ? <Spinner /> : <Import className="size-4" />}
                 {labels ? ' Import ' : null}
                 <ChevronDown className="size-3.5 opacity-60" />
               </Button>
@@ -389,7 +394,7 @@ export function Dashboard() {
             actions={exportActions(scopeAll, current, docsIn(null))}
             trigger={
               <Button variant="ghost" aria-label={labels ? undefined : 'Export'} data-testid="export-menu">
-                <Download className="size-4" />
+                <Share className="size-4" />
                 {labels ? ' Export ' : null}
                 <ChevronDown className="size-3.5 opacity-60" />
               </Button>
@@ -411,8 +416,8 @@ export function Dashboard() {
         <ViewSwitch />
       </div>
       <div className="flex min-h-0 flex-1">
-      {docked && showFolders && docs && docs.length > 0 && <FolderSidebar docs={shown} current={current} onSelect={openFolder} actionsFor={actionsForFolder} />}
-      {!docked && docs && docs.length > 0 && (
+      {docked && showFolders && hasContent && <FolderSidebar docs={shown} current={current} onSelect={openFolder} actionsFor={actionsForFolder} />}
+      {!docked && hasContent && (
         <Drawer open={folderDrawer} onOpenChange={setFolderDrawer} title="Folders" testId="folder-drawer">
           <FolderSidebar
             docs={shown}
@@ -427,7 +432,7 @@ export function Dashboard() {
         </Drawer>
       )}
       <main className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        {docs && docs.length > 0 && (view !== 'graph' || graphMode === 'family') && (
+        {hasContent && (view !== 'graph' || graphMode === 'family') && (
           <FolderBar current={current} onSelect={openFolder} mode={mode} onMode={(m) => setPref({ folderMode: m })} extra={<PreviewProgress />} />
         )}
         <ActionContextMenu actions={backgroundActions} label={current ? folderName(current) : 'All documents'}>
@@ -436,8 +441,8 @@ export function Dashboard() {
           <div className="flex h-full items-center justify-center">
             <Spinner />
           </div>
-        ) : docs.length === 0 ? (
-          <Landing onNew={() => setNewOpen(true)} onImport={() => upload.current?.click()} />
+        ) : !hasContent ? (
+          <Landing onNew={() => setNewOpen(true)} uploadActions={importActions} />
         ) : isEmpty && (view !== 'graph' || graphMode === 'family') ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted" data-testid="empty-folder">
             <FolderOpen className="size-8 opacity-50" />
@@ -490,7 +495,7 @@ export function Dashboard() {
       <FolderDialogHost docs={shown} current={current} onSelect={openFolder} />
       {/* Clear of the home indicator on phones (safe area). */}
       <footer className="flex h-[calc(1.75rem+env(safe-area-inset-bottom))] shrink-0 items-center gap-3 border-t border-line bg-panel px-4 pb-[env(safe-area-inset-bottom)] text-[11px] text-muted">
-        <span>texChef</span>
+        <span>TexChef</span>
         <Link to="/privacy" className="hover:text-fg" data-testid="link-privacy">
           Privacy
         </Link>

@@ -490,7 +490,11 @@ await step('document color label shows on the graph card', async () => {
 
 await step('help pages explain the features', async () => {
   await page.getByTestId('help-link').click();
-  await page.getByRole('heading', { name: 'A five-minute tour' }).waitFor();
+  await page.getByRole('heading', { name: '1. Start a document' }).waitFor();
+  // The pictures load (they come from public/help, made by scripts/screenshots.mjs).
+  const tour = page.getByAltText(/numbered markers/);
+  await tour.scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-testid=help-page] img')].slice(0, 3).every((i) => i.complete && i.naturalWidth > 0));
   await page.getByRole('link', { name: 'Getting updates from the original' }).first().click();
   await page.getByRole('heading', { name: 'Example 2: a conflict' }).waitFor();
   await page.goto(`${BASE}/help/pulling`);
@@ -747,8 +751,8 @@ function makePng(size = 24) {
   return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(Buffer.concat(rows))), chunk('IEND', Buffer.alloc(0))]);
 }
 
-await step('packages from the bigger TeX Live sets load: a package texChef can’t spot, and a document ending in an \\input file', async () => {
-  // A package loaded through a macro: texChef's scan misses it, TeX reports it missing, texChef loads its set and retries.
+await step('packages from the bigger TeX Live sets load: a package TexChef can’t spot, and a document ending in an \\input file', async () => {
+  // A package loaded through a macro: TexChef's scan misses it, TeX reports it missing, TexChef loads its set and retries.
   writeFileSync(`${OUT}hidden.tex`, '\\documentclass{article}\n\\def\\pkg{tabto}\n\\expandafter\\usepackage\\expandafter{\\pkg}\n\\begin{document}\nHidden \\tabto{3cm}package loaded.\n\\end{document}\n');
   await page.goto(BASE);
   await page.getByTestId('upload-input').setInputFiles(`${OUT}hidden.tex`);
@@ -932,12 +936,12 @@ await step('visual mode, formatting toolbar, fonts, and the engine suggestion', 
   // Font for the whole document: compiles, and "Template default" takes it out again.
   await page.getByTestId('format-font').click();
   await page.getByTestId('font-palatino').click();
-  await waitUntil(async (id) => /% texChef font: palatino/.test((await window.rc.repo.getWork(id)).files['visual.tex'].text), id, { timeout: 5000 });
+  await waitUntil(async (id) => /% TexChef font: palatino/.test((await window.rc.repo.getWork(id)).files['visual.tex'].text), id, { timeout: 5000 });
   await waitPdf(/Built reliable/, 60_000);
   await page.getByTestId('problems').getByText('No problems').waitFor({ timeout: 60_000 });
   await page.getByTestId('format-font').click();
   await page.getByTestId('font-default').click();
-  await waitUntil(async (id) => !/texChef font/.test((await window.rc.repo.getWork(id)).files['visual.tex'].text), id, { timeout: 5000 });
+  await waitUntil(async (id) => !/TexChef font/.test((await window.rc.repo.getWork(id)).files['visual.tex'].text), id, { timeout: 5000 });
   // Switching back to code shows the same LaTeX.
   const before = await textNow();
   await page.getByTestId('editor-mode-code').click();
@@ -1100,8 +1104,8 @@ await step('full backup: export, wipe, restore everything (zip, then a folder wi
   assert.equal(after.commits, before.commits);
   assert.deepEqual(after.work, before.work);
 
-  // Edit a project outside texChef, then restore the backup from a folder: the edit comes in as a change.
-  const dir = `${OUT}backup-folder/texChef backup`;
+  // Edit a project outside TexChef, then restore the backup from a folder: the edit comes in as a change.
+  const dir = `${OUT}backup-folder/TexChef backup`;
   rmSync(`${OUT}backup-folder`, { recursive: true, force: true });
   for (const [p, data] of Object.entries(entries)) {
     mkdirSync(`${dir}/${p.split('/').slice(0, -1).join('/')}`, { recursive: true });

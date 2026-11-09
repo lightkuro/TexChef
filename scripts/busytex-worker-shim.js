@@ -1,4 +1,4 @@
-// texChef: Cloudflare Pages serves files of at most 25 MiB, so the BusyTeX engine's large files
+// TexChef: Cloudflare Pages serves files of at most 25 MiB, so the BusyTeX engine's large files
 // (.wasm, .data) are stored gzipped and split into parts (see scripts/shard-tex-assets.mjs).
 // This wrapper replaces busytex_worker.js: it patches fetch() so that requests for a sharded file
 // stream its parts back-to-back, gunzip them, and return the original bytes. BusyTeX itself

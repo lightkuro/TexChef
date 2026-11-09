@@ -259,11 +259,11 @@ export const FONTS: FontChoice[] = [
   },
 ];
 
-const FONT_BLOCK = /^% texChef font: .*\n(?:.*\n)*?% end texChef font\n?/m;
+const FONT_BLOCK = /^% [Tt]exChef font: .*\n(?:.*\n)*?% end [Tt]exChef font\n?/m;
 
 /** Which font the document uses through the Font menu ('default' if none). */
 export function currentFont(text: string): string {
-  const m = /^% texChef font: (\w+)/m.exec(text);
+  const m = /^% [Tt]exChef font: (\w+)/m.exec(text);
   return m && FONTS.some((f) => f.key === m[1]) ? m[1] : 'default';
 }
 
@@ -274,10 +274,10 @@ export function setDocumentFont(view: EditorView, key: string): boolean {
   const font = FONTS.find((f) => f.key === key);
   if (!font) return false;
   const block = font.lines.length
-    ? `% texChef font: ${font.key} (change it with the Font menu)\n${font.lines
+    ? `% TexChef font: ${font.key} (change it with the Font menu)\n${font.lines
         .filter((l) => !(l.includes('{fontenc}') && /^[^%\n]*\\usepackage\[[^\]]*T1[^\]]*\]\{fontenc\}/m.test(text.replace(FONT_BLOCK, ''))))
         .concat(font.sans ? [] : ['\\renewcommand{\\familydefault}{\\rmdefault}'])
-        .join('\n')}\n% end texChef font\n`
+        .join('\n')}\n% end TexChef font\n`
     : '';
   const existing = FONT_BLOCK.exec(text);
   if (existing) {

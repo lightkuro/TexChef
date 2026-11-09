@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Info, Lightbulb, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SHOTS } from './shots.gen';
 
 export function H2({ id, children }: { id?: string; children: ReactNode }) {
   return (
@@ -165,5 +166,75 @@ export function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
 }
 
 export function Kbd({ children }: { children: ReactNode }) {
-  return <kbd className="rounded border border-line bg-subtle px-1.5 py-0.5 font-mono text-[11px]">{children}</kbd>;
+  return <kbd className="rounded border border-line bg-subtle px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap">{children}</kbd>;
+}
+
+/**
+ * A screenshot from public/help (made by scripts/screenshots.mjs). It is shown no bigger than it was on screen,
+ * and opens full size when clicked.
+ */
+export function Figure({ src, alt, caption, className }: { src: string; alt: string; caption?: ReactNode; className?: string }) {
+  const [w, h] = SHOTS[src] ?? [1600, 1000];
+  const url = `/help/${src}.webp`;
+  return (
+    <figure className={cn('my-6', className)}>
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="mx-auto block overflow-hidden rounded-xl border border-line bg-white shadow-lg shadow-black/5 transition hover:shadow-xl dark:shadow-black/30"
+        style={{ maxWidth: Math.round(w / 2) }}
+        title="Open full size"
+      >
+        <img src={url} width={w} height={h} alt={alt} loading="lazy" decoding="async" className="block h-auto w-full dark:brightness-[0.92]" />
+      </a>
+      {caption && <figcaption className="mx-auto mt-2 text-center text-sm text-pretty text-muted" style={{ maxWidth: Math.max(320, Math.round(w / 2)) }}>{caption}</figcaption>}
+    </figure>
+  );
+}
+
+/** Numbered labels matching the markers in a screenshot. */
+export function Callouts({ items }: { items: [ReactNode, ReactNode][] }) {
+  return (
+    <ol className="my-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
+      {items.map(([title, text], i) => (
+        <li key={i} className="flex gap-3">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-fg">{i + 1}</span>
+          <div className="pt-0.5 leading-snug">
+            <b>{title}</b>
+            <span className="block text-[0.9em] text-muted">{text}</span>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** A row of small cards, each with an icon, a title and a line of text. */
+export function Cards({ items }: { items: { icon: ReactNode; title: ReactNode; text: ReactNode; to?: string }[] }) {
+  return (
+    <div className="my-6 grid gap-3 sm:grid-cols-2">
+      {items.map((c, i) => {
+        const body = (
+          <>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">{c.icon}</span>
+            <span className="min-w-0">
+              <span className="block font-semibold">{c.title}</span>
+              <span className="mt-0.5 block text-[0.9em] leading-snug text-muted">{c.text}</span>
+            </span>
+          </>
+        );
+        const cls = 'flex gap-3 rounded-xl border border-line bg-panel p-4';
+        return c.to ? (
+          <Link key={i} to={`/help/${c.to}`} className={cn(cls, 'transition hover:border-accent/60 hover:shadow-md')}>
+            {body}
+          </Link>
+        ) : (
+          <div key={i} className={cls}>
+            {body}
+          </div>
+        );
+      })}
+    </div>
+  );
 }

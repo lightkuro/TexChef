@@ -1,4 +1,4 @@
-# texChef
+# TexChef
 
 A browser LaTeX editor (in the spirit of Overleaf) built around one idea: **write one long master resume, then branch
 focused variants from it** — and keep them linked.
@@ -6,18 +6,18 @@ focused variants from it** — and keep them linked.
 - **Compile in the browser.** TeX Live 2026 running as WebAssembly ([texlyre-busytex](https://github.com/TeXlyre/texlyre-busytex)); pdfLaTeX, XeLaTeX, LuaLaTeX, BibTeX. No compile server.
 - **Linked variants.** Build a variant by ticking sections/jobs/bullets or picking tags (`#backend`, `#ml`…) with a live PDF and page count. Later, **get updates** from the original (master edits are combined with a 3‑way merge), or **copy** a reworded bullet back to the original.
 - **Visual editor.** A *Visual* mode beside *Code* shows the LaTeX formatted (headings, bold, bullets, links; the preamble folded away) without changing the file, plus a formatting bar: paragraph style, bold/italic/underline, size, color, lists, links, special characters, and a document font menu (Charter, Times, Palatino, Helvetica and more from the bundled TeX Live).
-- **Edit on the PDF.** Turn on *Edit text* and click any sentence in the PDF to change it as plain text; texChef finds the LaTeX behind it (SyncTeX + text matching), rewrites only the changed characters, escapes `& % $ # _`, and keeps formatting. Optionally makes the same change in the variant's original.
+- **Edit on the PDF.** Turn on *Edit text* and click any sentence in the PDF to change it as plain text; TexChef finds the LaTeX behind it (SyncTeX + text matching), rewrites only the changed characters, escapes `& % $ # _`, and keeps formatting. Optionally makes the same change in the variant's original.
 - **Readable problems.** Errors and warnings link to their line; common ones (overfull lines, fancyhdr's `\footskip`, shell escape) get a plain explanation, invisible sub‑point overfull lines are filed with the bad boxes, and a document written for another engine gets a one-click *Switch to XeLaTeX / LuaLaTeX / pdfLaTeX*.
 - **Source ↔ PDF sync (SyncTeX).** Double-click the PDF to jump to the source line; the locate button highlights the cursor's line in the PDF.
 - **Version history.** Every save is an immutable, numbered version (with lines added/removed); restore, branch from, download or compare any of them.
 - **Folders.** Nested folders on the home page, browsed like a file manager (folder cards on the map, folder rows in the list, a path bar) or *Expanded* (everything inside, grouped by folder); drag documents and folders onto folders, or use *Move to…*; folders sync with the documents.
 - **Right-click menus** on documents, folders and empty space (new, upload, move, previews, export, view and layout options).
 - **Previews.** From a right-click menu, compile every document in a folder that has no (or an old) preview in one go (after a confirmation), so the map shows its pages.
-- **Export and backup.** PDFs or LaTeX projects of a folder or everything as a .zip, and a full *Backup texChef* with history (.zip, written to a folder, or saved to Google Drive) that keeps the LaTeX projects untouched and puts versions, drafts, folders, variant links and previews in a `.texchef/` folder; uploading it restores everything, including edits made outside texChef.
-- **Saving.** Edits are kept as you type, versions are made on save and after a minute idle, and texChef warns before leaving when something would be lost.
+- **Export and backup.** PDFs or LaTeX projects of a folder or everything as a .zip, and a full *Backup TexChef* with history (.zip, written to a folder, or saved to Google Drive) that keeps the LaTeX projects untouched and puts versions, drafts, folders, variant links and previews in a `.texchef/` folder; uploading it restores everything, including edits made outside TexChef.
+- **Saving.** Edits are kept as you type, versions are made on save and after a minute idle, and TexChef warns before leaving when something would be lost.
 - **Map.** A family tree of documents (master → variants → sub‑variants), left to right or top down, with straight or right‑angled lines, update counts by each arrow, full‑page card previews, drag‑to‑arrange with optional grid snapping (cards centred in card‑sized cells), and git‑style version swimlanes (under the Map button's hover menu).
 - **Side‑by‑side compare & edit.** Any two documents (or versions), picked from nearby documents or a full browser with folders, search, thumbnails and versions; both sides editable, per‑change copy arrows, copy whole blocks across, PDFs side by side.
-- **Bring your own storage.** Everything lives in your browser (IndexedDB) and, if you connect it, your own Google Drive using the narrow `drive.file` permission. There is no texChef server.
+- **Bring your own storage.** Everything lives in your browser (IndexedDB) and, if you connect it, your own Google Drive using the narrow `drive.file` permission. There is no TexChef server.
 - **Phones, tablets and split screens.** Below desktop width the editor shows code and PDF side by side with a fold-away side panel, then one pane at a time (Code | PDF) on iPad portrait and phones; the home page's folders become a drawer. `node e2e/responsive.mjs <url>` checks four sizes.
 - **Themes.** Six color themes (Forest, the default, plus Kitchen, Ocean, Plum, Graphite, Nord), each in light and dark.
 - **Privacy Policy and Terms** at `/privacy` and `/terms`, linked from every page footer (needed for Google's branding review).
@@ -79,6 +79,7 @@ Other scripts:
 | `pnpm build:pages` | Build plus the gzipped, sharded TeX engine in `dist/core/busytex` (what gets deployed) |
 | `pnpm e2e http://localhost:5173` | Browser end‑to‑end checks with Playwright against a running dev server |
 | `pnpm e2e:engines http://localhost:5173` | Engine coverage: XeLaTeX + fontspec, LuaLaTeX, BibTeX, images, TikZ, moderncv (downloads the larger bundles) |
+| `pnpm shots http://localhost:5173` | Retake the help and landing screenshots (`public/help`, `public/landing`) from the running app. Start the dev server with any values for the three `VITE_GOOGLE_*` variables so the Drive options show |
 
 Without Google configuration the app runs in **Local only** mode: fully functional, data stays in this browser.
 
@@ -89,13 +90,13 @@ if the stakes matter.
 
 ## Google Drive setup
 
-texChef uses the Google Identity Services token flow from the browser — no backend and no client secret.
+TexChef uses the Google Identity Services token flow from the browser — no backend and no client secret.
 
 1. **Project.** In [Google Cloud console](https://console.cloud.google.com/), create a project (e.g. `texchef`)
    and note its **project number** (Dashboard / project settings) — that is `VITE_GOOGLE_APP_ID`.
 2. **APIs.** APIs & Services → Library: enable **Google Drive API** and **Google Picker API**.
 3. **Google Auth Platform** (left menu; formerly "OAuth consent screen"):
-   - **Branding:** app name (`texChef`), support email, logo `brand/logo-120.png` (120×120 PNG), app home page
+   - **Branding:** app name (`TexChef`), support email, logo `brand/logo-120.png` (120×120 PNG), app home page
      `https://texchef.kurolight.dev`, privacy policy `https://texchef.kurolight.dev/privacy`, terms of service
      `https://texchef.kurolight.dev/terms`, developer contact; under **Authorized domains** add `kurolight.dev`.
      Google shows the name and logo on the sign-in screen only after a brand verification (a few days); until then it
@@ -122,7 +123,7 @@ texChef uses the Google Identity Services token flow from the browser — no bac
 What ends up in Drive:
 
 ```
-texChef/
+TexChef/
   Master resume/          readable copy of each document + its latest PDF (updated when you save a version)
   Master resume · Backend/
   .texchef/            history: index.json, packs/ (versions), blobs/ (large files) — leave as is

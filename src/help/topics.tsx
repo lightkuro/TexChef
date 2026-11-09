@@ -1,11 +1,14 @@
 import type { ReactNode } from 'react';
-import { C, Code, Grid, H2, H3, HelpLink, Kbd, Legend, Lines, Note, OL, P, Steps, Table, UL } from './kit';
+import { Eye, GitBranch, HardDrive, MousePointerClick } from 'lucide-react';
+import { C, Callouts, Cards, Code, Figure, Grid, H2, H3, HelpLink, Kbd, Legend, Lines, Note, OL, P, Steps, Table, UL } from './kit';
 
 export interface Topic {
   id: string;
   title: string;
   summary: string;
   body: () => ReactNode;
+  /** Bigger text (the first page new users read). */
+  large?: boolean;
 }
 
 /** Old topic addresses that still work. */
@@ -15,52 +18,80 @@ export const TOPICS: Topic[] = [
   {
     id: 'getting-started',
     title: 'Getting started',
-    summary: 'What texChef is and a five-minute tour.',
+    summary: 'What TexChef is, and your first document in five minutes.',
+    large: true,
     body: () => (
       <>
-        <P>
-          texChef is a LaTeX editor that runs entirely in your browser. It is built around one idea: write <b>one long master resume</b> with
-          everything you have ever done, then make <b>variants</b> of it (shorter, or focused on a kind of role) that stay linked to it. When you fix
-          a typo or add a job in the master, each variant can bring that change in with one click, without losing the edits you made in the
-          variant.
-        </P>
-        <P>It is also a normal LaTeX editor: you can write letters, papers or anything else, with several files, images and bibliographies.</P>
-        <H2>A five-minute tour</H2>
-        <Steps
+        <p className="my-5 text-[1.12em] leading-relaxed text-pretty">
+          TexChef is a LaTeX editor that runs entirely in your browser: nothing to install, and your documents stay on your device. It is made for
+          resumes but works for anything LaTeX does: letters, papers, notes.
+        </p>
+        <Cards
           items={[
-            <>
-              On the home page, click <b>New document</b> and pick <b>Master resume</b>. It opens in the editor and compiles to a PDF on the right.
-            </>,
-            <>
-              Edit the text in the middle, or click any sentence in the PDF to change it right there. See{' '}
-              <HelpLink to="edit-on-pdf">Editing on the PDF</HelpLink>.
-            </>,
-            <>
-              Click <b>Save version</b> (<Kbd>Ctrl/⌘ S</Kbd>) whenever you reach a point you may want to come back to.
-            </>,
-            <>
-              Look at the <b>Blocks</b> panel on the left. The template is split into blocks (sections, jobs, bullets), and some have tags such as{' '}
-              <C>backend</C> or <C>ml</C>. See <HelpLink to="blocks">Blocks and tags</HelpLink>.
-            </>,
-            <>
-              Click <b>New variant</b>, pick the <C>#frontend</C> tag, watch the preview and the page count, then <b>Create variant</b>. See{' '}
-              <HelpLink to="variants">Variants</HelpLink>.
-            </>,
-            <>
-              Go back to the master (the “variant of …” link at the top), change your phone number and save. Open the variant again: it says{' '}
-              <b>Get 1 update</b>. Click it to bring the change in. See <HelpLink to="updates">Getting updates from the original</HelpLink>.
-            </>,
-            <>
-              Back on the home page, the <b>Map</b> shows how documents relate, and its <b>Versions</b> view shows every saved version over time.
-              See <HelpLink to="map">The map</HelpLink>.
-            </>,
+            { icon: <MousePointerClick className="size-[18px]" />, title: 'Edit on the PDF', text: 'Click text in the preview and type the change.', to: 'edit-on-pdf' },
+            { icon: <Eye className="size-[18px]" />, title: 'Visual mode', text: 'See headings and bold text instead of commands.', to: 'visual-editor' },
+            { icon: <GitBranch className="size-[18px]" />, title: 'One master, many versions', text: 'Tailored copies that still get your later fixes.', to: 'variants' },
+            { icon: <HardDrive className="size-[18px]" />, title: 'Yours, on your device', text: 'Saved in this browser; back up to Google Drive if you like.', to: 'sync' },
           ]}
         />
+
+        <H2>1. Start a document</H2>
+        <P>
+          On the home page, click <b>New document</b> and pick a template. <b>Master resume</b> is a good first choice: it is already split into
+          pieces you can reuse. Have a file already? The arrow next to New document (or <b>Import</b>) uploads a <C>.tex</C> file, a folder, or a
+          .zip from Overleaf.
+        </P>
+        <Figure src="new-document" alt="The New document window, with the Master resume, Cover letter and Article templates." />
+
+        <H2>2. Find your way around the editor</H2>
+        <Figure src="editor-tour" alt="The editor, with numbered markers on its six main parts." />
+        <Callouts
+          items={[
+            ['Blocks, Files, History', 'The pieces of your document, its files, and every saved version.'],
+            ['Your LaTeX', 'Type here. Aa at the top right opens formatting buttons and Visual mode.'],
+            ['The PDF', 'Updates a moment after you stop typing. Click text in it to edit.'],
+            ['Compile', 'Update the PDF now. Its arrow holds the engine and Download PDF.'],
+            ['Save version', <>A snapshot you can go back to (<Kbd>Ctrl/⌘ S</Kbd>).</>],
+            ['New variant', 'A tailored copy of this document, linked to it.'],
+          ]}
+        />
+
+        <H2>3. Make a change right on the PDF</H2>
+        <P>
+          Click a sentence in the PDF. A box opens with its words, without any LaTeX. Type your change and press <Kbd>Enter</Kbd>: TexChef edits
+          the source for you and updates the PDF.
+        </P>
+        <Figure src="pdf-edit" alt="A bullet in the PDF, clicked: a small box shows its text, ready to edit, with Save and Cancel." />
         <Note kind="tip">
-          Your documents live in this browser. Connect Google Drive (top right) to back them up and use them on other devices. See{' '}
+          Your work is kept as you type, even if you close the tab. <b>Save version</b> marks a point you may want to come back to. See{' '}
+          <HelpLink to="saving">Saving</HelpLink>.
+        </Note>
+
+        <H2>4. Tailor it with a variant</H2>
+        <P>
+          Click <b>New variant</b> and pick what to keep, one piece at a time or by tag (here, everything tagged <C>#frontend</C>). The preview
+          and page count update as you choose.
+        </P>
+        <Figure src="variant-builder" alt="Making a variant: the frontend tag is picked, and the preview shows the shorter resume and its page count." />
+        <P>
+          Later, when you fix something in the master, the variant shows <b>Get 1 update</b>. One click brings the fix in and keeps the edits you
+          made in the variant.
+        </P>
+        <Figure src="get-updates" alt="The variant’s header: variant of Master resume, and a Get 1 update button." />
+
+        <H2>5. See everything on the map</H2>
+        <P>
+          Back on the home page, the <b>Map</b> shows your documents and how they are linked. Switch to <b>List</b> for a plain list, or to{' '}
+          <b>Versions</b> to see every saved version over time. Folders on the left keep things tidy.
+        </P>
+        <Figure src="home-map" alt="The home page map: the Master resume card with a line to its Frontend resume variant." />
+
+        <Note>
+          Want your documents on another computer, or a backup? Connect Google Drive at the top right. See{' '}
           <HelpLink to="sync">Google Drive and devices</HelpLink>.
         </Note>
-        <H2>Words used in texChef</H2>
+
+        <H2>Words used in TexChef</H2>
         <Table
           head={['Word', 'Meaning']}
           rows={[
@@ -88,6 +119,7 @@ export const TOPICS: Topic[] = [
           For small fixes (a typo, a date, a number in a bullet) you do not need to find the line in the LaTeX: click the words in the PDF. This
           is on by default; <b>Edit text</b> in the bar above the PDF turns it off and on.
         </P>
+        <Figure src="pdf-edit" alt="A clicked bullet in the PDF, outlined in green, with the edit box open under it." />
         <Steps
           items={[
             <>
@@ -105,13 +137,13 @@ export const TOPICS: Topic[] = [
             <>
               With <b>Update PDF after saving</b> ticked (at the bottom of the box, on by default) the PDF recompiles straight away. Untick it to
               collect several changes first: they get an orange <b>edited</b> outline, and a bar above the PDF offers <b>Update PDF</b> when you
-              are ready. texChef remembers the choice.
+              are ready. TexChef remembers the choice.
             </>,
           ]}
         />
         <H2>What gets changed</H2>
         <P>
-          texChef only rewrites the characters you changed. Formatting around them stays as it was, and characters LaTeX treats specially are
+          TexChef only rewrites the characters you changed. Formatting around them stays as it was, and characters LaTeX treats specially are
           written the way LaTeX needs them:
         </P>
         <Grid cols={2}>
@@ -139,7 +171,7 @@ export const TOPICS: Topic[] = [
         <H2>The LaTeX tab</H2>
         <P>
           The box has <b>Text</b> and <b>LaTeX</b> tabs. Switch to LaTeX to make a word bold, fix a link address, or change math. Save there with{' '}
-          <Kbd>Ctrl/⌘ Enter</Kbd>. texChef will not save LaTeX whose <C>{'{'}</C> and <C>{'}'}</C> don’t match. In the Text tab, link
+          <Kbd>Ctrl/⌘ Enter</Kbd>. TexChef will not save LaTeX whose <C>{'{'}</C> and <C>{'}'}</C> don’t match. In the Text tab, link
           addresses are hidden and math is shown as written; a note in the box says so.
         </P>
         <H2>In a variant: change the original too</H2>
@@ -193,9 +225,10 @@ export const TOPICS: Topic[] = [
             parts separated by dots, so the text in them stays readable and editable.
           </li>
           <li>
-            texChef blocks show as small green labels (<b>block exp-acme #backend</b>), so you can still see what variants pick from.
+            TexChef blocks show as small green labels (<b>block exp-acme #backend</b>), so you can still see what variants pick from.
           </li>
         </UL>
+        <Figure src="visual-mode" alt="Visual mode: the formatting bar on top, the Experience heading shown large, bullets as text, and blocks as small green labels." />
         <H2>The formatting bar</H2>
         <Table
           head={['Button', 'What it does']}
@@ -213,10 +246,11 @@ export const TOPICS: Topic[] = [
         <H2>Fonts</H2>
         <P>
           The <b>Font</b> menu sets the font of the whole document: Charter, Times, Palatino, Century Schoolbook, Bookman, Utopia, Linux
-          Libertine, Helvetica or Avant Garde, all included with the in-browser TeX Live. texChef adds a small, marked block just before{' '}
-          <C>\begin{'{'}document{'}'}</C> (between <C>% texChef font</C> and <C>% end texChef font</C>) and replaces it when you pick another;{' '}
+          Libertine, Helvetica or Avant Garde, all included with the in-browser TeX Live. TexChef adds a small, marked block just before{' '}
+          <C>\begin{'{'}document{'}'}</C> (between <C>% TexChef font</C> and <C>% end TexChef font</C>) and replaces it when you pick another;{' '}
           <b>Template default</b> takes it out again. It comes last, so it wins over a font the template sets.
         </P>
+        <Figure src="font-menu" alt="The Font menu: Template default, Charter, Times, Palatino and more, and the base size." />
         <P>
           The menu works with pdfLaTeX documents. XeLaTeX and LuaLaTeX documents set fonts with <C>\setmainfont</C>; upload a{' '}
           <C>.ttf</C> or <C>.otf</C> file to use your own, e.g. <C>\setmainfont{'{'}MyFont.ttf{'}'}[Path=./]</C>.
@@ -249,7 +283,7 @@ export const TOPICS: Topic[] = [
         <UL>
           <li>
             <C>%% @block id</C> starts a block and <C>%% @end</C> ends it. The <b>id</b> (here <C>exp-northwind</C>) must be unique in the document.
-            texChef uses it to recognise the same block in the master and in its variants, so avoid renaming ids once you have variants.
+            TexChef uses it to recognise the same block in the master and in its variants, so avoid renaming ids once you have variants.
           </li>
           <li>Blocks can be nested: the job above contains two bullet blocks.</li>
           <li>
@@ -257,10 +291,11 @@ export const TOPICS: Topic[] = [
             boxes one by one.
           </li>
           <li>
-            You can add <C>title="…"</C> to choose the name shown in the Blocks panel; otherwise texChef uses the first line of the block.
+            You can add <C>title="…"</C> to choose the name shown in the Blocks panel; otherwise TexChef uses the first line of the block.
           </li>
           <li>Everything outside blocks (the preamble, your name and contact line) is always kept in every variant.</li>
         </UL>
+        <Figure src="blocks-panel" alt="The Blocks panel: the resume’s sections, jobs and bullets, with their tags." caption="The Blocks panel lists them, with their tags. Click one to jump to it." />
         <H2>Adding blocks</H2>
         <UL>
           <li>
@@ -313,6 +348,7 @@ export const TOPICS: Topic[] = [
             </>,
           ]}
         />
+        <Figure src="variant-builder" alt="The variant builder: blocks with checkboxes on the left, tags to pick, and the live preview with its page count." />
         <H2>How the choice works</H2>
         <Table
           head={['You picked…', 'A block is kept when…']}
@@ -362,11 +398,12 @@ export const TOPICS: Topic[] = [
       <>
         <P>
           When the original of a variant changes, the variant shows <b>Get N updates</b> in its header and an <b>updates</b> label on the map.
-          Getting updates brings those changes in. texChef <b>combines</b> two sets of changes: the ones made in the original and the ones you made in
+          Getting updates brings those changes in. TexChef <b>combines</b> two sets of changes: the ones made in the original and the ones you made in
           the variant. (Developers call this a <i>merge</i>.)
         </P>
-        <H2>The three versions texChef compares</H2>
-        <P>To combine them, texChef looks at three versions of the text, line by line:</P>
+        <Figure src="get-updates" alt="A variant’s header: variant of Master resume, and a Get 1 update button." />
+        <H2>The three versions TexChef compares</H2>
+        <P>To combine them, TexChef looks at three versions of the text, line by line:</P>
         <OL>
           <li>
             <b>Starting point</b>: the original as it was the last time this variant caught up with it (when you created it, or the last time you got
@@ -380,7 +417,7 @@ export const TOPICS: Topic[] = [
           </li>
         </OL>
         <P>
-          Comparing <i>starting point → original now</i> tells texChef what the original changed. Comparing <i>starting point → your variant</i>{' '}
+          Comparing <i>starting point → original now</i> tells TexChef what the original changed. Comparing <i>starting point → your variant</i>{' '}
           tells it what you changed. It then applies both.
         </P>
         <H2>Example 1: no conflict</H2>
@@ -443,7 +480,7 @@ export const TOPICS: Topic[] = [
         />
         <H2>Example 2: a conflict</H2>
         <P>
-          This time the master changed “60% faster” to “70% faster”, and you had reworded the same line in the variant. texChef cannot know which
+          This time the master changed “60% faster” to “70% faster”, and you had reworded the same line in the variant. TexChef cannot know which
           one you want, so it shows both, between conflict markers:
         </P>
         <Lines
@@ -481,6 +518,7 @@ export const TOPICS: Topic[] = [
           <b>New in …</b> with a checkbox. If your variant was made with tags, blocks matching your tags are ticked for you. If it was made by ticking
           blocks, new blocks are unticked, so a focused variant does not grow by surprise.
         </P>
+        <Figure src="pull-page" alt="The Get updates page: what changed in the original, the result, and No conflicts." caption="Before anything changes, you see what comes in and the result." />
         <H2>What happens when you apply them</H2>
         <UL>
           <li>Unsaved edits in the variant are saved first, so nothing is lost.</li>
@@ -516,9 +554,10 @@ export const TOPICS: Topic[] = [
           In the variant’s <b>Blocks</b> panel, blocks that differ from the original are marked <b>edited</b> (or <b>new</b> if the original does
           not have them). Hover one and click the <b>Copy to original</b> arrow.
         </P>
+        <Figure src="copy-to-original" alt="The variant’s Blocks panel: edited blocks, and the Copy this block into Master resume button with its tooltip." />
         <Steps
           items={[
-            <>texChef finds the block with the same id in the original and replaces it with your version (or adds it next to its neighbours).</>,
+            <>TexChef finds the block with the same id in the original and replaces it with your version (or adds it next to its neighbours).</>,
             <>
               The original gets a new version named “Copied ‘…’ from ‘your variant’”, so it is easy to find and undo in History.
             </>,
@@ -528,7 +567,7 @@ export const TOPICS: Topic[] = [
           ]}
         />
         <Note kind="warn">
-          If the original also changed that block since the variant last caught up, texChef asks before replacing it, so you do not overwrite an
+          If the original also changed that block since the variant last caught up, TexChef asks before replacing it, so you do not overwrite an
           earlier edit by accident.
         </Note>
         <H2>A piece of text, from the PDF</H2>
@@ -556,6 +595,7 @@ export const TOPICS: Topic[] = [
           Each side's document menu lists a few from the same folder (and the original and variants, if they're elsewhere).{' '}
           <b>Other files…</b> opens a browser with every folder, a search box, page thumbnails and each document's saved versions.
         </P>
+        <Figure src="compare" alt="Compare: the master on the left and its variant on the right, with changed lines highlighted and arrows to copy blocks across." />
         <UL>
           <li>
             Changed lines are highlighted. <b>Only changes</b> hides the unchanged parts.
@@ -584,10 +624,10 @@ export const TOPICS: Topic[] = [
   {
     id: 'saving',
     title: 'Saving, autosave and leaving',
-    summary: 'What is saved when, and when texChef warns you before leaving.',
+    summary: 'What is saved when, and when TexChef warns you before leaving.',
     body: () => (
       <>
-        <P>You never have to press save to keep your work: texChef stores it as you go. There are three layers:</P>
+        <P>You never have to press save to keep your work: TexChef stores it as you go. There are three layers:</P>
         <Table
           head={['', 'When', 'Where']}
           rows={[
@@ -608,26 +648,30 @@ export const TOPICS: Topic[] = [
           In the editor, the badge next to the name says <b>Draft saved</b> while your latest edits are only a draft, and <b>Saved</b> once they
           are part of a version.
         </P>
+        <Grid cols={2}>
+          <Figure className="my-0" src="draft-saved" alt="The editor header: Master resume, with the Draft saved badge." caption="Edits kept as a draft" />
+          <Figure className="my-0" src="save-version" alt="New variant, Save version and Compile buttons." caption="Save version makes a version" />
+        </Grid>
         <H2>Google Drive</H2>
         <P>
           Versions (saved and autosave) upload to Drive when you save, when you come back to the tab, and every minute. Drafts do not: they upload
           once they become a version, which happens by itself after a minute without typing.
         </P>
-        <H2>When texChef asks before you leave</H2>
+        <H2>When TexChef asks before you leave</H2>
         <UL>
           <li>
             <b>Closing the tab or reloading</b> while your last keystrokes are still being stored (a fraction of a second), while the edit box on
             the PDF holds text you haven’t saved, or, with Drive connected, while something hasn’t reached Drive yet. The browser shows its own
-            “Leave site?” message; if you stay, texChef saves and uploads right away.
+            “Leave site?” message; if you stay, TexChef saves and uploads right away.
           </li>
           <li>
-            <b>Going to another page in texChef</b> while the edit box on the PDF holds unsaved text, or while you have made choices on the
+            <b>Going to another page in TexChef</b> while the edit box on the PDF holds unsaved text, or while you have made choices on the
             Get updates page without applying them. You can stay, or leave without saving.
           </li>
         </UL>
         <Note kind="info">
           Without Drive, closing the tab never loses work: drafts stay in this browser. The one exception is clearing the browser’s site data;
-          export a backup (Export → Backup texChef) if you want a copy elsewhere.
+          export a backup (Export → Backup TexChef) if you want a copy elsewhere.
         </Note>
       </>
     ),
@@ -641,6 +685,7 @@ export const TOPICS: Topic[] = [
         <P>
           Every document keeps its full history. Open the <b>History</b> tab in the editor’s left panel.
         </P>
+        <Figure src="history" alt="The History tab: versions numbered v1, v2…, each with its date and how many lines changed." />
         <Table
           head={['Kind', 'When it is made']}
           rows={[
@@ -686,6 +731,7 @@ export const TOPICS: Topic[] = [
           The home page shows your documents as a <b>Map</b> or a <b>List</b>. The map has two kinds: <b>Documents</b> (the default) and{' '}
           <b>Versions</b>: hover the <b>Documents</b> button next to Map / List (or tap it) to switch between them.
         </P>
+        <Figure src="home-map" alt="The home page map: Master resume linked to its Frontend resume variant, with folders on the left." />
         <H2>Documents</H2>
         <UL>
           <li>Each card is a document, with a thumbnail of its first page and its page count.</li>
@@ -736,6 +782,7 @@ export const TOPICS: Topic[] = [
           </li>
           <li>Click a dot for details and actions: open, compare, new variant from here, restore.</li>
         </UL>
+        <Figure src="map-versions" alt="The Versions map: one lane per document, dots for versions, dashed lines where the variant was made and got updates. A clicked version shows its details." />
         <H2>Folders</H2>
         <P>
           Documents can live in folders, and folders in folders. The home page works like a file browser: the bar above the map or list shows
@@ -819,6 +866,7 @@ export const TOPICS: Topic[] = [
     body: () => (
       <>
         <H2>Bringing work in</H2>
+        <Figure src="import-menu" alt="The Import menu: Upload files or a .zip, Upload a folder, and From Google Drive." />
         <UL>
           <li>
             <b>Import</b> on the home page (<b>Upload files or a .zip</b>, <b>Upload a folder</b>, or <b>From Google Drive</b>; or drop files onto the page) makes a new document. An <b>Overleaf</b> project downloaded as .zip
@@ -829,7 +877,7 @@ export const TOPICS: Topic[] = [
             main .tex file becomes a separate document, with its images and other files. A list lets you untick or rename them before importing.
           </li>
           <li>
-            <b>Import → From Google Drive</b> opens Google’s file picker (connecting Drive first if needed). texChef can only read files you pick there. If
+            <b>Import → From Google Drive</b> opens Google’s file picker (connecting Drive first if needed). TexChef can only read files you pick there. If
             Google’s window is stuck on “Sign in” or shows an error, the browser is blocking the cookies it needs (Brave’s Shields do this): allow
             cookies for this site, or download the file from Drive and use <b>Import → Upload</b>.
           </li>
@@ -841,6 +889,7 @@ export const TOPICS: Topic[] = [
             A document with several files shows them as <b>tabs</b> above the editor; <b>+</b> opens another file, × closes a tab (the file stays).
           </li>
         </UL>
+        <Figure src="files" alt="A document with three files: the Files tab on the left, and tabs for main.tex, intro.tex and method.tex above the editor." />
         <H2>The main file</H2>
         <P>
           The file with the ★ is compiled. Use a file’s ⋯ menu to rename it, move it into a folder, delete it, or make another <C>.tex</C> file the
@@ -860,7 +909,7 @@ export const TOPICS: Topic[] = [
         <H2>Export</H2>
         <P>
           <b>Export</b> on the home page (or right-click a folder or empty space) gives PDFs or LaTeX projects of the open folder and everything
-          inside it (at the top level, everything); folders become folders in the export. <b>Backup texChef</b> always covers everything.
+          inside it (at the top level, everything); folders become folders in the export. <b>Backup TexChef</b> always covers everything.
         </P>
         <Table
           head={['Format', 'What you get']}
@@ -868,16 +917,16 @@ export const TOPICS: Topic[] = [
             ['PDFs (.zip)', 'One PDF per document. Documents without an up-to-date PDF are compiled first.'],
             ['LaTeX projects (.zip)', 'Each document’s files in its own folder, as they are now (unsaved drafts included).'],
             [
-              'Backup texChef',
-              'The LaTeX projects, untouched, plus a .texchef folder with everything else: every saved version, drafts, folders, colors, tags, variant links and choices, previews and map positions. As a .zip; written straight into a folder on your computer (Chrome and Edge; Brave has it behind brave://flags → File System Access API); or saved to your Google Drive, in texChef/Backups. Unzipping the .zip gives the same folder.',
+              'Backup TexChef',
+              'The LaTeX projects, untouched, plus a .texchef folder with everything else: every saved version, drafts, folders, colors, tags, variant links and choices, previews and map positions. As a .zip; written straight into a folder on your computer (Chrome and Edge; Brave has it behind brave://flags → File System Access API); or saved to your Google Drive, in TexChef/Backups. Unzipping the .zip gives the same folder.',
             ],
           ]}
         />
         <H3>Restoring a backup</H3>
         <P>
-          Import the backup .zip (<b>Import → Upload files</b>, or <b>From Google Drive</b> for one saved there), or <b>Import → Upload a folder…</b> and pick the backup folder, on any texChef, even an empty one: texChef recognises
+          Import the backup .zip (<b>Import → Upload files</b>, or <b>From Google Drive</b> for one saved there), or <b>Import → Upload a folder…</b> and pick the backup folder, on any TexChef, even an empty one: TexChef recognises
           it and restores everything with the same documents, history and links. Documents already there keep what they have and get the
-          backup’s versions added. If you edited the LaTeX files in the backup outside texChef, those edits come in as changes.
+          backup’s versions added. If you edited the LaTeX files in the backup outside TexChef, those edits come in as changes.
         </P>
         <Note kind="tip">
           A backup folder is a normal set of LaTeX projects, so you can also open it in any other LaTeX editor. Leave the <C>.texchef</C> folder
@@ -893,7 +942,7 @@ export const TOPICS: Topic[] = [
     body: () => (
       <>
         <P>
-          texChef runs a full TeX Live 2026 in your browser. Nothing is uploaded to compile. The first compile downloads the core engine (about 80
+          TexChef runs a full TeX Live 2026 in your browser. Nothing is uploaded to compile. The first compile downloads the core engine (about 80
           MB, once); later visits reuse it.
         </P>
         <H2>Engines</H2>
@@ -902,6 +951,7 @@ export const TOPICS: Topic[] = [
           one in the <b>Compile</b> button’s menu (hover it, or tap its arrow); pdfLaTeX is marked as the default, so you can always find your way
           back. If a template's instructions name one, use that.
         </P>
+        <Figure src="compile-menu" alt="The Compile button’s menu: auto-compile, the three engines with pdfLaTeX as default, and Download PDF." />
         <UL>
           <li>
             <b>pdfLaTeX</b> (default): the oldest and fastest. Uses TeX's own fonts, picked with packages such as <C>\usepackage{'{'}charter{'}'}</C>. Most
@@ -937,6 +987,7 @@ export const TOPICS: Topic[] = [
           plain explanation underneath. Notes that don't change the PDF (loosely spaced lines, rerun notices, harmless messages) are tucked
           behind <b>N hidden</b> at the top of the panel; click it to see them.
         </P>
+        <Figure src="problems" alt="The Problems panel: 1 error, Undefined control sequence: \diary, at sections/method.tex line 2." />
         <P>
           Warnings don't stop the PDF. Errors usually do. A few you can normally ignore:
         </P>
@@ -952,7 +1003,7 @@ export const TOPICS: Topic[] = [
           </li>
           <li>
             <b>Shell escape … not enabled</b>: some packages run other programs while compiling (<C>epstopdf</C> for <C>.eps</C> images,{' '}
-            <C>svg</C>, <C>minted</C>). A browser can't do that, so it is always off in texChef. Harmless unless those images or that code
+            <C>svg</C>, <C>minted</C>). A browser can't do that, so it is always off in TexChef. Harmless unless those images or that code
             are used; convert such images to <C>.pdf</C> or <C>.png</C>.
           </li>
         </UL>
@@ -990,29 +1041,30 @@ export const TOPICS: Topic[] = [
       <>
         <H2>Where your documents live</H2>
         <P>
-          Everything is saved in this browser first, so texChef works offline and without an account. Browser storage can be cleared (private
+          Everything is saved in this browser first, so TexChef works offline and without an account. Browser storage can be cleared (private
           windows, “clear site data”, a full disk), so connect Drive if your documents matter. Settings → Local data shows whether the browser has
-          agreed to keep texChef’s data permanently.
+          agreed to keep TexChef’s data permanently.
         </P>
         <H2>Connecting Google Drive</H2>
         <UL>
           <li>
-            Click <b>Local only · Connect Drive</b> at the top right and sign in. texChef asks only for access to the files it creates and the
+            Click <b>Local only · Connect Drive</b> at the top right and sign in. TexChef asks only for access to the files it creates and the
             files you pick, not your whole Drive.
           </li>
           <li>
             It syncs after you save, when you come back to the tab, and every minute. The indicator shows “Synced … ago”; its menu has <b>Sync now</b>{' '}
-            and <b>Open texChef folder in Drive</b>.
+            and <b>Open TexChef folder in Drive</b>.
           </li>
           <li>
             Google sign-ins last about an hour. When it expires the indicator says <b>Reconnect Drive</b>; your work keeps saving locally meanwhile.
           </li>
         </UL>
         <Code title="In your Google Drive">{`
-texChef/
+TexChef/
   Master resume/          ← main.tex, other files, and Master resume.pdf
   Master resume · Backend/
   .texchef/               ← history used for syncing; leave it alone`}</Code>
+        <Figure src="settings-drive" alt="Settings → Storage: documents live in this browser first; Connect Google Drive." />
         <H2>Edits on two devices</H2>
         <P>
           If the same document was changed on two devices before they synced, nothing is overwritten. The document shows <b>edited elsewhere</b> and
