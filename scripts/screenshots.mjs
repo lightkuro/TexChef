@@ -70,29 +70,18 @@ async function shot(name, { clip, pad = 12, maxWidth = 1600, dir = HELP, keepMou
 /** Like shot(), but leaves the mouse where it is (for hover states and open menus). */
 const hoverShot = (name, opts) => shot(name, { ...opts, keepMouse: true });
 
-/** Numbered markers drawn over the page, for tours. Each is [locator, number, corner]. */
-async function annotate(marks) {
-  const at = [];
-  for (const [loc, n, corner = 'tl', dx = 0, dy = 0, size = 30] of marks) {
-    const b = await loc.boundingBox();
-    const x = corner.includes('r') ? b.x + b.width : corner.includes('c') ? b.x + b.width / 2 : b.x;
-    const y = corner.includes('b') ? b.y + b.height : corner.includes('m') ? b.y + b.height / 2 : b.y;
-    at.push({ n, x: x + dx, y: y + dy, size });
-  }
-  await page.evaluate((at) => {
+const clearMarks = () => page.evaluate(() => document.getElementById('shot-marks')?.remove());
+
+/** An accent ring around one element (or two, e.g. a split button), for close-ups. */
+async function ring(loc, also) {
+  const b = also ? union(await loc.boundingBox(), await also.boundingBox()) : await loc.boundingBox();
+  await page.evaluate((b) => {
     const layer = document.createElement('div');
     layer.id = 'shot-marks';
-    layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:99999';
-    for (const { n, x, y, size } of at) {
-      const m = document.createElement('div');
-      m.textContent = String(n);
-      m.style.cssText = `position:absolute;left:${x - size / 2}px;top:${y - size / 2}px;width:${size}px;height:${size}px;border-radius:50%;background:var(--accent);color:var(--accent-fg);font:700 ${Math.round(size / 2)}px/${size}px system-ui,sans-serif;text-align:center;box-shadow:0 0 0 2.5px #fff,0 3px 10px rgba(0,0,0,.25)`;
-      layer.append(m);
-    }
+    layer.style.cssText = `position:fixed;left:${b.x - 4}px;top:${b.y - 4}px;width:${b.width + 8}px;height:${b.height + 8}px;border:2.5px solid var(--accent);border-radius:10px;box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);pointer-events:none;z-index:99999`;
     document.body.append(layer);
-  }, at);
+  }, b);
 }
-const clearMarks = () => page.evaluate(() => document.getElementById('shot-marks')?.remove());
 
 async function waitUntil(fn, arg, timeout = 60_000) {
   const t0 = Date.now();
@@ -164,9 +153,10 @@ console.log('Home and new document');
 await page.goto(BASE);
 await page.getByTestId('landing').waitFor();
 await page.getByTestId('new-doc').click();
-await page.getByTestId('template-resume-master').click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(400);
+// Blank article is chosen by default.
 await shot('new-document', { clip: page.getByRole('dialog'), pad: 0, maxWidth: 1400 });
+await page.getByTestId('template-resume-master').click();
 await page.getByTestId('create-doc').click();
 await page.getByTestId('editor-page').waitFor();
 const master = idOf();
@@ -174,19 +164,30 @@ await page.getByTestId('page-count').waitFor({ timeout: 180_000 });
 await pdfReady(master);
 
 console.log('Editor');
-await shot('editor', { dir: LANDING, maxWidth: 1920 });
-await shot('editor-1280', { dir: LANDING, maxWidth: 1280 });
-await annotate([
-  [page.getByTestId('side-panel'), 1, 'tr', -26, 88],
-  [page.locator('.cm-editor'), 2, 'tr', -34, 66],
-  [page.getByTestId('pdf-viewer'), 3, 'tl', 26, 26],
-  // On the buttons' icons, so their labels stay readable.
-  [page.getByTestId('compile-button'), 4, 'lm', 19, 0, 24],
-  [page.getByTestId('save-version'), 5, 'lm', 19, 0, 24],
-  [page.getByTestId('new-variant'), 6, 'lm', 19, 0, 24],
-]);
-await shot('editor-tour');
-await clearMarks();
+await shot('editor');
+// The tour: each part up close (about the width of a help card, shown at full size), buttons ringed.
+{
+  const W = 340;
+  const side = await page.getByTestId('side-panel').boundingBox();
+  await shot('tour-side', { clip: { x: side.x, y: side.y, width: Math.min(W, side.width), height: 200 }, pad: 0, maxWidth: 800 });
+  const tabs = await page.getByTestId('file-tabs').boundingBox();
+  await shot('tour-code', { clip: { x: tabs.x, y: tabs.y, width: W, height: 200 }, pad: 0, maxWidth: 800 });
+  const pdf = await page.getByTestId('pdf-viewer').boundingBox();
+  await shot('tour-pdf', { clip: { x: pdf.x + pdf.width - W - 20, y: pdf.y - 44, width: W + 20, height: 200 }, pad: 0, maxWidth: 800 });
+  for (const [name, id, also] of [['tour-compile', 'compile-button', 'compile-settings'], ['tour-save', 'save-version'], ['tour-variant', 'new-variant']]) {
+    const box = also ? union(await page.getByTestId(id).boundingBox(), await page.getByTestId(also).boundingBox()) : await page.getByTestId(id).boundingBox();
+    // The neighbouring buttons step aside so the picture shows only this one.
+    const keep = [id, also].filter(Boolean);
+    await page.evaluate((keep) => {
+      const sel = ['sync-indicator', 'new-variant', 'save-version', 'compile-button', 'compile-settings'].filter((t) => !keep.includes(t)).map((t) => `[data-testid="${t}"]`);
+      for (const el of document.querySelectorAll([...sel, 'header [aria-label="More"]'].join(','))) el.style.visibility = 'hidden';
+    }, keep);
+    await ring(page.getByTestId(id), also ? page.getByTestId(also) : null);
+    await shot(name, { clip: { x: box.x - 28, y: Math.max(0, box.y - 8), width: box.width + 56, height: box.height + 16 }, pad: 0, maxWidth: 800 });
+    await clearMarks();
+    await page.evaluate(() => document.querySelectorAll('[style*="visibility: hidden"]').forEach((el) => (el.style.visibility = '')));
+  }
+}
 await shot('blocks-panel', { clip: { ...(await page.getByTestId('side-panel').boundingBox()), height: 470 }, pad: 0, maxWidth: 900 });
 
 console.log('Compile menu');
@@ -223,6 +224,12 @@ console.log('Edit on the PDF');
   await page.mouse.move(at.x, at.y);
   await page.mouse.click(at.x, at.y);
   await page.getByTestId('pdf-edit-input').waitFor();
+  // Select the number, as if about to change it.
+  await page.getByTestId('pdf-edit-input').evaluate((el) => {
+    el.focus();
+    const i = el.value.indexOf('60%');
+    el.setSelectionRange(i, i + 3);
+  });
   await page.waitForTimeout(400);
   const pdf = await page.getByTestId('pdf-viewer').boundingBox();
   const editBox = await page.getByTestId('pdf-edit-box').boundingBox();
@@ -234,30 +241,6 @@ console.log('Edit on the PDF');
   await hoverShot('pdf-edit', { dir: LANDING, clip: { x: lx, y: top - 40, width: pdf.x + pdf.width - lx, height: 640 }, maxWidth: 1400 });
   await page.keyboard.press('Escape');
 }
-
-console.log('Visual mode');
-await page.getByTestId('toggle-format-bar').click();
-await page.getByTestId('editor-mode-visual').click();
-await page.locator('.cm-vis-h1').first().waitFor();
-await page.evaluate(() => {
-  const h = [...document.querySelectorAll('.cm-vis-h1')].find((e) => e.textContent.includes('Experience'));
-  h.scrollIntoView({ block: 'start' });
-  document.querySelector('.cm-scroller').scrollTop -= 100;
-});
-await page.waitForTimeout(600);
-{
-  const code = await page.locator('.cm-editor').boundingBox();
-  const bar = await page.getByTestId('file-tabs').boundingBox();
-  await shot('visual-mode', { clip: { x: bar.x, y: bar.y, width: bar.width, height: Math.min(code.y + code.height - bar.y, 560) }, pad: 0, maxWidth: 1300 });
-  await page.getByTestId('format-font').click();
-  await page.waitForTimeout(250);
-  const fb = await page.getByTestId('format-bar').boundingBox();
-  const menu = page.getByRole('menu').last();
-  await hoverShot('font-menu', { clip: grow(union(fb, await menu.boundingBox()), 10), maxWidth: 1200 });
-  await page.keyboard.press('Escape');
-}
-await page.getByTestId('editor-mode-code').click();
-await page.getByTestId('toggle-format-bar').click();
 
 console.log('History');
 await page.getByTestId('tab-history').click();
@@ -274,7 +257,6 @@ await page.getByTestId('variant-pages').waitFor({ timeout: 60_000 });
 await page.waitForTimeout(2500);
 await page.getByTestId('variant-name').fill('Frontend resume');
 await shot('variant-builder');
-await shot('variants', { dir: LANDING, maxWidth: 1400 });
 await page.getByTestId('create-variant').click();
 await page.getByTestId('editor-page').waitFor();
 await page.getByText('variant of').waitFor();
@@ -333,11 +315,6 @@ await page.getByTestId('doc-node-Frontend resume').waitFor();
 await page.locator('.react-flow__edge').first().waitFor({ state: 'attached' });
 await page.waitForTimeout(1500);
 await shot('home-map');
-await shot('map', {
-  dir: LANDING,
-  clip: grow(union(await page.getByTestId('doc-node-Master resume').boundingBox(), await page.getByTestId('doc-node-Frontend resume').boundingBox()), 28),
-  maxWidth: 1000,
-});
 await page.getByTestId('graph-mode').hover();
 await page.getByTestId('graph-versions').click();
 await page.locator('.react-flow__node-commit').first().waitFor();
@@ -359,6 +336,47 @@ await page.getByTestId('graph-mode').hover();
 await page.getByTestId('graph-family').click();
 await page.mouse.move(5, 400);
 await page.waitForTimeout(500);
+
+console.log('Versions (landing)');
+{
+  // Two more tailored versions, each opened once so the map has its first page.
+  const ids = await page.evaluate(async (m) => {
+    const { createVariant } = await import('/src/variants/ops.ts');
+    const recipe = (tags) => ({ include: [], exclude: [], tags, known: [] });
+    const a = await createVariant(window.rc.repo, { parentId: m, name: 'Backend resume', recipe: recipe(['backend', 'infra']) });
+    const b = await createVariant(window.rc.repo, { parentId: m, name: 'Data resume', recipe: recipe(['data', 'ml']) });
+    return [a.id, b.id];
+  }, master);
+  for (const id of ids) {
+    await page.goto(`${BASE}/doc/${id}`);
+    await pdfReady(id);
+  }
+  // A fix in the master: every version shows it is waiting.
+  await page.evaluate(async (id) => {
+    const { repo } = window.rc;
+    const w = await repo.getWork(id);
+    await repo.writeWorkText(id, 'main.tex', w.files['main.tex'].text.replace('Software engineer with 7 years', 'Software engineer with 8 years'));
+    await repo.commitWork(id, 'Eight years now', 'save');
+  }, master);
+  await page.goto(BASE);
+  await page.getByTestId('doc-node-Data resume').waitFor();
+  await page.getByTestId('map-vertical').click();
+  await page.getByTestId('map-menu').click();
+  await page.getByTestId('map-full-pages').click();
+  await page.keyboard.press('Escape');
+  await page.getByTestId('map-menu').click();
+  await page.getByTestId('map-fit').click();
+  await page.mouse.move(5, 400);
+  await page.waitForTimeout(2000);
+  const nodes = [];
+  for (const n of await page.locator('.react-flow__node').all()) nodes.push(await n.boundingBox());
+  await shot('versions', { dir: LANDING, clip: grow(union(...nodes), 36), pad: 0, maxWidth: 1400 });
+  // Back to the defaults for later pictures.
+  await page.getByTestId('map-menu').click();
+  await page.getByTestId('map-full-pages').click();
+  await page.keyboard.press('Escape');
+  await page.getByTestId('map-horizontal').click();
+}
 
 console.log('Import menu');
 await page.getByTestId('import-menu').click();
@@ -419,6 +437,82 @@ await page.goto(`${BASE}/settings`);
   await page.waitForTimeout(300);
   await shot('settings-drive', { clip: drive, pad: 10, maxWidth: 1300 });
 }
+
+console.log('Essay: main picture and Visual mode');
+writeFileSync(
+  `${TMP}essay.tex`,
+  String.raw`\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage[margin=1.1in]{geometry}
+\usepackage[hidelinks]{hyperref}
+
+\title{Why Cities Plant Trees}
+\author{Maya Chen}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+Street trees are among the cheapest climate tools a city has. A single mature tree can cool the air around it by
+\textbf{two to four degrees} on a summer afternoon, and it does so for decades with \emph{very little upkeep}.
+
+\section{What trees give back}
+\begin{itemize}
+  \item Shade that lowers cooling costs for nearby buildings.
+  \item Roots that soak up storm water before it reaches the drains.
+  \item Quieter, calmer streets that people choose to walk on.
+\end{itemize}
+
+\section{A simple estimate}
+If a city plants $n$ trees and each one saves $s$ dollars of energy a year, the yearly saving is
+\begin{equation}
+  S = n \cdot s ,
+\end{equation}
+before counting health and storm-water benefits. See the \href{https://example.org/trees}{city forestry report} for local numbers.
+
+\end{document}
+`,
+);
+await page.goto(BASE);
+await page.getByTestId('upload-input').setInputFiles(`${TMP}essay.tex`);
+await page.getByTestId('editor-page').waitFor();
+const essay = idOf();
+await page.evaluate((id) => window.rc.repo.updateDoc(id, { name: 'Why cities plant trees' }), essay);
+await pdfReady(essay, /Why Cities Plant Trees/);
+// Visual mode, for the help and the landing page.
+await page.getByTestId('toggle-format-bar').click();
+await page.getByTestId('editor-mode-visual').click();
+await page.locator('.cm-vis-h1').first().waitFor();
+await page.waitForTimeout(800);
+{
+  const code = await page.locator('.cm-editor').boundingBox();
+  const bar = await page.getByTestId('file-tabs').boundingBox();
+  await shot('visual-mode', { clip: { x: bar.x, y: bar.y, width: bar.width, height: Math.min(code.y + code.height - bar.y, 560) }, pad: 0, maxWidth: 1300 });
+  const pdf = await page.getByTestId('pdf-viewer').boundingBox();
+  await shot('visual', { dir: LANDING, clip: { x: bar.x, y: bar.y, width: pdf.x + pdf.width - bar.x, height: 620 }, pad: 0, maxWidth: 1400 });
+  await page.getByTestId('format-font').click();
+  await page.waitForTimeout(250);
+  const fb = await page.getByTestId('format-bar').boundingBox();
+  const menu = page.getByRole('menu').last();
+  await hoverShot('font-menu', { clip: grow(union(fb, await menu.boundingBox()), 10), maxWidth: 1200 });
+  await page.keyboard.press('Escape');
+}
+await page.getByTestId('editor-mode-code').click();
+await page.getByTestId('toggle-format-bar').click();
+// The main picture: a narrower window (bigger text, no side panel), the essay's LaTeX and its PDF.
+await page.setViewportSize({ width: 1240, height: 700 });
+await page.reload();
+await page.getByTestId('editor-page').waitFor();
+if ((await page.getByTestId('side-panel').count()) > 0) await page.getByTestId('toggle-side').click();
+await pdfReady(essay);
+await page.locator('.cm-content').click({ position: { x: 200, y: 330 } });
+await page.waitForTimeout(800);
+await shot('hero', { dir: LANDING, maxWidth: 1920 });
+await shot('hero-1280', { dir: LANDING, maxWidth: 1280 });
+await page.setViewportSize({ width: 1440, height: 860 });
 
 const entries = Object.entries(sizes)
   .sort(([a], [b]) => a.localeCompare(b))

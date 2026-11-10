@@ -17,15 +17,15 @@ const PITCH: { icon: LucideIcon; text: string }[] = [
 const FEATURES: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: Cpu, title: 'Compiles in your browser', text: 'Full TeX Live on your device. No server, no install.' },
   { icon: MousePointerClick, title: 'Edit on the PDF', text: 'Click text in the preview, or use Visual mode.' },
-  { icon: GitBranch, title: 'Master and variants', text: 'Tailor a resume per role; master edits flow in.' },
+  { icon: GitBranch, title: 'Master and variants', text: 'A resume per job, a paper per venue; master edits flow in.' },
   { icon: HardDrive, title: 'Your files stay yours', text: 'In this browser, and your own Google Drive if you like.' },
 ];
 
 /** Short card text and a sketch of the first page for each template. */
 const STARTERS: Record<string, { blurb: string; sketch: ReactNode }> = {
-  'resume-master': { blurb: 'Split into tagged blocks, ready for variants.', sketch: <ResumeSketch /> },
+  'resume-master': { blurb: 'Split into tagged blocks, ready for tailored versions.', sketch: <ResumeSketch /> },
   'cover-letter': { blurb: 'Opening, body and closing as blocks.', sketch: <LetterSketch /> },
-  article: { blurb: 'Math and graphics packages included.', sketch: <ArticleSketch /> },
+  article: { blurb: 'Essays, notes, papers: a clean page to start from.', sketch: <ArticleSketch /> },
 };
 
 /** What new users see on the home page before they have any documents. */
@@ -73,15 +73,16 @@ export function Landing({ onNew, uploadActions }: { onNew: () => void; uploadAct
         </section>
 
         <div className="relative isolate mx-auto mt-12 max-w-5xl sm:mt-16">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-[10%] -top-6 bottom-1/3 -z-10 rounded-full bg-accent/15 blur-3xl" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-[8%] -top-8 bottom-1/4 -z-10 rounded-full bg-accent/20 blur-3xl" />
           <Shot
-            src="/landing/editor-1280.webp"
-            srcSet="/landing/editor-1280.webp 1280w, /landing/editor.webp 1920w"
+            window
+            src="/landing/hero.webp"
+            srcSet="/landing/hero-1280.webp 1280w, /landing/hero.webp 1920w"
             sizes="(min-width: 1072px) 1024px, calc(100vw - 48px)"
             width={1920}
-            height={1147}
+            height={1084}
             fetchPriority="high"
-            alt="The TexChef editor: a resume's blocks and tags on the left, its LaTeX source in the middle and the compiled PDF on the right."
+            alt="The TexChef editor: an essay in Visual mode on the left, with its heading and list formatted, and the typeset PDF on the right."
           />
         </div>
 
@@ -99,59 +100,65 @@ export function Landing({ onNew, uploadActions }: { onNew: () => void; uploadAct
           ))}
         </ul>
 
-        <section className="mx-auto mt-20 grid max-w-5xl items-center gap-10 sm:mt-28 lg:grid-cols-12 lg:gap-14">
-          <div className="max-w-xl lg:col-span-5">
-            <p className="text-sm font-medium text-accent">Made for resumes</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">One master, many tailored variants</h2>
-            <p className="mt-4 text-pretty text-muted">
-              Split your resume into tagged blocks, then make a variant for each role in a few clicks. Variants stay linked, so later edits to
-              the master flow in.
-            </p>
-            <Link to="/help/variants" className="group mt-5 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-              How variants work <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-          <div className="relative pb-[12%] lg:col-span-7">
-            <Shot
-              src="/landing/variants.webp"
-              width={1400}
-              height={836}
-              loading="lazy"
-              alt="Making a variant: the #frontend tag is picked, and the live preview shows the tailored one-page resume."
-            />
-            <Shot
-              src="/landing/map.webp"
-              width={1000}
-              height={371}
-              loading="lazy"
-              alt="The map: Master resume, linked to its Frontend resume variant."
-              className="absolute bottom-0 -left-2 w-[58%] shadow-2xl sm:-left-4 lg:-left-10"
-            />
-          </div>
-        </section>
-
-        <section className="mx-auto mt-20 grid max-w-5xl items-center gap-10 sm:mt-28 lg:grid-cols-12 lg:gap-14" data-testid="landing-pdf-edit">
-          <div className="max-w-xl lg:order-2 lg:col-span-5">
-            <p className="text-sm font-medium text-accent">Edit on the PDF</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">Click the PDF, type the change</h2>
-            <p className="mt-4 text-pretty text-muted">
-              No hunting through LaTeX for the right line. Click any sentence in the preview and edit it right there: TexChef changes the
-              matching source and recompiles.
-            </p>
-            <Link to="/help/edit-on-pdf" className="group mt-5 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-              How editing on the PDF works <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </div>
-          <div className="lg:order-1 lg:col-span-7">
+        <Feature
+          testId="landing-pdf-edit"
+          eyebrow="Edit on the PDF"
+          title="Click the PDF, type the change"
+          link={['/help/edit-on-pdf', 'How editing on the PDF works']}
+          image={
             <Shot
               src="/landing/pdf-edit.webp"
               width={1400}
               height={953}
               loading="lazy"
-              alt="Editing on the PDF: a clicked bullet in the preview opens a small box with its text, ready to change."
+              alt="Editing on the PDF: a clicked bullet opens a small box with its words, and the number 60% is selected, ready to change."
             />
-          </div>
-        </section>
+          }
+        >
+          No hunting through LaTeX for the right line. Click a sentence in the preview, change a number or a word, and press Enter: TexChef
+          edits the matching source and recompiles.
+        </Feature>
+
+        <Feature
+          testId="landing-versions"
+          flip
+          eyebrow="Made for resumes"
+          title="One master, many tailored versions"
+          link={['/help/variants', 'How variants work']}
+          image={
+            <Shot
+              src="/landing/versions.webp"
+              width={1160}
+              height={1304}
+              className="mx-auto max-w-[540px]"
+              loading="lazy"
+              alt="The map: a Master resume linked to three tailored versions (data, backend and frontend), each a different length, each with an update from the master waiting."
+            />
+          }
+        >
+          Keep everything in one master, then make a version for each job in a few clicks by picking the parts or tags it needs. Fix a typo in
+          the master and every version can take the fix, keeping its own edits. Handy beyond resumes too: one paper, two venues.
+        </Feature>
+
+        <Feature
+          testId="landing-visual"
+          eyebrow="Visual interface"
+          title="Write without the backslashes"
+          link={['/help/visual-editor', 'About Visual mode']}
+          image={
+            <Shot
+              src="/landing/visual.webp"
+              width={1400}
+              height={754}
+              loading="lazy"
+              alt="Visual mode: the formatting toolbar above an essay whose headings, bold words, bullet list and link show formatted."
+            />
+          }
+        >
+          Visual mode shows headings, bold text, lists and links formatted as you type, with buttons for the usual formatting and a font menu.
+          It is the same LaTeX underneath: switch back to the code any time and nothing has changed.
+        </Feature>
+
 
         <section className="mt-20 sm:mt-28">
           <h2 className="text-center text-xl font-semibold tracking-tight sm:text-2xl">Start from a template</h2>
@@ -199,12 +206,59 @@ export function Landing({ onNew, uploadActions }: { onNew: () => void; uploadAct
   );
 }
 
-/** A screenshot in a frame that sits well on light and dark themes. */
-function Shot({ className, alt, ...img }: ImgHTMLAttributes<HTMLImageElement> & { alt: string }) {
+/** A screenshot in a frame that sits well on light and dark themes; `window` adds a browser-style title bar. */
+function Shot({ className, alt, window: win, ...img }: ImgHTMLAttributes<HTMLImageElement> & { alt: string; window?: boolean }) {
   return (
-    <div className={cn('overflow-hidden rounded-xl border border-line bg-white shadow-xl shadow-black/10 dark:shadow-black/40', className)}>
+    <div
+      className={cn(
+        'overflow-hidden rounded-xl border border-line bg-white shadow-xl shadow-black/10 dark:shadow-black/40',
+        win && 'rounded-2xl shadow-2xl ring-1 ring-black/5',
+        className,
+      )}
+    >
+      {win && (
+        <div className="flex h-8 items-center gap-1.5 border-b border-line bg-subtle px-3.5 sm:h-9" aria-hidden="true">
+          <span className="size-2.5 rounded-full bg-[#ff5f57]" />
+          <span className="size-2.5 rounded-full bg-[#febc2e]" />
+          <span className="size-2.5 rounded-full bg-[#28c840]" />
+          <span className="mx-auto -translate-x-6 rounded-md bg-panel px-10 py-0.5 text-[11px] text-muted max-sm:hidden">texchef.kurolight.dev</span>
+        </div>
+      )}
       <img alt={alt} decoding="async" className="block h-auto w-full dark:brightness-[0.92]" {...img} />
     </div>
+  );
+}
+
+/** A picture with a short pitch beside it; `flip` puts the picture on the left. */
+function Feature({
+  eyebrow,
+  title,
+  children,
+  link,
+  image,
+  flip,
+  testId,
+}: {
+  eyebrow: string;
+  title: string;
+  children: ReactNode;
+  link: [string, string];
+  image: ReactNode;
+  flip?: boolean;
+  testId?: string;
+}) {
+  return (
+    <section className="mx-auto mt-20 grid max-w-5xl items-center gap-10 sm:mt-28 lg:grid-cols-12 lg:gap-14" data-testid={testId}>
+      <div className={cn('max-w-xl lg:col-span-5', flip && 'lg:order-2')}>
+        <p className="text-sm font-medium text-accent">{eyebrow}</p>
+        <h2 className="mt-2 text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{title}</h2>
+        <p className="mt-4 text-pretty text-muted">{children}</p>
+        <Link to={link[0]} className="group mt-5 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
+          {link[1]} <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+      <div className={cn('lg:col-span-7', flip && 'lg:order-1')}>{image}</div>
+    </section>
   );
 }
 

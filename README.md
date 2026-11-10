@@ -1,7 +1,8 @@
 # TexChef
 
-A browser LaTeX editor (in the spirit of Overleaf) built around one idea: **write one long master resume, then branch
-focused variants from it** — and keep them linked.
+Edit with LaTeX easily, all in the browser. TexChef is a LaTeX editor (in the spirit of Overleaf) for essays, papers,
+letters and resumes, with one idea of its own: **keep one master document and branch tailored variants from it** (a
+resume per job, a paper per venue), all kept linked.
 
 - **Compile in the browser.** TeX Live 2026 running as WebAssembly ([texlyre-busytex](https://github.com/TeXlyre/texlyre-busytex)); pdfLaTeX, XeLaTeX, LuaLaTeX, BibTeX. No compile server.
 - **Linked variants.** Build a variant by ticking sections/jobs/bullets or picking tags (`#backend`, `#ml`…) with a live PDF and page count. Later, **get updates** from the original (master edits are combined with a 3‑way merge), or **copy** a reworded bullet back to the original.
@@ -80,6 +81,9 @@ Other scripts:
 | `pnpm e2e http://localhost:5173` | Browser end‑to‑end checks with Playwright against a running dev server |
 | `pnpm e2e:engines http://localhost:5173` | Engine coverage: XeLaTeX + fontspec, LuaLaTeX, BibTeX, images, TikZ, moderncv (downloads the larger bundles) |
 | `pnpm shots http://localhost:5173` | Retake the help and landing screenshots (`public/help`, `public/landing`) from the running app. Start the dev server with any values for the three `VITE_GOOGLE_*` variables so the Drive options show |
+
+Patch notes live in `src/app/changelog.ts` and show on the **What’s new** help page (`/help/whats-new`, linked from the
+footer). For a release, add an entry at the top and set the same version in `package.json`.
 
 Without Google configuration the app runs in **Local only** mode: fully functional, data stays in this browser.
 

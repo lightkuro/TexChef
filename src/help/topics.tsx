@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Eye, GitBranch, HardDrive, MousePointerClick } from 'lucide-react';
-import { C, Callouts, Cards, Code, Figure, Grid, H2, H3, HelpLink, Kbd, Legend, Lines, Note, OL, P, Steps, Table, UL } from './kit';
+import { Changelog } from './Changelog';
+import { C, Cards, Code, Figure, Grid, H2, H3, HelpLink, Kbd, Legend, Lines, Note, OL, P, Steps, Table, TourCards, UL } from './kit';
 
 export interface Topic {
   id: string;
@@ -37,22 +38,26 @@ export const TOPICS: Topic[] = [
 
         <H2>1. Start a document</H2>
         <P>
-          On the home page, click <b>New document</b> and pick a template. <b>Master resume</b> is a good first choice: it is already split into
-          pieces you can reuse. Have a file already? The arrow next to New document (or <b>Import</b>) uploads a <C>.tex</C> file, a folder, or a
-          .zip from Overleaf.
+          On the home page, click <b>New document</b>. <b>Blank article</b> is ready for an essay, notes or a paper; <b>Master resume</b> comes
+          already split into pieces you can make tailored versions from. Have a file already? The arrow next to New document (or{' '}
+          <b>Import</b>) uploads a <C>.tex</C> file, a folder, or a .zip from Overleaf.
         </P>
-        <Figure src="new-document" alt="The New document window, with the Master resume, Cover letter and Article templates." />
+        <Figure src="new-document" alt="The New document window: Blank article (chosen), Master resume and Cover letter." />
 
         <H2>2. Find your way around the editor</H2>
-        <Figure src="editor-tour" alt="The editor, with numbered markers on its six main parts." />
-        <Callouts
+        <P>
+          The editor has three columns: the parts of your document on the left, its LaTeX in the middle and the PDF on the right. The buttons
+          you need most sit at the top right.
+        </P>
+        <Figure src="editor" alt="The editor: Blocks, Files and History on the left, the LaTeX in the middle, the PDF on the right, and the buttons at the top right." />
+        <TourCards
           items={[
-            ['Blocks, Files, History', 'The pieces of your document, its files, and every saved version.'],
-            ['Your LaTeX', 'Type here. Aa at the top right opens formatting buttons and Visual mode.'],
-            ['The PDF', 'Updates a moment after you stop typing. Click text in it to edit.'],
-            ['Compile', 'Update the PDF now. Its arrow holds the engine and Download PDF.'],
-            ['Save version', <>A snapshot you can go back to (<Kbd>Ctrl/⌘ S</Kbd>).</>],
-            ['New variant', 'A tailored copy of this document, linked to it.'],
+            { src: 'tour-side', title: 'Blocks, Files, History', text: 'The pieces of your document, its files, and every saved version.' },
+            { src: 'tour-code', title: 'Your LaTeX', text: 'Type here. Aa, at the right of this bar, opens the formatting buttons and Visual mode.' },
+            { src: 'tour-pdf', title: 'The PDF', text: 'Updates a moment after you stop typing. Click text in it to edit; zoom and download are above it.' },
+            { src: 'tour-compile', title: 'Compile', text: 'Updates the PDF right now. Its arrow holds the engine, auto-compile and Download PDF.' },
+            { src: 'tour-save', title: 'Save version', text: <>A snapshot you can come back to (<Kbd>Ctrl/⌘ S</Kbd>). Your typing is kept anyway.</> },
+            { src: 'tour-variant', title: 'New variant', text: 'A tailored copy of this document that stays linked to it.' },
           ]}
         />
 
@@ -228,7 +233,7 @@ export const TOPICS: Topic[] = [
             TexChef blocks show as small green labels (<b>block exp-acme #backend</b>), so you can still see what variants pick from.
           </li>
         </UL>
-        <Figure src="visual-mode" alt="Visual mode: the formatting bar on top, the Experience heading shown large, bullets as text, and blocks as small green labels." />
+        <Figure src="visual-mode" alt="Visual mode on an essay: the formatting bar on top, section headings shown large, bold and italic words, a bullet list and a link." />
         <H2>The formatting bar</H2>
         <Table
           head={['Button', 'What it does']}
@@ -1121,5 +1126,11 @@ TexChef/
         </UL>
       </>
     ),
+  },
+  {
+    id: 'whats-new',
+    title: 'What’s new',
+    summary: 'Patch notes: what changed in each version of TexChef.',
+    body: () => <Changelog />,
   },
 ];

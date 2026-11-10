@@ -41,6 +41,7 @@ import { VersionGraph } from '@/features/graph/VersionGraph';
 import { DocList } from './DocList';
 import { NewDocDialog } from './NewDocDialog';
 import { Landing } from './Landing';
+import { APP_VERSION } from '@/app/changelog';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { connectDrive, useSync } from '@/features/sync/controller';
 import { PickerError, pickFromDrive, pickerConfigured, pickerTroubleHint } from '@/features/sync/picker';
@@ -504,6 +505,9 @@ export function Dashboard() {
         </Link>
         <Link to="/help" className="hover:text-fg">
           Help
+        </Link>
+        <Link to="/help/whats-new" className="hover:text-fg max-sm:hidden" data-testid="link-whats-new">
+          What’s new · v{APP_VERSION.replace(/\.0$/, '')}
         </Link>
         <span className="ml-auto hidden sm:inline">Runs in your browser · your files stay yours</span>
         <KurolightMark />

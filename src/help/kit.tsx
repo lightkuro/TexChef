@@ -193,20 +193,34 @@ export function Figure({ src, alt, caption, className }: { src: string; alt: str
   );
 }
 
-/** Numbered labels matching the markers in a screenshot. */
-export function Callouts({ items }: { items: [ReactNode, ReactNode][] }) {
+/** The parts of a screen, one card each: a close-up picture, a name and a line of text. */
+export function TourCards({ items }: { items: { src: string; title: ReactNode; text: ReactNode }[] }) {
   return (
-    <ol className="my-4 grid gap-x-6 gap-y-3 sm:grid-cols-2">
-      {items.map(([title, text], i) => (
-        <li key={i} className="flex gap-3">
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-fg">{i + 1}</span>
-          <div className="pt-0.5 leading-snug">
-            <b>{title}</b>
-            <span className="block text-[0.9em] text-muted">{text}</span>
-          </div>
-        </li>
-      ))}
-    </ol>
+    <div className="my-6 grid gap-4 sm:grid-cols-2">
+      {items.map((it) => {
+        const [w, h] = SHOTS[it.src] ?? [800, 400];
+        return (
+          <figure key={it.src} className="overflow-hidden rounded-xl border border-line bg-panel">
+            <div className="flex min-h-36 items-center justify-center overflow-hidden border-b border-line bg-white p-3 dark:bg-subtle">
+              <img
+                src={`/help/${it.src}.webp`}
+                width={w}
+                height={h}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                className="h-auto rounded-md border border-line/60 dark:brightness-[0.92]"
+                style={{ maxWidth: `min(100%, ${Math.round(w / 2)}px)` }}
+              />
+            </div>
+            <figcaption className="p-4">
+              <b>{it.title}</b>
+              <span className="mt-0.5 block text-[0.9em] leading-snug text-muted">{it.text}</span>
+            </figcaption>
+          </figure>
+        );
+      })}
+    </div>
   );
 }
 

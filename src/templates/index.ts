@@ -13,6 +13,15 @@ export interface Template {
 }
 
 export const TEMPLATES: Template[] = [
+  // The first one is chosen by default in New document.
+  {
+    id: 'article',
+    name: 'Blank article',
+    description: 'A clean page with a title and sections, for essays, notes, papers or anything else.',
+    engine: 'pdflatex',
+    files: { 'main.tex': article },
+    tags: [],
+  },
   {
     id: 'resume-master',
     name: 'Master resume',
@@ -28,13 +37,5 @@ export const TEMPLATES: Template[] = [
     engine: 'pdflatex',
     files: { 'main.tex': coverLetter },
     tags: ['cover-letter'],
-  },
-  {
-    id: 'article',
-    name: 'Blank article',
-    description: 'General LaTeX article with math and graphics packages.',
-    engine: 'pdflatex',
-    files: { 'main.tex': article },
-    tags: [],
   },
 ];

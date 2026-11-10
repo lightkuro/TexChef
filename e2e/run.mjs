@@ -104,6 +104,15 @@ async function mapOption(testId) {
 await step('dashboard loads with welcome screen', async () => {
   await page.goto(BASE);
   await page.getByTestId('landing').waitFor();
+  // Editing on the PDF, then versions, then Visual mode.
+  const order = await page.locator('[data-testid^="landing-"][data-testid$="edit"], [data-testid="landing-versions"], [data-testid="landing-visual"]').evaluateAll((els) => els.map((e) => e.dataset.testid));
+  assert.deepEqual(order, ['landing-pdf-edit', 'landing-versions', 'landing-visual']);
+  // Blank article comes first and is chosen by default.
+  await page.getByTestId('landing-new').click();
+  assert.equal(await page.locator('[data-testid^="template-"]').first().getAttribute('data-testid'), 'template-article');
+  await page.getByRole('dialog').getByText('Blank article').first().waitFor();
+  assert.equal(await page.getByRole('dialog').getByRole('textbox').inputValue(), '');
+  await page.keyboard.press('Escape');
 });
 
 await step('home page links to Privacy and Terms; themes switch', async () => {
@@ -492,9 +501,18 @@ await step('help pages explain the features', async () => {
   await page.getByTestId('help-link').click();
   await page.getByRole('heading', { name: '1. Start a document' }).waitFor();
   // The pictures load (they come from public/help, made by scripts/screenshots.mjs).
-  const tour = page.getByAltText(/numbered markers/);
+  const tour = page.locator('figure', { hasText: 'Blocks, Files, History' }).locator('img');
   await tour.scrollIntoViewIfNeeded();
-  await page.waitForFunction(() => [...document.querySelectorAll('[data-testid=help-page] img')].slice(0, 3).every((i) => i.complete && i.naturalWidth > 0));
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-testid=help-page] img')].slice(0, 4).every((i) => i.complete && i.naturalWidth > 0));
+  // Patch notes, linked from the help sidebar; the newest version is the app's.
+  await page.getByTestId('help-version').click();
+  await page.getByTestId('changelog').waitFor();
+  assert.match(await page.getByTestId('help-version').textContent(), /Version \d+\.\d+/);
+  assert.ok((await page.getByTestId('changelog').locator('section').count()) >= 8, 'every release listed');
+  // A way back at the bottom of every help page.
+  await page.getByTestId('help-back-bottom').click();
+  await page.getByTestId('dashboard').waitFor();
+  await page.goto(`${BASE}/help`);
   await page.getByRole('link', { name: 'Getting updates from the original' }).first().click();
   await page.getByRole('heading', { name: 'Example 2: a conflict' }).waitFor();
   await page.goto(`${BASE}/help/pulling`);

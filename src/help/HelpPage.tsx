@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { KurolightMark, Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { TOPIC_ALIASES, TOPICS } from './topics';
+import { APP_VERSION } from '@/app/changelog';
 
 /** Feature guide: one page per topic with a sidebar. */
 export function HelpPage() {
@@ -57,6 +58,9 @@ export function HelpPage() {
           ))}
           <div className="mt-auto px-3 pt-6 pb-1 text-[11px] leading-relaxed text-muted">
             <p>TexChef is free and runs entirely in your browser.</p>
+            <Link to="/help/whats-new" className="mt-1 inline-block hover:text-fg" data-testid="help-version">
+              Version {APP_VERSION.replace(/\.0$/, '')} · What’s new
+            </Link>
             <div className="mt-1.5">
               <KurolightMark />
             </div>
@@ -99,6 +103,15 @@ export function HelpPage() {
                   {next.title} <ArrowRight className="size-4" />
                 </Link>
               )}
+            </div>
+            <div className="mt-10 flex justify-center">
+              <Link
+                to="/"
+                className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-panel px-5 text-sm font-medium text-fg shadow-sm hover:bg-subtle"
+                data-testid="help-back-bottom"
+              >
+                <ArrowLeft className="size-4" /> Back to the app
+              </Link>
             </div>
             <div className="mt-8 flex justify-center md:hidden">
               <KurolightMark />
