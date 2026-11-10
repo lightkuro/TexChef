@@ -52,6 +52,7 @@ import { usePrefs } from '@/app/prefs';
 import { setUnsaved } from '@/app/unsaved';
 import { ColorDialog } from '@/features/dashboard/ColorDialog';
 import { decodeSynctex, parseSynctex, pdfToSource, sourceToPdf, type SyncData, type SyncRect } from '@/compile/synctex';
+import { sourceLineKey } from '@/pdfedit/locate';
 import { usePdfEdit } from '@/features/pdfedit/usePdfEdit';
 import type { SourceChange } from '@/pdfedit/applyEdit';
 import { applyTextToOriginal } from '@/variants/ops';
@@ -147,6 +148,8 @@ export function EditorPage() {
   const showFormatBar = usePrefs((s) => s.showFormatBar);
   const pdfEditAutoUpdate = usePrefs((s) => s.pdfEditAutoUpdate);
   const [cursorRects, setCursorRects] = useState<SyncRect[]>();
+  /** The letters the cursor's line prints, to trim SyncTeX's boxes to its words. */
+  const [cursorKey, setCursorKey] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -168,9 +171,12 @@ export function EditorPage() {
       setCursorRects(undefined);
       return;
     }
-    const t = setTimeout(() => setCursorRects(sourceToPdf(sync, path, cursorLine, 3)), 120);
+    const t = setTimeout(() => {
+      setCursorRects(sourceToPdf(sync, path, cursorLine, 3));
+      setCursorKey(sourceLineKey(text, cursorLine));
+    }, 120);
     return () => clearTimeout(t);
-  }, [followCursor, sync, path, cursorLine]);
+  }, [followCursor, sync, path, cursorLine, text]);
 
   const writeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flush = useCallback(async () => {
@@ -477,6 +483,7 @@ export function EditorPage() {
         compact={phone}
         autoCompact={!wide}
         cursorRects={cursorRects}
+        cursorKey={cursorKey}
         pageOverlay={pdfEditing ? pdfEdit.renderPage : undefined}
         banner={
           pdfEditing && pdf && pdfEdit.pendingCount > 0 && !pdfEditAutoUpdate ? (

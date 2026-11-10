@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { alnum, displayText, escapeLatex, project } from './latexText';
-import { findInSources, pickUnit, groupLines, lineKey, keyIndexAt, type PdfTextItem } from './locate';
+import { findInSources, fitToSourceText, pickUnit, groupLines, lineKey, keyIndexAt, sourceLineKey, type PdfTextItem } from './locate';
 import { applyPlainEdit, applyRawEdit, unitPlainText } from './applyEdit';
 
 const resume = readFileSync(resolve(__dirname, '../templates/resume-master.tex'), 'utf8');
@@ -180,5 +180,61 @@ describe('PDF lines', () => {
     expect(key).toBe('northwindanalyticsmar2022present');
     const k = keyIndexAt(lines[0], at, 425);
     expect(key[k]).toMatch(/[0-9]/);
+  });
+});
+
+describe('the cursor line in the PDF', () => {
+  // A paragraph typed over two source lines (7 and 8), as pdfLaTeX printed it and SyncTeX described it.
+  const src = [
+    '\\documentclass{article}',
+    '\\begin{document}',
+    '\\section{Introduction}',
+    '',
+    '',
+    '',
+    'Street trees are among the cheapest climate tools a city has. A single mature tree can cool the air around it by',
+    '\\textbf{two to four degrees} on a summer afternoon, and it does so for decades with \\emph{very little upkeep}.',
+    '',
+    '\\end{document}',
+  ].join('\n');
+  const item = (str: string, x: number, w: number, base: number): PdfTextItem => ({ str, x, w, base, y: base - 8, h: 10 });
+  const items = [
+    item('1', 79.2, 8.1, 90.2),
+    item('Introduction', 103.4, 88.8, 90.2),
+    item('Street trees are among the cheapest climate tools a city has. A single mature tree can cool the', 79.2, 453.6, 114.5),
+    item('air around it by', 79.2, 75.6, 128.1),
+    item('two to four degrees', 158.4, 105.8, 128.1),
+    item('on a summer afternoon, and it does so for decades with', 267.8, 265.0, 128.1),
+    item('very little upkeep', 79.2, 80.4, 141.6),
+    item('.', 159.6, 3.0, 141.6),
+  ];
+
+  it('knows the letters a source line prints', () => {
+    expect(sourceLineKey(src, 8)).toBe('twotofourdegreesonasummerafternoonanditdoessofordecadeswithverylittleupkeep');
+    expect(sourceLineKey(src, 3)).toBe('introduction');
+    expect(sourceLineKey(src, 4)).toBe('');
+    expect(sourceLineKey(src, 99)).toBe('');
+  });
+
+  it("trims SyncTeX's boxes to the words the line prints", () => {
+    // SyncTeX's boxes for line 8: the first starts at "by" (line 7's last word); the second misses "very".
+    const rects = [
+      { page: 1, x: 143.3, y: 120.1, w: 389.5, h: 10 },
+      { page: 1, x: 103.0, y: 133.6, w: 59.7, h: 10 },
+    ];
+    const [a, b] = fitToSourceText(rects, items, sourceLineKey(src, 8));
+    expect(a.x).toBeCloseTo(158.4, 1);
+    expect(a.x + a.w).toBeCloseTo(532.8, 1);
+    expect(b.x).toBeCloseTo(79.2, 1);
+    expect(b.x + b.w).toBeCloseTo(159.6, 1);
+    expect(a.page).toBe(1);
+  });
+
+  it('keeps a section number with its heading, and leaves boxes it cannot match alone', () => {
+    const [h] = fitToSourceText([{ page: 1, x: 79.2, y: 82.2, w: 113, h: 10 }], items, 'introduction');
+    expect(h.x).toBeCloseTo(79.2, 1);
+    const box = { page: 1, x: 90, y: 106.5, w: 100, h: 10 };
+    expect(fitToSourceText([box], items, 'nothinglikethis')).toEqual([box]);
+    expect(fitToSourceText([box], items, '')).toEqual([box]);
   });
 });

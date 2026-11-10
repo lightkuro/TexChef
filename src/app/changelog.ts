@@ -22,6 +22,7 @@ export const RELEASES: Release[] = [
       ['improved', 'The editor tour in Getting started shows each part up close instead of numbers on a small picture.'],
       ['improved', 'Help pages end with a Back to the app button, so you don’t have to scroll up for it.'],
       ['improved', 'Pictures and wording show articles and essays too, not only resumes.'],
+      ['fixed', 'The cursor’s line in the PDF is highlighted word for word: it no longer takes the last word of the line before, or skips the first word of a wrapped line.'],
     ],
   },
   {

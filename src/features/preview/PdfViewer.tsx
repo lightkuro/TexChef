@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Minus, Plus, Maximize2, Download, RectangleVertical } from 'lucide-react';
 import { openPdf, type LoadedPdf } from '@/compile/pdf';
 import type { SyncRect } from '@/compile/synctex';
-import type { PdfTextItem } from '@/pdfedit/locate';
+import { fitToSourceText, type PdfTextItem } from '@/pdfedit/locate';
 import { Button, Spinner, Tip } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { usePrefs } from '@/app/prefs';
@@ -35,6 +35,8 @@ interface Props {
   highlights?: SyncRect[];
   /** Boxes that stay highlighted (the editor cursor's line); scrolled into view when they change. */
   cursorRects?: SyncRect[];
+  /** The letters the cursor's line prints (sourceLineKey): the boxes are trimmed to those words. */
+  cursorKey?: string;
   /** Extra controls for the toolbar. */
   actions?: React.ReactNode;
   /** A strip shown under the toolbar. */
@@ -107,7 +109,7 @@ function CanvasSlot({ canvas }: { canvas: HTMLCanvasElement }) {
 }
 
 /** Renders every page of a PDF to canvases, keeping the scroll position across recompiles. */
-export function PdfViewer({ pdf, className, toolbar = true, compact, autoCompact, onDownload, emptyMessage, running, pages, onSyncClick, highlights, cursorRects, actions, banner, pageOverlay }: Props) {
+export function PdfViewer({ pdf, className, toolbar = true, compact, autoCompact, onDownload, emptyMessage, running, pages, onSyncClick, highlights, cursorRects, cursorKey, actions, banner, pageOverlay }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const container = useRef<HTMLDivElement>(null);
   // A number when zoomed by hand; otherwise fit to the width or the whole page (a saved preference).
@@ -328,9 +330,7 @@ export function PdfViewer({ pdf, className, toolbar = true, compact, autoCompact
           {rendered.map((p) => (
             <div key={p.page} className="relative mx-auto mb-4" style={{ width: p.cssW, height: p.cssH }} data-page={p.page} data-pw={p.pw} data-ph={p.ph}>
               <CanvasSlot canvas={p.canvas} />
-              {cursorRects
-                ?.filter((r) => r.page === p.page)
-                .map((r, i) => {
+              {fitToSourceText(cursorRects?.filter((r) => r.page === p.page) ?? [], p.items, cursorKey ?? '').map((r, i) => {
                   const k = p.cssW / p.pw;
                   return (
                     <div

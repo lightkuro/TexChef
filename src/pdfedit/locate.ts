@@ -517,3 +517,66 @@ function macroArities(src: string): Map<string, number> {
   arityCache.set(src, out);
   return out;
 }
+
+// ---------------------------------------------------------------------------------------------
+// The editor cursor's line, in the PDF
+
+/** Letters and digits that source line `line` (1-based) prints, for matching it against PDF text. */
+export function sourceLineKey(src: string, line: number): string {
+  const rows = src.split('\n');
+  if (line < 1 || line > rows.length) return '';
+  let a = 0;
+  for (let n = 0; n < line - 1; n++) a += rows[n].length + 1;
+  return alnum(project(src, a, a + rows[line - 1].length).map((c) => c.ch).join(''));
+}
+
+/**
+ * Trim SyncTeX's boxes for a source line to the words that line prints.
+ *
+ * SyncTeX only records the spaces between words, and their line numbers are off at the edges: the
+ * first space of each printed line carries the paragraph's last line, and a space where two source
+ * lines meet can carry the next one. So a box can start a word late (missing the first word of a
+ * printed line) or a word early (taking the previous line's last word). Each box is matched against
+ * the letters of its PDF line and narrowed to the run that comes from `key` (see sourceLineKey).
+ * Boxes without a confident match are left as they are.
+ */
+export function fitToSourceText<R extends Rect>(rects: R[], items: PdfTextItem[], key: string): R[] {
+  if (!rects.length || key.length < 2 || !items.length) return rects;
+  const lines = groupLines(items);
+  return rects.map((r) => {
+    const mid = r.y + r.h / 2;
+    const line = lines.find((l) => mid >= l.y - 1 && mid <= l.y + l.h + 1 && r.x < l.x + l.w + 4 && r.x + r.w > l.x - 4);
+    if (!line) return r;
+    const { key: k, at } = lineKey(line);
+    if (!k) return r;
+    // Where SyncTeX put it, in letters of the line, with a word or two of slack each way.
+    const h0 = keyIndexAt(line, at, r.x) - 8;
+    const h1 = keyIndexAt(line, at, r.x + r.w) + 8;
+    // The longest run of the line's letters that also appears in the source line, near that.
+    let best = { a: 0, b: 0 };
+    let prev = new Array<number>(key.length + 1).fill(0);
+    for (let i = 1; i <= k.length; i++) {
+      const cur = new Array<number>(key.length + 1).fill(0);
+      for (let j = 1; j <= key.length; j++) {
+        if (k[i - 1] !== key[j - 1]) continue;
+        const len = (cur[j] = prev[j - 1] + 1);
+        const a = i - len;
+        if (i < h0 || a > h1) continue;
+        if (len > best.b - best.a) best = { a, b: i };
+      }
+      prev = cur;
+    }
+    if (best.b - best.a < Math.min(3, key.length)) return r;
+    // A number at the very start of the line that the source doesn't spell out (a section or item number).
+    const a = best.a > 0 && best.a <= 4 && /^[0-9]+$/.test(k.slice(0, best.a)) ? 0 : best.a;
+    const left = charEdge(line, at[a], 0);
+    const right = charEdge(line, at[best.b - 1], 1);
+    return { ...r, x: left, w: Math.max(right - left, 4) };
+  });
+}
+
+/** Left (side 0) or right (side 1) edge of a character, assuming even spacing within its item. */
+function charEdge(line: PdfLine, p: { item: number; char: number }, side: 0 | 1): number {
+  const it = line.items[p.item];
+  return it.x + (it.w * (p.char + side)) / Math.max(1, it.str.length);
+}
