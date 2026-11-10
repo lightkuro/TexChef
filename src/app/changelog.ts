@@ -24,6 +24,7 @@ export const RELEASES: Release[] = [
       ['improved', 'The cover page fills the whole screen, with its own bar (Start writing, Google Drive, themes); on phones Start writing stays in that bar instead of floating over the demo.'],
       ['improved', 'A tidier footer: the version, Terms (with a link to the Privacy Policy) and “made by kurolight.dev”.'],
       ['fixed', 'Start writing and See how it works now respond to taps on phones.'],
+      ['fixed', 'On phones, one swipe moves one scene (a flick used to skip one).'],
     ],
   },
   {

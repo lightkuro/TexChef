@@ -566,6 +566,33 @@ await step('/ideas: one scene per screen, each playing at its own pace; snapping
   await page.getByTestId('dashboard').waitFor();
 });
 
+await step('/ideas on a touch phone: one swipe moves one scene', async () => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const p = await ctx.newPage();
+  await p.goto(`${BASE}/ideas`);
+  await p.getByTestId('ideas-page').waitFor();
+  const cdp = await ctx.newCDPSession(p);
+  /** A quick flick from one height to another, like a thumb. */
+  const swipe = async (from, to) => {
+    const at = (y) => [{ x: 200, y }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(from) });
+    for (let k = 1; k <= 6; k++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(from + ((to - from) * k) / 6) });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await p.waitForTimeout(1600);
+  };
+  const scene = () => p.getByTestId('ideas-story').getAttribute('data-step');
+  await p.getByTestId('ideas-tour').tap();
+  await p.waitForTimeout(1800);
+  assert.equal(await scene(), '0');
+  await swipe(650, 250);
+  assert.equal(await scene(), '1');
+  await swipe(650, 250);
+  assert.equal(await scene(), '2');
+  await swipe(250, 650);
+  assert.equal(await scene(), '1');
+  await ctx.close();
+});
+
 await step('help pages explain the features', async () => {
   // The help opens on the Intro: the home page's scroll story.
   await page.getByTestId('help-link').click();

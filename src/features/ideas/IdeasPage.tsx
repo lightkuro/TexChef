@@ -96,7 +96,74 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
     const topY = s.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
     return topY + (s.offsetHeight - box.clientHeight) * ((i + 0.5) / N);
   };
-  const scrollTo = (y: number) => (lenis ? lenis.scrollTo(y, { duration: 1.2 }) : scroller.current?.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' }));
+  const scrollTo = (y: number) => (lenis ? lenis.scrollTo(y, { duration: 1.2, force: true }) : scroller.current?.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' }));
+
+  // Touch screens: inside the story, one swipe moves exactly one scene. (The browser's own momentum would carry a
+  // flick across two or three, since touch scrolling isn't smoothed.) Taps and sideways swipes are left alone.
+  useEffect(() => {
+    const box = scroller.current;
+    if (!box) return;
+    let startY = 0;
+    let startX = 0;
+    let inStory = false;
+    let target = -1;
+    let until = 0;
+    const storyEnd = () => {
+      const s = story.current!;
+      const topY = s.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+      return topY + s.offsetHeight - box.clientHeight;
+    };
+    const current = () => {
+      if (Date.now() < until && target >= 0) return target;
+      const y = box.scrollTop;
+      let best = 0;
+      STORY.forEach((_, i) => Math.abs(sceneY(i) - y) < Math.abs(sceneY(best) - y) && (best = i));
+      return best;
+    };
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1 || !story.current) return;
+      startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+      const y = box.scrollTop;
+      inStory = y >= sceneY(0) - vh * 0.3 && y <= sceneY(N - 1) + vh * 0.3;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!inStory) return;
+      const dy = startY - e.touches[0].clientY;
+      const dx = startX - e.touches[0].clientX;
+      if (Math.abs(dy) > Math.abs(dx)) e.preventDefault();
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (!inStory) return;
+      inStory = false;
+      const t = e.changedTouches[0];
+      const dy = startY - t.clientY;
+      if (Math.abs(dy) < 30 || Math.abs(dy) < Math.abs(startX - t.clientX)) return;
+      const i = current();
+      const next = i + (dy > 0 ? 1 : -1);
+      until = Date.now() + 900;
+      if (next < 0) {
+        target = -1;
+        scrollTo(0);
+      } else if (next >= N) {
+        target = -1;
+        scrollTo(storyEnd() + vh * 0.6);
+      } else {
+        target = next;
+        scrollTo(sceneY(next));
+      }
+    };
+    box.addEventListener('touchstart', onStart, { passive: true });
+    box.addEventListener('touchmove', onMove, { passive: false });
+    box.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      box.removeEventListener('touchstart', onStart);
+      box.removeEventListener('touchmove', onMove);
+      box.removeEventListener('touchend', onEnd);
+    };
+    // sceneY and scrollTo read the DOM and Lenis when called.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vh, lenis]);
 
   // Gentle snapping: once scrolling stops inside the story, ease onto the nearest scene.
   useEffect(() => {
