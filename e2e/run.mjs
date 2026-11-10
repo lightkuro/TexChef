@@ -508,7 +508,7 @@ const sceneY = (i) =>
   }, i);
 const storyTop = () => page.evaluate(() => document.querySelector('[data-testid=ideas-story]').closest('[data-mode]').scrollTop);
 
-await step('/ideas: one scene per screen, each playing at its own pace; snapping, and /ideas/1 without it', async () => {
+await step('/ideas: one scene per screen, each playing at its own pace; one gesture per scene, and /ideas/1 without it', async () => {
   await page.goto(`${BASE}/ideas`);
   await page.getByTestId('ideas-page').waitFor();
   const story = page.getByTestId('ideas-story');
@@ -538,14 +538,16 @@ await step('/ideas: one scene per screen, each playing at its own pace; snapping
   await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '2', null, { timeout: 5000 });
   // During the story Start writing floats at the bottom centre (a glass button), and there is no timer bar.
   await page.getByTestId('ideas-float-start').waitFor();
-  // Snapping: stop scrolling between two scenes and the page eases onto the nearer one.
+  // One wheel gesture moves exactly one scene, even a long trackpad-like run of events with inertia.
+  const before = Number(await story.getAttribute('data-step'));
   await page.mouse.move(700, 500);
-  const from = await storyTop();
-  const mid2 = await sceneY(2);
-  await page.mouse.wheel(0, mid2 - from + (await sceneY(3) - mid2) * 0.3);
-  await page.waitForTimeout(2500);
-  assert.ok(Math.abs((await storyTop()) - mid2) < 12, `snapped to scene 3 (at ${await storyTop()}, middle ${mid2})`);
-  assert.equal(await story.getAttribute('data-step'), '2');
+  for (let k = 0; k < 30; k++) {
+    await page.mouse.wheel(0, 40);
+    await page.waitForTimeout(30);
+  }
+  await page.waitForTimeout(1600);
+  assert.equal(Number(await story.getAttribute('data-step')), before + 1, 'one gesture, one scene');
+  assert.ok(Math.abs((await storyTop()) - (await sceneY(before + 1))) < 12, 'landed on the middle of the scene');
   await page.screenshot({ path: `${OUT}14-ideas.png` });
   // /ideas/1: the same story without snapping.
   await page.goto(`${BASE}/ideas/1`);

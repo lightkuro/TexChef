@@ -706,23 +706,65 @@ function CompareScene({ t, compact }: { t: number; compact: boolean }) {
 // ---------------------------------------------------------------- 5: where documents live
 
 function DeviceScene({ t, compact, body }: { t: number; compact: boolean; body: { w: number; h: number } }) {
-  const center = { x: body.w / 2, y: compact ? body.h * 0.32 : body.h * 0.44 };
-  const cloud = compact ? { x: body.w * 0.74, y: body.h * 0.76 } : { x: body.w * 0.84, y: body.h * 0.44 };
-  const server = compact ? { x: body.w * 0.26, y: body.h * 0.76 } : { x: body.w * 0.16, y: body.h * 0.44 };
+  const center = compact ? { x: body.w / 2, y: body.h * 0.25 } : { x: body.w / 2, y: body.h * 0.36 };
+  const server = compact ? { x: body.w * 0.24, y: body.h * 0.62 } : { x: body.w * 0.15, y: body.h * 0.36 };
+  const cloud = compact ? { x: body.w * 0.76, y: body.h * 0.62 } : { x: body.w * 0.85, y: body.h * 0.36 };
   const docs = [0, 1, 2, 3, 4].map((j) => {
     const a = -Math.PI / 2 + (j - 2) * 0.62;
-    return { x: center.x + Math.cos(a) * (compact ? 170 : 230), y: center.y + Math.sin(a) * (compact ? 150 : 190) + (compact ? 40 : 60) };
+    return { x: center.x + Math.cos(a) * (compact ? 150 : 210), y: center.y + Math.sin(a) * (compact ? 120 : 150) + (compact ? 30 : 50) };
   });
-  const stored = ease(seg(t, 0.3, 0.4));
-  const cloudOn = ease(seg(t, 0.42, 0.52));
-  const synced = t >= 0.62;
-  const serverOn = ease(seg(t, 0.66, 0.76));
+  const stored = ease(seg(t, 0.28, 0.36));
+  const serverOn = ease(seg(t, 0.24, 0.32));
+  const cross = ease(seg(t, 0.32, 0.38));
+  const cloudOn = ease(seg(t, 0.38, 0.46));
+  // A pointer flips the switch on the line to Google Drive.
+  const sw = { x: (center.x + cloud.x) / 2, y: (center.y + cloud.y) / 2 };
+  const toggled = ease(seg(t, 0.56, 0.62));
+  const synced = t >= 0.68;
+  const pIn = ease(seg(t, 0.44, 0.54));
+  const pOut = ease(seg(t, 0.62, 0.72));
+  const pointer = { x: lerp(sw.x + 90, sw.x + 4, pIn) + pOut * 70, y: lerp(sw.y + 90, sw.y + 2, pIn) + pOut * 60 };
+  const words = [
+    { text: 'Offline.', on: ease(seg(t, 0.36, 0.42)) },
+    { text: 'Online.', on: ease(seg(t, 0.64, 0.7)) },
+    { text: 'Your choice.', on: ease(seg(t, 0.8, 0.86)) },
+  ];
+  const mid = { x: (center.x + server.x) / 2, y: (center.y + server.y) / 2 };
+
   return (
     <div className="relative h-full overflow-hidden bg-bg">
-      {/* the line to Drive */}
-      <svg className="absolute inset-0" width={body.w} height={body.h} style={{ opacity: cloudOn }}>
-        <line x1={center.x} y1={center.y} x2={cloud.x} y2={cloud.y} stroke="var(--accent)" strokeWidth={2} strokeDasharray="6 7" className="animate-[demo-dash_1s_linear_infinite]" />
+      <svg className="absolute inset-0" width={body.w} height={body.h}>
+        {/* to the server that doesn't exist */}
+        <line x1={center.x} y1={center.y} x2={server.x} y2={server.y} stroke="var(--color-line)" strokeWidth={2} strokeDasharray="5 6" opacity={serverOn} />
+        {/* to Google Drive: grey and still until switched on */}
+        <line
+          x1={center.x}
+          y1={center.y}
+          x2={cloud.x}
+          y2={cloud.y}
+          stroke={toggled > 0.5 ? 'var(--accent)' : 'var(--color-line)'}
+          strokeWidth={2}
+          strokeDasharray="6 7"
+          opacity={cloudOn}
+          className={toggled > 0.5 ? 'animate-[demo-dash_1s_linear_infinite]' : undefined}
+        />
       </svg>
+      {cross > 0 && (
+        <span
+          className="absolute flex size-7 items-center justify-center rounded-full border border-line bg-panel text-danger shadow-sm"
+          style={{ left: mid.x - 14, top: mid.y - 14, opacity: cross, transform: `scale(${lerp(0.5, 1, cross)})` }}
+        >
+          <X className="size-4" strokeWidth={2.5} />
+        </span>
+      )}
+      {cloudOn > 0 && (
+        <span
+          className={cn('absolute flex h-6 w-11 items-center rounded-full border p-0.5 shadow-sm transition-colors duration-300', toggled > 0.5 ? 'border-accent bg-accent' : 'border-line bg-subtle')}
+          style={{ left: sw.x - 22, top: sw.y - 12, opacity: cloudOn }}
+        >
+          <span className="size-[18px] rounded-full bg-white shadow" style={{ transform: `translateX(${toggled * 20}px)` }} />
+        </span>
+      )}
       {/* the browser */}
       <Tile x={center.x} y={center.y} w={compact ? 200 : 220} on={1} strong>
         <HardDrive className="size-7 text-accent" />
@@ -732,7 +774,7 @@ function DeviceScene({ t, compact, body }: { t: number; compact: boolean; body: 
         </span>
       </Tile>
       {docs.map((d, j) => {
-        const k = ease(seg(t, 0.04 + j * 0.04, 0.28 + j * 0.04));
+        const k = ease(seg(t, 0.03 + j * 0.035, 0.24 + j * 0.035));
         if (k >= 1) return null;
         return (
           <div
@@ -744,10 +786,15 @@ function DeviceScene({ t, compact, body }: { t: number; compact: boolean; body: 
           </div>
         );
       })}
-      <Tile x={cloud.x} y={cloud.y} w={compact ? 170 : 170} on={cloudOn}>
-        <Cloud className="size-6 text-info" />
-        <b className="mt-1.5 text-[14px]">Google Drive</b>
-        <span className="flex items-center gap-1 text-[11px] text-muted">
+      <Tile x={server.x} y={server.y} w={compact ? 150 : 170} on={serverOn}>
+        <ServerOff className="size-6 text-muted" />
+        <b className="mt-1.5 text-[14px]">No TexChef server</b>
+        <span className="text-[11.5px] text-muted">nothing to upload to</span>
+      </Tile>
+      <Tile x={cloud.x} y={cloud.y} w={compact ? 150 : 170} on={cloudOn}>
+        <Cloud className={cn('size-6 transition-colors', toggled > 0.5 ? 'text-info' : 'text-muted')} />
+        <b className="mt-1.5 text-[14px]">Your Google Drive</b>
+        <span className="flex items-center gap-1 text-[11.5px] text-muted">
           {synced ? (
             <>
               <Check className="size-3 text-ok" /> backed up
@@ -757,11 +804,15 @@ function DeviceScene({ t, compact, body }: { t: number; compact: boolean; body: 
           )}
         </span>
       </Tile>
-      <Tile x={server.x} y={server.y} w={compact ? 170 : 170} on={serverOn}>
-        <ServerOff className="size-6 text-muted" />
-        <b className="mt-1.5 text-[14px]">No TexChef server</b>
-        <span className="text-[11px] text-muted">nothing to upload to</span>
-      </Tile>
+      {t > 0.44 && t < 0.72 && <Pointer x={pointer.x} y={pointer.y} pressed={t > 0.54 && t < 0.58} />}
+      {/* Offline. Online. Your choice. */}
+      <div className="absolute inset-x-0 flex justify-center gap-3 text-[20px] font-semibold tracking-tight" style={{ top: compact ? body.h * 0.84 : body.h * 0.72 }}>
+        {words.map((w, i) => (
+          <span key={w.text} className={i === 2 ? 'text-accent' : 'text-fg'} style={{ opacity: w.on, transform: `translateY(${(1 - w.on) * 8}px)` }}>
+            {w.text}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

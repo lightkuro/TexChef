@@ -98,11 +98,13 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
   };
   const scrollTo = (y: number) => (lenis ? lenis.scrollTo(y, { duration: 1.2, force: true }) : scroller.current?.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' }));
 
-  // Touch screens: inside the story, one swipe moves exactly one scene. (The browser's own momentum would carry a
-  // flick across two or three, since touch scrolling isn't smoothed.) Taps and sideways swipes are left alone.
+  // Inside the story, one gesture moves exactly one scene: a swipe on touch screens (the browser's own momentum would
+  // carry a flick across two or three), and, where the page snaps, one wheel or trackpad gesture (however long its
+  // inertia runs). Taps and sideways swipes are left alone.
   useEffect(() => {
     const box = scroller.current;
-    if (!box) return;
+    const inner = content.current;
+    if (!box || !inner) return;
     let startY = 0;
     let startX = 0;
     let inStory = false;
@@ -133,14 +135,10 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
       const dx = startX - e.touches[0].clientX;
       if (Math.abs(dy) > Math.abs(dx)) e.preventDefault();
     };
-    const onEnd = (e: TouchEvent) => {
-      if (!inStory) return;
-      inStory = false;
-      const t = e.changedTouches[0];
-      const dy = startY - t.clientY;
-      if (Math.abs(dy) < 30 || Math.abs(dy) < Math.abs(startX - t.clientX)) return;
+    /** Move one scene forward (1) or back (-1), or out of the story at either end. */
+    const go = (dir: 1 | -1) => {
       const i = current();
-      const next = i + (dy > 0 ? 1 : -1);
+      const next = i + dir;
       until = Date.now() + 900;
       if (next < 0) {
         target = -1;
@@ -153,17 +151,46 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
         scrollTo(sceneY(next));
       }
     };
+    const onEnd = (e: TouchEvent) => {
+      if (!inStory) return;
+      inStory = false;
+      const t = e.changedTouches[0];
+      const dy = startY - t.clientY;
+      if (Math.abs(dy) < 60 || Math.abs(dy) < Math.abs(startX - t.clientX)) return;
+      go(dy > 0 ? 1 : -1);
+    };
+    // Wheel: one move per gesture. A gesture is a run of wheel events less than a fifth of a second apart, so a
+    // trackpad's inertia or a spun mouse wheel still counts as one.
+    let lastWheel = 0;
+    let movedThisGesture = false;
+    const onWheel = (e: WheelEvent) => {
+      if (!snap || e.ctrlKey || Math.abs(e.deltaY) < Math.abs(e.deltaX) || !story.current) return;
+      const now = Date.now();
+      if (now - lastWheel > 200) movedThisGesture = false;
+      lastWheel = now;
+      const y = box.scrollTop;
+      const inside = y >= sceneY(0) - vh * 0.3 && y <= sceneY(N - 1) + vh * 0.3;
+      if (!inside && !movedThisGesture) return;
+      // Keep Lenis (listening on the scroll box) from scrolling as well.
+      e.preventDefault();
+      e.stopPropagation();
+      if (movedThisGesture || Math.abs(e.deltaY) < 2) return;
+      movedThisGesture = true;
+      go(e.deltaY > 0 ? 1 : -1);
+    };
     box.addEventListener('touchstart', onStart, { passive: true });
     box.addEventListener('touchmove', onMove, { passive: false });
     box.addEventListener('touchend', onEnd, { passive: true });
+    inner.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       box.removeEventListener('touchstart', onStart);
       box.removeEventListener('touchmove', onMove);
       box.removeEventListener('touchend', onEnd);
+      inner.removeEventListener('wheel', onWheel);
     };
     // sceneY and scrollTo read the DOM and Lenis when called.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vh, lenis]);
+  }, [vh, lenis, snap]);
 
   // Gentle snapping: once scrolling stops inside the story, ease onto the nearest scene.
   useEffect(() => {
