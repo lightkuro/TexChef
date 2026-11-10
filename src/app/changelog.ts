@@ -17,8 +17,9 @@ export const RELEASES: Release[] = [
     title: 'A cover page that shows instead of tells',
     notes: [
       ['new', 'New visitors get a short animated tour: as you scroll, a TexChef window acts out writing, editing on the PDF, Visual mode, versions on the map, comparing side by side, and where your documents live.'],
-      ['improved', 'Each scene plays at its own pace, however fast you scroll, and the page eases onto the nearest scene when you stop. Replay any scene, or jump to it from the step bar.'],
-      ['improved', 'Start writing stays at the bottom of the screen during the tour; See how it works scrolls you into it.'],
+      ['improved', 'Each scene plays at its own pace, however fast you scroll, then moves on to the next by itself two seconds later; scrolling back starts a scene over. The page eases onto the nearest scene when you stop scrolling.'],
+      ['improved', 'On large screens the scene is centred, with its title above and its description below, and the scenes sit on a vertical roller at the side with Start writing under it.'],
+      ['improved', 'Start writing stays within reach during the tour; See how it works scrolls you into it.'],
       ['new', 'The tour is also the Intro page of the help.'],
       ['improved', 'The cover page fills the whole screen, with its own bar (Start writing, Google Drive, themes); on phones Start writing stays in that bar instead of floating over the demo.'],
       ['improved', 'A tidier footer: the version, Terms (with a link to the Privacy Policy) and “made by kurolight.dev”.'],

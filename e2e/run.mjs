@@ -529,16 +529,15 @@ await step('/ideas: one scene per screen, each playing at its own pace; snapping
     'Two documents, side by side.',
     'Yours, on your device.',
   ]);
-  // Going back shows a scene finished; going forward plays it on its own clock, and Replay shows once it's done.
-  await page.getByTestId('ideas-step-0').click();
-  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '0');
-  await page.getByTestId('ideas-replay').waitFor();
+  // A scene plays from the start on its own clock (also when going back); Replay shows once it's done, and two
+  // seconds later the story moves on to the next scene by itself.
   await page.getByTestId('ideas-step-1').click();
   await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '1');
-  assert.equal(await page.getByTestId('ideas-replay').count(), 0, 'still playing');
+  assert.equal(await page.getByTestId('ideas-replay').count(), 0, 'scene restarts when going back to it');
   await page.getByTestId('ideas-replay').waitFor({ timeout: 10_000 });
-  // The floating Start writing button is there during the story.
-  await page.getByTestId('ideas-float-start').waitFor();
+  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '2', null, { timeout: 5000 });
+  // On large screens Start writing sits under the scene list during the story.
+  await page.getByTestId('ideas-side-start').waitFor();
   // Snapping: stop scrolling between two scenes and the page eases onto the nearer one.
   await page.mouse.move(700, 500);
   const from = await storyTop();
@@ -551,11 +550,11 @@ await step('/ideas: one scene per screen, each playing at its own pace; snapping
   // /ideas/1: the same story without snapping.
   await page.goto(`${BASE}/ideas/1`);
   await page.getByTestId('ideas-page').waitFor();
-  await page.getByTestId('ideas-step-2').click();
-  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '2');
+  await page.getByTestId('ideas-step-3').click();
+  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '3');
   await page.waitForTimeout(1500);
   const at = await storyTop();
-  const gap = ((await sceneY(3)) - (await sceneY(2))) * 0.3;
+  const gap = ((await sceneY(4)) - (await sceneY(3))) * 0.3;
   await page.mouse.move(700, 500);
   await page.mouse.wheel(0, gap);
   await page.waitForTimeout(2500);

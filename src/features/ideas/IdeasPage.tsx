@@ -145,7 +145,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
       <div ref={content}>
         {mode === 'page' && <Nav onStart={start} extra={navExtra} />}
         <Hero ctaRef={heroCta} onStart={start} uploadActions={uploadActions} onTour={() => scrollTo(sceneY(0))} reduce={reduce} compactTop={mode !== 'page'} scroller={scroller} />
-        <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} />
+        <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} onStart={start} />
         <Bento />
         <Cta ctaRef={endCta} onStart={start} />
         {mode === 'page' && (
@@ -168,8 +168,8 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.25 }}
-            // Phones already have Start writing in the top bar, and no room to spare below the window.
-            className={cn('fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2', mode === 'page' && 'max-sm:hidden')}
+            // Phones already have Start writing in the top bar; large screens have it under the scene list.
+            className={cn('fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2 lg:hidden', mode === 'page' && 'max-sm:hidden')}
           >
             <button
               onClick={start}
@@ -323,6 +323,7 @@ function Story({
   reduce,
   floatRoom,
   onStep,
+  onStart,
 }: {
   /** Where the floating Start writing button needs room below the window: only tablets, or every stacked layout. */
   floatRoom: 'tablet' | 'stacked';
@@ -332,6 +333,7 @@ function Story({
   nav: number;
   reduce: boolean;
   onStep: (i: number) => void;
+  onStart: () => void;
 }) {
   const { scrollYProgress } = useScroll({ container: scroller, target: storyRef, offset: ['start start', 'end end'] });
   const { scrollYProgress: entry } = useScroll({ container: scroller, target: storyRef, offset: ['start end', 'start start'] });
@@ -340,49 +342,72 @@ function Story({
   const textIn = useTransform(entry, [0.55, 1], [0, 1]);
   const [step, setStep] = useState(0);
   const [arrived, setArrived] = useState(false);
-  useMotionValueEvent(scrollYProgress, 'change', (v) => setStep(Math.min(N - 1, Math.max(0, Math.floor(v * N)))));
+  const [done, setDone] = useState(false);
+  useMotionValueEvent(scrollYProgress, 'change', (v) => {
+    setStep(Math.min(N - 1, Math.max(0, Math.floor(v * N))));
+    setDone(v >= 0.999);
+  });
   useMotionValueEvent(entry, 'change', (v) => setArrived(v > 0.9));
 
-  // Each scene plays on its own clock once it's on screen; going back shows a scene finished.
+  // Each scene plays from the start on its own clock whenever it comes on screen (in either direction).
   const [t, setT] = useState(0);
   const [replays, setReplays] = useState(0);
-  const last = useRef(0);
   useEffect(() => {
-    const back = step < last.current;
-    last.current = step;
-    if (reduce || back) {
+    if (reduce) {
       setT(1);
       return;
     }
-    if (!arrived && step === 0) {
-      setT(0);
-      return;
-    }
     setT(0);
+    if (!arrived) return;
     const run = animate(0, 1, { duration: STORY[step].secs, ease: 'linear', onUpdate: setT });
     return () => run.stop();
   }, [step, arrived, replays, reduce]);
 
+  // Two seconds after a scene finishes, move on to the next one (scrolling there, so scrolling back still works).
+  useEffect(() => {
+    if (reduce || !arrived || done || t < 1 || step >= N - 1) return;
+    const next = setTimeout(() => onStep(step + 1), 2000);
+    return () => clearTimeout(next);
+    // onStep is a fresh function each render; the scene and its progress are what matter here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t, step, arrived, done, reduce]);
+
   // The window is drawn at a fixed size and scaled to fit the space it has.
+  const pinned = vh - nav;
+  // Large screens: the window gets at most this much height, and its box hugs it so the title and text sit close.
+  const stageMax = Math.max(300, Math.min(640, pinned - 230));
   const stage = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState({ scale: 1, compact: false, left: 0, top: 0 });
+  const [fit, setFit] = useState({ scale: 1, compact: false, left: 0, stacked: false });
   useLayoutEffect(() => {
     const el = stage.current;
     if (!el) return;
     const measure = () => {
       const compact = el.clientWidth < 600;
       const s = compact ? DEMO_SIZE.compact : DEMO_SIZE.wide;
-      const sc = Math.min(1.2, el.clientWidth / s.w, el.clientHeight / s.h);
       const stacked = window.innerWidth < 1024;
-      setFit({ compact, scale: sc, left: (el.clientWidth - s.w * sc) / 2, top: stacked ? 4 : (el.clientHeight - s.h * sc) / 2 });
+      const sc = Math.min(1.2, el.clientWidth / s.w, (stacked ? el.clientHeight : stageMax) / s.h);
+      setFit({ compact, scale: sc, left: (el.clientWidth - s.w * sc) / 2, stacked });
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [stageMax]);
   const size = fit.compact ? DEMO_SIZE.compact : DEMO_SIZE.wide;
-  const pinned = vh - nav;
+  const scene = (key: string, node: ReactNode, className?: string) => (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={`${key}-${step}`}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className={className}
+      >
+        {node}
+      </motion.div>
+    </AnimatePresence>
+  );
 
   return (
     <section
@@ -395,67 +420,104 @@ function Story({
     >
       <div
         className={cn(
-          'sticky mx-auto flex max-w-[84rem] flex-col gap-3 overflow-hidden px-4 pt-3 pb-4 sm:px-6 lg:flex-row lg:items-center lg:gap-10 lg:py-0',
+          'sticky mx-auto flex max-w-[90rem] flex-col gap-3 overflow-hidden px-4 pt-3 pb-4 sm:px-6',
+          'lg:grid lg:grid-cols-[15rem_minmax(0,1fr)_15rem] lg:items-center lg:gap-8 lg:py-0',
           floatRoom === 'tablet' ? 'sm:max-lg:pb-20' : 'max-lg:pb-20',
         )}
-        style={{ top: nav, height: pinned, ['--stage-h' as string]: `${Math.min(720, pinned - 150)}px` }}
+        style={{ top: nav, height: pinned }}
       >
-        {/* What is happening */}
-        <motion.div style={{ opacity: textIn }} className="mx-auto w-full max-w-xl shrink-0 lg:mx-0 lg:w-[30%] lg:max-w-none">
-          <div className="mb-5 hidden items-start gap-3 lg:flex">
-            <ol className="flex flex-1 gap-1.5" aria-label="Scenes">
-              {STORY.map((s, i) => (
-                <li key={s.short} className="flex-1">
-                  <button onClick={() => onStep(i)} className="group pointer-events-auto w-full text-left" aria-current={i === step ? 'step' : undefined} data-testid={`ideas-step-${i}`}>
-                    <span className="block h-1 overflow-hidden rounded-full bg-line">
-                      <span className="block h-full rounded-full bg-accent" style={{ width: `${(i < step ? 1 : i === step ? t : 0) * 100}%` }} />
-                    </span>
-                    <span className={cn('mt-1.5 block truncate text-[11px] transition-colors', i === step ? 'font-medium text-fg' : 'text-muted group-hover:text-fg')}>{s.short}</span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <div className="relative min-h-[118px] sm:min-h-[150px] lg:min-h-[210px]">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={step}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                data-testid="ideas-step-text"
-              >
-                <h2 className="text-[1.45rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
-                  <span className="mr-2 align-middle font-mono text-sm font-normal text-muted lg:hidden">
-                    {step + 1}/{N}
-                  </span>
-                  {STORY[step].title}
-                </h2>
-                <p className="mt-2 text-[15px] text-pretty text-muted sm:mt-4 sm:text-lg">{STORY[step].text}</p>
-              </motion.div>
-            </AnimatePresence>
+        {/* Large screens: the scenes on a vertical roller, and Start writing under it */}
+        <motion.div style={{ opacity: textIn }} className="hidden flex-col items-start gap-8 lg:flex">
+          <Roller step={step} t={t} onStep={onStep} />
+          <div className="pointer-events-auto flex flex-col items-start gap-3 pl-1">
+            <button
+              onClick={onStart}
+              className="group flex h-11 items-center gap-2 rounded-xl bg-accent px-5 font-medium text-accent-fg shadow-lg shadow-accent/20 hover:bg-accent-hover"
+              data-testid="ideas-side-start"
+            >
+              Start writing <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </button>
             {t >= 1 && !reduce && (
-              <button
-                onClick={() => setReplays((n) => n + 1)}
-                className="pointer-events-auto mt-3 hidden items-center gap-1.5 text-xs text-muted hover:text-fg lg:inline-flex"
-                data-testid="ideas-replay"
-              >
+              <button onClick={() => setReplays((n) => n + 1)} className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg" data-testid="ideas-replay">
                 <RotateCcw className="size-3.5" /> Replay
               </button>
             )}
           </div>
         </motion.div>
-        {/* The window */}
-        <div ref={stage} className="relative min-h-0 w-full flex-1 lg:h-[var(--stage-h)] lg:w-auto" style={{ perspective: 1400 }}>
-          <div className="absolute" style={{ left: fit.left, top: fit.top, width: size.w, height: size.h, transform: `scale(${fit.scale})`, transformOrigin: '0 0' }}>
-            <motion.div style={{ rotateX: tilt, scale, transformOrigin: '50% 100%' }} className="h-full w-full">
-              <DemoWindow step={step} t={t} compact={fit.compact} />
-            </motion.div>
+        {/* The scene: title, window, description */}
+        <div className="flex min-h-0 w-full flex-1 flex-col gap-3 lg:h-full lg:justify-center lg:gap-5">
+          <motion.div style={{ opacity: textIn }} className="mx-auto w-full max-w-xl shrink-0 lg:max-w-none">
+            <div data-testid="ideas-step-text">
+              {scene(
+                'title',
+                <h2 className="text-[1.45rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl lg:text-center lg:text-[2.1rem]">
+                  <span className="mr-2 align-middle font-mono text-sm font-normal text-muted lg:hidden">
+                    {step + 1}/{N}
+                  </span>
+                  {STORY[step].title}
+                </h2>,
+              )}
+              {/* Under the title on small screens; under the window on large ones */}
+              {scene('text', <p className="mt-2 text-[15px] text-pretty text-muted sm:mt-3 sm:text-lg">{STORY[step].text}</p>, 'lg:hidden')}
+            </div>
+          </motion.div>
+          <div ref={stage} className="relative min-h-0 w-full flex-1 lg:flex-none" style={{ perspective: 1400, height: fit.stacked ? undefined : size.h * fit.scale }}>
+            <div className="absolute" style={{ left: fit.left, top: fit.stacked ? 4 : 0, width: size.w, height: size.h, transform: `scale(${fit.scale})`, transformOrigin: '0 0' }}>
+              <motion.div style={{ rotateX: tilt, scale, transformOrigin: '50% 100%' }} className="h-full w-full">
+                <DemoWindow step={step} t={t} compact={fit.compact} />
+              </motion.div>
+            </div>
           </div>
+          <motion.div style={{ opacity: textIn }} className="hidden min-h-[3.5rem] shrink-0 lg:block">
+            {scene('text-lg', <p className="mx-auto max-w-2xl text-center text-lg text-pretty text-muted">{STORY[step].text}</p>)}
+          </motion.div>
         </div>
+        <div className="hidden lg:block" aria-hidden="true" />
       </div>
     </section>
+  );
+}
+
+/** The scenes on a vertical roller: the current one large in the middle, the others turning away above and below. */
+function Roller({ step, t, onStep }: { step: number; t: number; onStep: (i: number) => void }) {
+  const ITEM = 56;
+  return (
+    <nav aria-label="Scenes" className="relative h-[19rem] w-full [mask-image:linear-gradient(to_bottom,transparent,black_22%,black_78%,transparent)]" style={{ perspective: 600 }}>
+      <ol className="absolute inset-x-0 top-1/2">
+        {STORY.map((s, i) => {
+          const d = i - step;
+          const far = Math.min(Math.abs(d), 3);
+          return (
+            <li
+              key={s.short}
+              className="absolute inset-x-0 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"
+              style={{
+                transform: `translateY(${d * ITEM - ITEM / 2}px) rotateX(${-d * 18}deg) scale(${1 - far * 0.12})`,
+                transformOrigin: 'left center',
+                opacity: 1 - far * 0.3,
+              }}
+            >
+              <button
+                onClick={() => onStep(i)}
+                className={cn('pointer-events-auto flex h-14 w-full flex-col justify-center text-left', d === 0 ? 'text-fg' : 'text-muted hover:text-fg')}
+                aria-current={d === 0 ? 'step' : undefined}
+                data-testid={`ideas-step-${i}`}
+              >
+                <span className="flex items-baseline gap-2.5">
+                  <span className="font-mono text-sm text-muted">{String(i + 1).padStart(2, '0')}</span>
+                  <span className={cn('tracking-tight', d === 0 ? 'text-[1.7rem] font-semibold' : 'text-xl font-medium')}>{s.short}</span>
+                </span>
+                {d === 0 && (
+                  <span className="mt-1 ml-8 block h-[3px] w-24 overflow-hidden rounded-full bg-line">
+                    <span className="block h-full rounded-full bg-accent" style={{ width: `${t * 100}%` }} />
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
