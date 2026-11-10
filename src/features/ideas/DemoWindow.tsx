@@ -398,7 +398,6 @@ function PdfPane({ typed, t1, compact, changed, flash }: { typed: number; t1: nu
         </div>
         <figure className="mt-5 flex flex-col items-center" style={appear(done(17))}>
           <TreeFigure />
-          <figcaption className="mt-1.5 text-[9.5px]">Figure 1: A street tree, doing its job.</figcaption>
         </figure>
       </div>
     </div>

@@ -431,14 +431,7 @@ function Story({
       >
         {/* Large screens: the scenes on a vertical roller, and Start writing under it */}
         <motion.div style={{ opacity: textIn }} className="hidden flex-col items-start gap-8 lg:flex">
-          <Roller step={step} onStep={onStep} />
-          <div className="pointer-events-auto flex min-h-5 flex-col items-start gap-3 pl-9">
-            {t >= 1 && !reduce && (
-              <button onClick={() => setReplays((n) => n + 1)} className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg" data-testid="ideas-replay">
-                <RotateCcw className="size-3.5" /> Replay
-              </button>
-            )}
-          </div>
+          <Roller step={step} onStep={onStep} onReplay={t >= 1 && !reduce ? () => setReplays((n) => n + 1) : undefined} />
         </motion.div>
         {/* The scene: title, window, description */}
         <div className="flex min-h-0 w-full flex-1 flex-col gap-3 lg:h-full lg:justify-center lg:gap-5">
@@ -475,7 +468,8 @@ function Story({
 }
 
 /** The scenes on a vertical roller: the current one large in the middle, the others turning away above and below. */
-function Roller({ step, onStep }: { step: number; onStep: (i: number) => void }) {
+/** `onReplay` is set once the current scene has finished: a small icon beside its name plays it again. */
+function Roller({ step, onStep, onReplay }: { step: number; onStep: (i: number) => void; onReplay?: () => void }) {
   const ITEM = 56;
   return (
     <nav aria-label="Scenes" className="relative h-[19rem] w-full [mask-image:linear-gradient(to_bottom,transparent,black_22%,black_78%,transparent)]" style={{ perspective: 600 }}>
@@ -493,17 +487,28 @@ function Roller({ step, onStep }: { step: number; onStep: (i: number) => void })
                 opacity: 1 - far * 0.3,
               }}
             >
-              <button
-                onClick={() => onStep(i)}
-                className={cn('pointer-events-auto flex h-14 w-full flex-col justify-center text-left', d === 0 ? 'text-fg' : 'text-muted hover:text-fg')}
-                aria-current={d === 0 ? 'step' : undefined}
-                data-testid={`ideas-step-${i}`}
-              >
-                <span className="flex items-baseline gap-2.5">
+              <div className="flex h-14 items-center gap-2">
+                <button
+                  onClick={() => onStep(i)}
+                  className={cn('pointer-events-auto flex items-baseline gap-2.5 text-left', d === 0 ? 'text-fg' : 'text-muted hover:text-fg')}
+                  aria-current={d === 0 ? 'step' : undefined}
+                  data-testid={`ideas-step-${i}`}
+                >
                   <span className="font-mono text-sm text-muted">{String(i + 1).padStart(2, '0')}</span>
                   <span className={cn('tracking-tight', d === 0 ? 'text-[1.7rem] font-semibold' : 'text-xl font-medium')}>{s.short}</span>
-                </span>
-              </button>
+                </button>
+                {d === 0 && onReplay && (
+                  <button
+                    onClick={onReplay}
+                    className="pointer-events-auto flex size-7 items-center justify-center rounded-full text-muted transition hover:bg-subtle hover:text-fg"
+                    aria-label={`Replay ${s.short}`}
+                    title="Replay"
+                    data-testid="ideas-replay"
+                  >
+                    <RotateCcw className="size-4" />
+                  </button>
+                )}
+              </div>
             </li>
           );
         })}
