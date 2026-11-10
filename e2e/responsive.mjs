@@ -352,6 +352,7 @@ for (const size of SIZES) {
     ['settings', '/settings', null],
     ['help', '/help/variants', 'help-page'],
     ['privacy', '/privacy', 'legal-page'],
+    ['ideas', '/ideas', 'ideas-page'],
   ]) {
     await step(`${name} fits`, async () => {
       await page.goto(`${BASE}${path}`);
@@ -359,6 +360,18 @@ for (const size of SIZES) {
       else await page.getByText('Appearance').waitFor();
       await assertFits(name);
       await shot(name);
+      if (name === 'ideas') {
+        // Midway through the story (Versions): the pinned window still fits.
+        await page.evaluate(() => {
+          const s = document.querySelector('[data-testid=ideas-story]');
+          const box = document.querySelector('[data-testid=ideas-page]');
+          box.scrollTop = s.offsetTop + 0.7 * (s.offsetHeight - box.clientHeight);
+        });
+        await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '3');
+        await page.waitForTimeout(500);
+        await assertFits('ideas story');
+        await shot('ideas-story');
+      }
     });
   }
 

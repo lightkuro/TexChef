@@ -16,6 +16,8 @@ const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then(
 const PrivacyPage = lazy(() => import('@/legal/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const HelpPage = lazy(() => import('@/help/HelpPage').then((m) => ({ default: m.HelpPage })));
 const TermsPage = lazy(() => import('@/legal/TermsPage').then((m) => ({ default: m.TermsPage })));
+// A scroll-animated take on the landing page (a design idea, not linked from the app).
+const IdeasPage = lazy(() => import('@/features/ideas/IdeasPage').then((m) => ({ default: m.IdeasPage })));
 
 function Loading() {
   return (
@@ -158,6 +160,7 @@ const router = createBrowserRouter([
       { path: '/terms', element: <TermsPage /> },
       { path: '/help', element: <HelpPage /> },
       { path: '/help/:topic', element: <HelpPage /> },
+      { path: '/ideas', element: <IdeasPage /> },
       { path: '*', element: <Dashboard /> },
     ],
   },

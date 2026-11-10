@@ -497,6 +497,28 @@ await step('document color label shows on the graph card', async () => {
   assert.equal(border, 'rgb(29, 78, 216)');
 });
 
+await step('/ideas: the scroll-animated landing page acts out each feature', async () => {
+  await page.goto(`${BASE}/ideas`);
+  await page.getByTestId('ideas-page').waitFor();
+  const story = page.getByTestId('ideas-story');
+  const texts = [];
+  for (const v of [0.1, 0.3, 0.5, 0.7, 0.95]) {
+    await page.evaluate((v) => {
+      const s = document.querySelector('[data-testid=ideas-story]');
+      const box = document.querySelector('[data-testid=ideas-page]');
+      box.scrollTop = s.offsetTop + v * (s.offsetHeight - box.clientHeight);
+    }, v);
+    await page.waitForFunction((n) => document.querySelector('[data-testid=ideas-story]').dataset.step === String(n), Math.floor(v * 5));
+    await page.waitForTimeout(500);
+    texts.push(await page.getByTestId('ideas-step-text').locator('h2').textContent());
+  }
+  assert.deepEqual(texts, ['Type LaTeX. Watch the PDF.', 'Click the PDF. Type the change.', 'Write without the backslashes.', 'One master. Many tailored versions.', 'Yours, on your device.']);
+  assert.equal(await story.getAttribute('data-step'), '4');
+  await page.screenshot({ path: `${OUT}14-ideas.png` });
+  await page.getByTestId('ideas-nav-start').click();
+  await page.getByTestId('dashboard').waitFor();
+});
+
 await step('help pages explain the features', async () => {
   await page.getByTestId('help-link').click();
   await page.getByRole('heading', { name: '1. Start a document' }).waitFor();
