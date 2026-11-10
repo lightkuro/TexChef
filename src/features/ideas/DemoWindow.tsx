@@ -33,7 +33,7 @@ const LINES: Line[] = [
   { tex: '\\documentclass{article}', kind: 'pre' },
   { tex: '\\usepackage{amsmath}', kind: 'pre' },
   { tex: '\\title{Why Cities Plant Trees}', kind: 'pre' },
-  { tex: '\\author{Maya Chen}', kind: 'pre' },
+  { tex: '\\author{Maya Chef}', kind: 'pre' },
   { tex: '', kind: 'blank' },
   { tex: '\\begin{document}', kind: 'begin' },
   { tex: '\\maketitle', kind: 'cmd', vis: <span className="rounded border border-line bg-subtle px-1.5 font-mono text-[10px] text-muted">maketitle</span> },
@@ -312,7 +312,7 @@ function PdfPane({ typed, t1, compact, changed, flash }: { typed: number; t1: nu
       <div className="mx-auto bg-white px-9 pt-9 pb-6 font-serif text-[#1a1a1a] shadow-md" style={{ width: 400, minHeight: 540 }}>
         <div className="text-center" style={appear(done(6))}>
           <div className="text-[18px]">Why Cities Plant Trees</div>
-          <div className="mt-1 text-[11px]">Maya Chen</div>
+          <div className="mt-1 text-[11px]">Maya Chef</div>
         </div>
         <div className="mt-5 text-[13px] font-bold" style={appear(done(7))}>
           1&nbsp;&nbsp;Introduction
@@ -396,8 +396,29 @@ function PdfPane({ typed, t1, compact, changed, flash }: { typed: number; t1: nu
           <span className="flex-1 text-center">S = n · s</span>
           <span className="not-italic">(1)</span>
         </div>
+        <figure className="mt-5 flex flex-col items-center" style={appear(done(17))}>
+          <TreeFigure />
+          <figcaption className="mt-1.5 text-[9.5px]">Figure 1: A street tree, doing its job.</figcaption>
+        </figure>
       </div>
     </div>
+  );
+}
+
+/** A small line drawing of a tree, as a TikZ figure might print it. */
+function TreeFigure() {
+  return (
+    <svg width="132" height="108" viewBox="0 0 132 108" fill="none" stroke="#1a1a1a" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {/* canopy: overlapping rounds */}
+      <path d="M40 58c-11 0-18-8-16-17 2-8 10-12 17-10 1-10 10-17 21-15 7-9 22-8 28 2 10-2 19 6 18 16 8 3 11 12 6 19-4 6-11 7-16 5-4 6-12 8-19 5-6 4-15 4-21-1-6 2-13 0-18-4z" fill="#eef5ec" />
+      {/* a few leaf tufts, off-centre so they read as foliage */}
+      <path d="M36 44c2-2 5-2 6 0M90 30c2-2 5-2 6 0M98 50c2-2 5-2 6 0M70 24c2-2 5-2 6 0M46 30c2-2 5-2 6 0" strokeWidth="0.7" />
+      {/* trunk and branches */}
+      <path d="M62 98V70c0-5-4-9-9-12M62 76c3-6 9-9 15-10M68 98V72" />
+      <path d="M62 98c0 0 3-1 6 0" />
+      {/* ground */}
+      <path d="M30 99c20-2 52-2 72 0" />
+    </svg>
   );
 }
 

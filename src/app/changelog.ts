@@ -18,7 +18,7 @@ export const RELEASES: Release[] = [
     notes: [
       ['new', 'New visitors get a short animated tour: as you scroll, a TexChef window acts out writing, editing on the PDF, Visual mode, versions on the map, comparing side by side, and where your documents live.'],
       ['improved', 'Each scene plays at its own pace, however fast you scroll, then moves on to the next by itself two seconds later; scrolling back starts a scene over. The page eases onto the nearest scene when you stop scrolling.'],
-      ['improved', 'On large screens the scene is centred, with its title above and its description below, and the scenes sit on a vertical roller at the side with Start writing under it.'],
+      ['improved', 'On large screens the scene is centred, with its title above and its description below, the scenes on a vertical roller at the side, and a quiet glass Start writing button at the bottom.'],
       ['improved', 'Start writing stays within reach during the tour; See how it works scrolls you into it.'],
       ['new', 'The tour is also the Intro page of the help.'],
       ['improved', 'The cover page fills the whole screen, with its own bar (Start writing, Google Drive, themes); on phones Start writing stays in that bar instead of floating over the demo.'],

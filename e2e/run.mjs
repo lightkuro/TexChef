@@ -536,8 +536,8 @@ await step('/ideas: one scene per screen, each playing at its own pace; snapping
   assert.equal(await page.getByTestId('ideas-replay').count(), 0, 'scene restarts when going back to it');
   await page.getByTestId('ideas-replay').waitFor({ timeout: 10_000 });
   await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '2', null, { timeout: 5000 });
-  // On large screens Start writing sits under the scene list during the story.
-  await page.getByTestId('ideas-side-start').waitFor();
+  // During the story Start writing floats at the bottom centre (a glass button), and there is no timer bar.
+  await page.getByTestId('ideas-float-start').waitFor();
   // Snapping: stop scrolling between two scenes and the page eases onto the nearer one.
   await page.mouse.move(700, 500);
   const from = await storyTop();

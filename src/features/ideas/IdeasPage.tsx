@@ -145,7 +145,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
       <div ref={content}>
         {mode === 'page' && <Nav onStart={start} extra={navExtra} />}
         <Hero ctaRef={heroCta} onStart={start} uploadActions={uploadActions} onTour={() => scrollTo(sceneY(0))} reduce={reduce} compactTop={mode !== 'page'} scroller={scroller} />
-        <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} onStart={start} />
+        <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} />
         <Bento />
         <Cta ctaRef={endCta} onStart={start} />
         {mode === 'page' && (
@@ -168,15 +168,20 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.25 }}
-            // Phones already have Start writing in the top bar; large screens have it under the scene list.
-            className={cn('fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2 lg:hidden', mode === 'page' && 'max-sm:hidden')}
+            // Phones already have Start writing in the top bar.
+            className={cn('fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2', mode === 'page' && 'max-sm:hidden')}
           >
+            {/* Frosted glass: a gentle invitation rather than another green button. */}
             <button
               onClick={start}
-              className="group flex h-11 items-center gap-2 rounded-full bg-accent px-6 font-medium text-accent-fg shadow-xl shadow-black/15 hover:bg-accent-hover"
+              className={cn(
+                'group flex h-12 min-w-[17rem] items-center justify-center gap-2 rounded-full px-10 text-[15px] font-medium text-fg',
+                'border border-white/60 bg-white/35 shadow-[0_8px_32px_rgba(0,0,0,0.10),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-xl backdrop-saturate-150',
+                'transition hover:bg-white/55 dark:border-white/15 dark:bg-white/10 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12)] dark:hover:bg-white/15',
+              )}
               data-testid="ideas-float-start"
             >
-              Start writing <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+              Start writing <ArrowRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-fg" />
             </button>
           </motion.div>
         )}
@@ -323,7 +328,6 @@ function Story({
   reduce,
   floatRoom,
   onStep,
-  onStart,
 }: {
   /** Where the floating Start writing button needs room below the window: only tablets, or every stacked layout. */
   floatRoom: 'tablet' | 'stacked';
@@ -333,7 +337,6 @@ function Story({
   nav: number;
   reduce: boolean;
   onStep: (i: number) => void;
-  onStart: () => void;
 }) {
   const { scrollYProgress } = useScroll({ container: scroller, target: storyRef, offset: ['start start', 'end end'] });
   const { scrollYProgress: entry } = useScroll({ container: scroller, target: storyRef, offset: ['start end', 'start start'] });
@@ -375,7 +378,7 @@ function Story({
   // The window is drawn at a fixed size and scaled to fit the space it has.
   const pinned = vh - nav;
   // Large screens: the window gets at most this much height, and its box hugs it so the title and text sit close.
-  const stageMax = Math.max(300, Math.min(640, pinned - 230));
+  const stageMax = Math.max(300, Math.min(640, pinned - 300));
   const stage = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState({ scale: 1, compact: false, left: 0, stacked: false });
   useLayoutEffect(() => {
@@ -421,22 +424,15 @@ function Story({
       <div
         className={cn(
           'sticky mx-auto flex max-w-[90rem] flex-col gap-3 overflow-hidden px-4 pt-3 pb-4 sm:px-6',
-          'lg:grid lg:grid-cols-[15rem_minmax(0,1fr)_15rem] lg:items-center lg:gap-8 lg:py-0',
+          'lg:grid lg:grid-cols-[15rem_minmax(0,1fr)_15rem] lg:items-center lg:gap-8 lg:pt-0 lg:pb-20',
           floatRoom === 'tablet' ? 'sm:max-lg:pb-20' : 'max-lg:pb-20',
         )}
         style={{ top: nav, height: pinned }}
       >
         {/* Large screens: the scenes on a vertical roller, and Start writing under it */}
         <motion.div style={{ opacity: textIn }} className="hidden flex-col items-start gap-8 lg:flex">
-          <Roller step={step} t={t} onStep={onStep} />
-          <div className="pointer-events-auto flex flex-col items-start gap-3 pl-1">
-            <button
-              onClick={onStart}
-              className="group flex h-11 items-center gap-2 rounded-xl bg-accent px-5 font-medium text-accent-fg shadow-lg shadow-accent/20 hover:bg-accent-hover"
-              data-testid="ideas-side-start"
-            >
-              Start writing <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-            </button>
+          <Roller step={step} onStep={onStep} />
+          <div className="pointer-events-auto flex min-h-5 flex-col items-start gap-3 pl-9">
             {t >= 1 && !reduce && (
               <button onClick={() => setReplays((n) => n + 1)} className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg" data-testid="ideas-replay">
                 <RotateCcw className="size-3.5" /> Replay
@@ -479,7 +475,7 @@ function Story({
 }
 
 /** The scenes on a vertical roller: the current one large in the middle, the others turning away above and below. */
-function Roller({ step, t, onStep }: { step: number; t: number; onStep: (i: number) => void }) {
+function Roller({ step, onStep }: { step: number; onStep: (i: number) => void }) {
   const ITEM = 56;
   return (
     <nav aria-label="Scenes" className="relative h-[19rem] w-full [mask-image:linear-gradient(to_bottom,transparent,black_22%,black_78%,transparent)]" style={{ perspective: 600 }}>
@@ -507,11 +503,6 @@ function Roller({ step, t, onStep }: { step: number; t: number; onStep: (i: numb
                   <span className="font-mono text-sm text-muted">{String(i + 1).padStart(2, '0')}</span>
                   <span className={cn('tracking-tight', d === 0 ? 'text-[1.7rem] font-semibold' : 'text-xl font-medium')}>{s.short}</span>
                 </span>
-                {d === 0 && (
-                  <span className="mt-1 ml-8 block h-[3px] w-24 overflow-hidden rounded-full bg-line">
-                    <span className="block h-full rounded-full bg-accent" style={{ width: `${t * 100}%` }} />
-                  </span>
-                )}
               </button>
             </li>
           );
