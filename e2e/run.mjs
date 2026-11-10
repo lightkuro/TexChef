@@ -104,22 +104,23 @@ async function mapOption(testId) {
 await step('dashboard loads with welcome screen', async () => {
   await page.goto(BASE);
   await page.getByTestId('landing').waitFor();
-  // Editing on the PDF, then versions, then Visual mode.
-  const order = await page.locator('[data-testid^="landing-"][data-testid$="edit"], [data-testid="landing-versions"], [data-testid="landing-visual"]').evaluateAll((els) => els.map((e) => e.dataset.testid));
-  assert.deepEqual(order, ['landing-pdf-edit', 'landing-versions', 'landing-visual']);
+  // New users get the scroll story, with Start writing (and an arrow for uploads) at the top.
+  await page.getByTestId('landing').getByTestId('ideas-story').waitFor({ state: 'attached' });
+  assert.equal(await page.getByTestId('ideas-float-start').count(), 0, 'no floating button at the top');
   // Blank article comes first and is chosen by default.
-  await page.getByTestId('landing-new').click();
+  await page.getByTestId('landing').getByTestId('ideas-start').click();
   assert.equal(await page.locator('[data-testid^="template-"]').first().getAttribute('data-testid'), 'template-article');
   await page.getByRole('dialog').getByText('Blank article').first().waitFor();
   assert.equal(await page.getByRole('dialog').getByRole('textbox').inputValue(), '');
   await page.keyboard.press('Escape');
 });
 
-await step('home page links to Privacy and Terms; themes switch', async () => {
-  await page.getByTestId('link-privacy').click();
-  await page.getByTestId('legal-page').getByText('Limited Use requirements', { exact: false }).waitFor();
-  await page.goto(`${BASE}/terms`);
+await step('home page links to Terms (and from there Privacy); themes switch', async () => {
+  assert.match(await page.getByTestId('link-version').textContent(), /^TexChef v\d+\.\d+/);
+  await page.getByTestId('link-terms').click();
   await page.getByTestId('legal-page').getByText('Limitation of liability').waitFor();
+  await page.getByTestId('terms-privacy').click();
+  await page.getByTestId('legal-page').getByText('Limited Use requirements', { exact: false }).waitFor();
   await page.goto(BASE);
   // Green (Forest) is the default color theme.
   assert.equal(await page.evaluate(() => document.documentElement.dataset.palette), 'forest');
@@ -497,30 +498,80 @@ await step('document color label shows on the graph card', async () => {
   assert.equal(border, 'rgb(29, 78, 216)');
 });
 
-await step('/ideas: the scroll-animated landing page acts out each feature', async () => {
+/** Scroll position (in the page's own scroll box) of the middle of scene `i` of the story. */
+const sceneY = (i) =>
+  page.evaluate((i) => {
+    const s = document.querySelector('[data-testid=ideas-story]');
+    const box = s.closest('[data-mode]');
+    const top = s.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+    return top + (s.offsetHeight - box.clientHeight) * ((i + 0.5) / 6);
+  }, i);
+const storyTop = () => page.evaluate(() => document.querySelector('[data-testid=ideas-story]').closest('[data-mode]').scrollTop);
+
+await step('/ideas: one scene per screen, each playing at its own pace; snapping, and /ideas/1 without it', async () => {
   await page.goto(`${BASE}/ideas`);
   await page.getByTestId('ideas-page').waitFor();
   const story = page.getByTestId('ideas-story');
+  // Each scene's title, reached from the step bar.
   const texts = [];
-  for (const v of [0.1, 0.3, 0.5, 0.7, 0.95]) {
-    await page.evaluate((v) => {
-      const s = document.querySelector('[data-testid=ideas-story]');
-      const box = document.querySelector('[data-testid=ideas-page]');
-      box.scrollTop = s.offsetTop + v * (s.offsetHeight - box.clientHeight);
-    }, v);
-    await page.waitForFunction((n) => document.querySelector('[data-testid=ideas-story]').dataset.step === String(n), Math.floor(v * 5));
-    await page.waitForTimeout(500);
-    texts.push(await page.getByTestId('ideas-step-text').locator('h2').textContent());
+  for (let i = 0; i < 6; i++) {
+    await page.getByTestId(`ideas-step-${i}`).click();
+    await page.waitForFunction((n) => document.querySelector('[data-testid=ideas-story]').dataset.step === String(n), i);
+    await page.waitForTimeout(450);
+    // (The h2 also holds a small 'n/6' counter that only phones see.)
+    texts.push((await page.getByTestId('ideas-step-text').locator('h2').textContent()).replace(/^\d\/6/, ''));
   }
-  assert.deepEqual(texts, ['Type LaTeX. Watch the PDF.', 'Click the PDF. Type the change.', 'Write without the backslashes.', 'One master. Many tailored versions.', 'Yours, on your device.']);
-  assert.equal(await story.getAttribute('data-step'), '4');
+  assert.deepEqual(texts, [
+    'Type LaTeX. Watch the PDF.',
+    'Click the PDF. Type the change.',
+    'Write without the backslashes.',
+    'One master. Many tailored versions.',
+    'Two documents, side by side.',
+    'Yours, on your device.',
+  ]);
+  // Going back shows a scene finished; going forward plays it on its own clock, and Replay shows once it's done.
+  await page.getByTestId('ideas-step-0').click();
+  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '0');
+  await page.getByTestId('ideas-replay').waitFor();
+  await page.getByTestId('ideas-step-1').click();
+  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '1');
+  assert.equal(await page.getByTestId('ideas-replay').count(), 0, 'still playing');
+  await page.getByTestId('ideas-replay').waitFor({ timeout: 10_000 });
+  // The floating Start writing button is there during the story.
+  await page.getByTestId('ideas-float-start').waitFor();
+  // Snapping: stop scrolling between two scenes and the page eases onto the nearer one.
+  await page.mouse.move(700, 500);
+  const from = await storyTop();
+  const mid2 = await sceneY(2);
+  await page.mouse.wheel(0, mid2 - from + (await sceneY(3) - mid2) * 0.3);
+  await page.waitForTimeout(2500);
+  assert.ok(Math.abs((await storyTop()) - mid2) < 12, `snapped to scene 3 (at ${await storyTop()}, middle ${mid2})`);
+  assert.equal(await story.getAttribute('data-step'), '2');
   await page.screenshot({ path: `${OUT}14-ideas.png` });
-  await page.getByTestId('ideas-nav-start').click();
+  // /ideas/1: the same story without snapping.
+  await page.goto(`${BASE}/ideas/1`);
+  await page.getByTestId('ideas-page').waitFor();
+  await page.getByTestId('ideas-step-2').click();
+  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '2');
+  await page.waitForTimeout(1500);
+  const at = await storyTop();
+  const gap = ((await sceneY(3)) - (await sceneY(2))) * 0.3;
+  await page.mouse.move(700, 500);
+  await page.mouse.wheel(0, gap);
+  await page.waitForTimeout(2500);
+  assert.ok(Math.abs((await storyTop()) - (at + gap)) < 12, 'no snapping on /ideas/1');
+  // The earlier landing page is kept at /ideas/classic.
+  await page.goto(`${BASE}/ideas/classic`);
+  await page.getByTestId('classic-landing').waitFor();
+  await page.goto(BASE);
   await page.getByTestId('dashboard').waitFor();
 });
 
 await step('help pages explain the features', async () => {
+  // The help opens on the Intro: the home page's scroll story.
   await page.getByTestId('help-link').click();
+  await page.getByTestId('help-intro').getByTestId('ideas-story').waitFor({ state: 'attached' });
+  await page.goto(`${BASE}/help/getting-started`);
   await page.getByRole('heading', { name: '1. Start a document' }).waitFor();
   // The pictures load (they come from public/help, made by scripts/screenshots.mjs).
   const tour = page.locator('figure', { hasText: 'Blocks, Files, History' }).locator('img');

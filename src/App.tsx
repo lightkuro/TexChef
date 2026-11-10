@@ -16,8 +16,9 @@ const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then(
 const PrivacyPage = lazy(() => import('@/legal/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
 const HelpPage = lazy(() => import('@/help/HelpPage').then((m) => ({ default: m.HelpPage })));
 const TermsPage = lazy(() => import('@/legal/TermsPage').then((m) => ({ default: m.TermsPage })));
-// A scroll-animated take on the landing page (a design idea, not linked from the app).
+// The landing page as a scroll story: /ideas with snapping (what new users see), /ideas/1 without; /ideas/classic the earlier page.
 const IdeasPage = lazy(() => import('@/features/ideas/IdeasPage').then((m) => ({ default: m.IdeasPage })));
+const ClassicLanding = lazy(() => import('@/features/ideas/ClassicLanding').then((m) => ({ default: m.ClassicLanding })));
 
 function Loading() {
   return (
@@ -160,7 +161,9 @@ const router = createBrowserRouter([
       { path: '/terms', element: <TermsPage /> },
       { path: '/help', element: <HelpPage /> },
       { path: '/help/:topic', element: <HelpPage /> },
-      { path: '/ideas', element: <IdeasPage /> },
+      { path: '/ideas', element: <IdeasPage snap /> },
+      { path: '/ideas/1', element: <IdeasPage snap={false} /> },
+      { path: '/ideas/classic', element: <ClassicLanding /> },
       { path: '*', element: <Dashboard /> },
     ],
   },

@@ -192,6 +192,8 @@ for (const size of SIZES) {
     });
 
     await step('clicking a problem shows its line in the code', async () => {
+      // An earlier tap on the PDF can leave an edit box open, which holds auto-compile: close it first.
+      if (await page.getByTestId('pdf-edit-input').count()) await page.getByTestId('pdf-edit-input').press('Escape');
       const original = await page.evaluate(async (id) => (await window.rc.repo.getWork(id)).files['main.tex'].text, docId);
       await page.evaluate(
         async ([id, t]) => window.rc.repo.writeWorkText(id, 'main.tex', t.replace('\\begin{document}', '\\begin{document}\n\\undefinedmacro')),
@@ -361,13 +363,22 @@ for (const size of SIZES) {
       await assertFits(name);
       await shot(name);
       if (name === 'ideas') {
-        // Midway through the story (Versions): the pinned window still fits.
+        // Start writing and See how it works respond to taps (the story section sits under the hero's bottom).
+        await page.getByTestId('ideas-start').click();
+        await page.getByRole('dialog').waitFor();
+        await page.keyboard.press('Escape');
+        await page.getByRole('dialog').waitFor({ state: 'detached' });
+        await page.getByTestId('ideas-tour').click();
+        await page.waitForFunction(() => document.querySelector('[data-testid=ideas-page]').scrollTop > 100);
+        // Let the smooth scroll finish before jumping elsewhere.
+        await page.waitForTimeout(1800);
+        // The Compare scene (5 of 6): the pinned window still fits.
         await page.evaluate(() => {
           const s = document.querySelector('[data-testid=ideas-story]');
           const box = document.querySelector('[data-testid=ideas-page]');
-          box.scrollTop = s.offsetTop + 0.7 * (s.offsetHeight - box.clientHeight);
+          box.scrollTop = s.offsetTop + (4.5 / 6) * (s.offsetHeight - box.clientHeight);
         });
-        await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '3');
+        await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '4');
         await page.waitForTimeout(500);
         await assertFits('ideas story');
         await shot('ideas-story');

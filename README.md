@@ -82,8 +82,10 @@ Other scripts:
 | `pnpm e2e:engines http://localhost:5173` | Engine coverage: XeLaTeX + fontspec, LuaLaTeX, BibTeX, images, TikZ, moderncv (downloads the larger bundles) |
 | `pnpm shots http://localhost:5173` | Retake the help and landing screenshots (`public/help`, `public/landing`) from the running app. Start the dev server with any values for the three `VITE_GOOGLE_*` variables so the Drive options show |
 
-`/ideas` is a design idea, not linked from the app: the landing page as a scroll-driven story (Motion and Lenis), in
-`src/features/ideas`. It loads on its own, so it adds nothing to the app's download.
+New visitors (no documents yet) see the landing page as a scroll story (Motion and Lenis, `src/features/ideas`): one
+scene per screen, each playing at its own pace, with gentle snapping. It loads on its own chunk. The same story is the
+help's Intro page and stands alone at `/ideas`; `/ideas/1` is the same without snapping, and `/ideas/classic` the
+earlier static landing page.
 
 Patch notes live in `src/app/changelog.ts` and show on the **What’s new** help page (`/help/whats-new`, linked from the
 footer). For a release, add an entry at the top and set the same version in `package.json`.

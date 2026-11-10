@@ -33,7 +33,7 @@ export function Landing({ onNew, uploadActions }: { onNew: () => void; uploadAct
   const [template, setTemplate] = useState<string | null>(null);
   const navigate = useNavigate();
   return (
-    <div className="overflow-x-clip" data-testid="landing">
+    <div className="overflow-x-clip" data-testid="classic-landing">
       <div className="mx-auto w-full max-w-6xl px-4 pt-12 pb-10 sm:px-6 sm:pt-20">
         <section className="mx-auto max-w-3xl text-center">
           <h1 className="text-[2rem] leading-tight font-semibold tracking-tight text-balance sm:text-5xl sm:leading-[1.1]">
@@ -66,7 +66,7 @@ export function Landing({ onNew, uploadActions }: { onNew: () => void; uploadAct
                 }
               />
             </div>
-            <Button variant="outline" className="h-10 px-5" onClick={() => navigate('/help')} data-testid="landing-guide">
+            <Button variant="outline" className="h-10 px-5" onClick={() => navigate('/help/getting-started')} data-testid="landing-guide">
               <BookOpen className="size-4" /> TexChef Guide
             </Button>
           </div>

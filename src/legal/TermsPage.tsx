@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { Contact, Ext, H2, Jurisdiction, LegalLayout, Operator, P, UL } from './LegalPage';
 import { LEGAL } from './config';
 
@@ -6,6 +7,20 @@ export function TermsPage() {
   const app = LEGAL.appName;
   return (
     <LegalLayout title="Terms of Service">
+      <Link
+        to="/privacy"
+        className="group my-6 flex items-center gap-4 rounded-xl border border-line bg-panel p-4 transition hover:border-accent/50 hover:shadow-md"
+        data-testid="terms-privacy"
+      >
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
+          <ShieldCheck className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold">Privacy Policy</span>
+          <span className="block text-sm text-muted">What TexChef stores, where, and what Google Drive access is used for.</span>
+        </span>
+        <ArrowRight className="size-5 shrink-0 text-accent transition-transform group-hover:translate-x-0.5" />
+      </Link>
       <P>
         These terms govern your use of {app} at <Ext href={LEGAL.site}>{LEGAL.site.replace('https://', '')}</Ext> (the “Service”), provided by{' '}
         <Operator /> (“we” or “us”). By using the Service you agree to these terms and to the{' '}

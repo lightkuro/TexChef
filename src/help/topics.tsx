@@ -17,6 +17,13 @@ export const TOPIC_ALIASES: Record<string, string> = { pulling: 'updates', pushi
 
 export const TOPICS: Topic[] = [
   {
+    id: 'intro',
+    title: 'Intro',
+    summary: 'TexChef in a minute: scroll through what it does.',
+    // Shown by HelpPage as the home page's scroll story.
+    body: () => null,
+  },
+  {
     id: 'getting-started',
     title: 'Getting started',
     summary: 'What TexChef is, and your first document in five minutes.',

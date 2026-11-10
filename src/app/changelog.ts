@@ -12,6 +12,19 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.9.0',
+    date: '2026-11-10',
+    title: 'A cover page that shows instead of tells',
+    notes: [
+      ['new', 'New visitors get a short animated tour: as you scroll, a TexChef window acts out writing, editing on the PDF, Visual mode, versions on the map, comparing side by side, and where your documents live.'],
+      ['improved', 'Each scene plays at its own pace, however fast you scroll, and the page eases onto the nearest scene when you stop. Replay any scene, or jump to it from the step bar.'],
+      ['improved', 'Start writing stays at the bottom of the screen during the tour; See how it works scrolls you into it.'],
+      ['new', 'The tour is also the Intro page of the help.'],
+      ['improved', 'A tidier footer: the version, Terms (with a link to the Privacy Policy) and “made by kurolight.dev”.'],
+      ['fixed', 'Start writing and See how it works now respond to taps on phones.'],
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-11-10',
     title: 'Patch notes and a clearer start',

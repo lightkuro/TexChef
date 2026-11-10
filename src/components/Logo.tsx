@@ -17,7 +17,7 @@ export function Logo({ size = 28, className }: { size?: number; className?: stri
   );
 }
 
-/** Tiny "a kurolight.dev project" credit for footers. */
+/** Tiny "made by kurolight.dev" credit for footers. */
 export function KurolightMark({ className }: { className?: string }) {
   return (
     <a
@@ -27,7 +27,7 @@ export function KurolightMark({ className }: { className?: string }) {
       className={`inline-flex items-center gap-1 text-[11px] text-muted opacity-80 transition-opacity hover:text-fg hover:opacity-100 ${className ?? ''}`}
       data-testid="kurolight-mark"
     >
-      <Umbrella className="size-3" aria-hidden="true" />a kurolight.dev project
+      <Umbrella className="size-3" aria-hidden="true" />made by kurolight.dev
     </a>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   Plus,
@@ -40,7 +40,8 @@ import { askResetPositions, FamilyGraph } from '@/features/graph/FamilyGraph';
 import { VersionGraph } from '@/features/graph/VersionGraph';
 import { DocList } from './DocList';
 import { NewDocDialog } from './NewDocDialog';
-import { Landing } from './Landing';
+// New users see the scroll story (loaded on its own, so returning users don't download it).
+const Cover = lazy(() => import('@/features/ideas/IdeasPage').then((m) => ({ default: m.IdeasPage })));
 import { APP_VERSION } from '@/app/changelog';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
 import { connectDrive, useSync } from '@/features/sync/controller';
@@ -443,7 +444,15 @@ export function Dashboard() {
             <Spinner />
           </div>
         ) : !hasContent ? (
-          <Landing onNew={() => setNewOpen(true)} uploadActions={importActions} />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <Spinner />
+              </div>
+            }
+          >
+            <Cover mode="app" snap onNew={() => setNewOpen(true)} uploadActions={importActions} testId="landing" />
+          </Suspense>
         ) : isEmpty && (view !== 'graph' || graphMode === 'family') ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted" data-testid="empty-folder">
             <FolderOpen className="size-8 opacity-50" />
@@ -496,18 +505,11 @@ export function Dashboard() {
       <FolderDialogHost docs={shown} current={current} onSelect={openFolder} />
       {/* Clear of the home indicator on phones (safe area). */}
       <footer className="flex h-[calc(1.75rem+env(safe-area-inset-bottom))] shrink-0 items-center gap-3 border-t border-line bg-panel px-4 pb-[env(safe-area-inset-bottom)] text-[11px] text-muted">
-        <span>TexChef</span>
-        <Link to="/privacy" className="hover:text-fg" data-testid="link-privacy">
-          Privacy
+        <Link to="/help/whats-new" className="hover:text-fg" title="What’s new" data-testid="link-version">
+          TexChef v{APP_VERSION.replace(/\.0$/, '')}
         </Link>
         <Link to="/terms" className="hover:text-fg" data-testid="link-terms">
           Terms
-        </Link>
-        <Link to="/help" className="hover:text-fg">
-          Help
-        </Link>
-        <Link to="/help/whats-new" className="hover:text-fg max-sm:hidden" data-testid="link-whats-new">
-          What’s new · v{APP_VERSION.replace(/\.0$/, '')}
         </Link>
         <span className="ml-auto hidden sm:inline">Runs in your browser · your files stay yours</span>
         <KurolightMark />
