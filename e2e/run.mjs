@@ -140,7 +140,7 @@ await step('home page links to Terms (and from there Privacy); themes switch', a
 });
 
 await step('create master resume from template and compile it', async () => {
-  await page.getByTestId('new-doc').click();
+  await page.getByTestId('ideas-nav-start').click();
   await page.getByTestId('template-resume-master').click();
   await page.getByTestId('create-doc').click();
   await page.getByTestId('editor-page').waitFor();
@@ -1138,7 +1138,7 @@ await step('PDFs render on browsers without the newest JavaScript (as on Safari)
   await p.goto(BASE);
   // Gone before the app loaded (pdf.js's legacy build then brings its own).
   assert.equal(await p.evaluate(() => window.__removedNewJs), true);
-  await p.getByTestId('new-doc').click();
+  await p.getByTestId('ideas-nav-start').click();
   await p.getByTestId('template-cover-letter').click();
   await p.getByTestId('create-doc').click();
   await p.getByTestId('page-count').waitFor({ timeout: 180_000 });

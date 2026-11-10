@@ -141,6 +141,8 @@ export function Dashboard() {
   const isEmpty = fv.docs.length === 0 && fv.folders.length === 0;
   /** Documents or folders exist; otherwise the home page is the landing page, with no folders to show. */
   const hasContent = !!docs && (docs.length > 0 || emptyFolders.length > 0);
+  /** New users (nothing here yet) get the full-screen cover page. */
+  const cover = !!docs && !hasContent;
 
   /** Every document in a folder (archived ones too: exports and previews cover them). */
   const docsIn = (path: string | null) => (docs ?? []).filter((d) => !d.deleted && (path ? inFolder(d.folder, path) : true));
@@ -332,10 +334,13 @@ export function Dashboard() {
       }}
       data-testid="dashboard"
     >
-      <AppHeader>
-        <HeaderSearch value={query} onChange={setQuery} />
-      </AppHeader>
-      <div className={cn('flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2', phone && 'flex-nowrap gap-1.5')}>
+      {!cover && (
+        <AppHeader>
+          <HeaderSearch value={query} onChange={setQuery} />
+        </AppHeader>
+      )}
+      {/* Hidden on the cover page (it has its own bar), but kept: it holds the upload inputs. */}
+      <div className={cn('flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2', phone && 'flex-nowrap gap-1.5', cover && 'hidden')}>
 {hasContent && (
         <Tip content={docked ? (showFolders ? 'Hide folders' : 'Show folders') : 'Folders'}>
           <Button
@@ -451,7 +456,19 @@ export function Dashboard() {
               </div>
             }
           >
-            <Cover mode="app" snap onNew={() => setNewOpen(true)} uploadActions={importActions} testId="landing" />
+            <Cover
+              mode="page"
+              snap
+              onNew={() => setNewOpen(true)}
+              uploadActions={importActions}
+              navExtra={
+                <>
+                  <SyncIndicator />
+                  <ThemeMenu />
+                </>
+              }
+              testId="landing"
+            />
           </Suspense>
         ) : isEmpty && (view !== 'graph' || graphMode === 'family') ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted" data-testid="empty-folder">
@@ -503,7 +520,8 @@ export function Dashboard() {
       </main>
       </div>
       <FolderDialogHost docs={shown} current={current} onSelect={openFolder} />
-      {/* Clear of the home indicator on phones (safe area). */}
+      {/* Clear of the home indicator on phones (safe area). The cover page has its own footer. */}
+      {!cover && (
       <footer className="flex h-[calc(1.75rem+env(safe-area-inset-bottom))] shrink-0 items-center gap-3 border-t border-line bg-panel px-4 pb-[env(safe-area-inset-bottom)] text-[11px] text-muted">
         <Link to="/help/whats-new" className="hover:text-fg" title="What’s new" data-testid="link-version">
           TexChef v{APP_VERSION.replace(/\.0$/, '')}
@@ -514,6 +532,7 @@ export function Dashboard() {
         <span className="ml-auto hidden sm:inline">Runs in your browser · your files stay yours</span>
         <KurolightMark />
       </footer>
+      )}
       <NewDocDialog open={newOpen} onOpenChange={setNewOpen} folder={targetFolder} />
     </div>
   );

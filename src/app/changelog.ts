@@ -20,6 +20,7 @@ export const RELEASES: Release[] = [
       ['improved', 'Each scene plays at its own pace, however fast you scroll, and the page eases onto the nearest scene when you stop. Replay any scene, or jump to it from the step bar.'],
       ['improved', 'Start writing stays at the bottom of the screen during the tour; See how it works scrolls you into it.'],
       ['new', 'The tour is also the Intro page of the help.'],
+      ['improved', 'The cover page fills the whole screen, with its own bar (Start writing, Google Drive, themes); on phones Start writing stays in that bar instead of floating over the demo.'],
       ['improved', 'A tidier footer: the version, Terms (with a link to the Privacy Policy) and “made by kurolight.dev”.'],
       ['fixed', 'Start writing and See how it works now respond to taps on phones.'],
     ],

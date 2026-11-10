@@ -37,6 +37,8 @@ export interface CoverProps {
   onNew?: () => void;
   /** Shown under the arrow beside Start writing. */
   uploadActions?: MenuAction[];
+  /** More controls for the top bar (the home page adds Drive sync and themes). */
+  navExtra?: ReactNode;
   testId?: string;
 }
 
@@ -44,7 +46,7 @@ export interface CoverProps {
  * The landing page as a story: a pinned TexChef window plays one scene per screen of scrolling. Scrolling picks the
  * scene; each scene then plays at its own pace, so a fast flick doesn't rush it and a slow reader needn't scroll it out.
  */
-export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, testId = 'ideas-page' }: CoverProps) {
+export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, navExtra, testId = 'ideas-page' }: CoverProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const story = useRef<HTMLElement>(null);
@@ -141,17 +143,17 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, te
     <div ref={scroller} className="relative h-full overflow-x-clip overflow-y-auto bg-bg" data-testid={testId} data-mode={mode}>
       <style>{KEYFRAMES}</style>
       <div ref={content}>
-        {mode === 'page' && <Nav onStart={start} />}
+        {mode === 'page' && <Nav onStart={start} extra={navExtra} />}
         <Hero ctaRef={heroCta} onStart={start} uploadActions={uploadActions} onTour={() => scrollTo(sceneY(0))} reduce={reduce} compactTop={mode !== 'page'} scroller={scroller} />
-        <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} onStep={(i) => scrollTo(sceneY(i))} />
+        <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} />
         <Bento />
         <Cta ctaRef={endCta} onStart={start} />
         {mode === 'page' && (
           <footer className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-line px-4 py-6 text-xs text-muted">
-            <Link to="/help/whats-new" className="hover:text-fg">
+            <Link to="/help/whats-new" className="hover:text-fg" data-testid="link-version">
               TexChef v{APP_VERSION.replace(/\.0$/, '')}
             </Link>
-            <Link to="/terms" className="hover:text-fg">
+            <Link to="/terms" className="hover:text-fg" data-testid="link-terms">
               Terms
             </Link>
             <KurolightMark />
@@ -166,7 +168,8 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, te
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
             transition={{ duration: 0.25 }}
-            className={cn('fixed left-1/2 z-40 -translate-x-1/2', mode === 'app' ? 'bottom-[calc(2.75rem+env(safe-area-inset-bottom))]' : 'bottom-[calc(1.25rem+env(safe-area-inset-bottom))]')}
+            // Phones already have Start writing in the top bar, and no room to spare below the window.
+            className={cn('fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2', mode === 'page' && 'max-sm:hidden')}
           >
             <button
               onClick={start}
@@ -185,7 +188,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, te
 
 // ---------------------------------------------------------------- top bar and hero
 
-function Nav({ onStart }: { onStart: () => void }) {
+function Nav({ onStart, extra }: { onStart: () => void; extra?: ReactNode }) {
   return (
     <div className="sticky top-0 z-30 border-b border-line/60 bg-bg/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
@@ -196,6 +199,7 @@ function Nav({ onStart }: { onStart: () => void }) {
         <Link to="/help/getting-started" className="hidden text-sm text-muted hover:text-fg sm:inline">
           Guide
         </Link>
+        {extra}
         <button onClick={onStart} className="h-9 rounded-lg bg-accent px-3.5 text-sm font-medium text-accent-fg hover:bg-accent-hover" data-testid="ideas-nav-start">
           Start writing
         </button>
@@ -317,8 +321,11 @@ function Story({
   vh,
   nav,
   reduce,
+  floatRoom,
   onStep,
 }: {
+  /** Where the floating Start writing button needs room below the window: only tablets, or every stacked layout. */
+  floatRoom: 'tablet' | 'stacked';
   storyRef: RefObject<HTMLElement | null>;
   scroller: RefObject<HTMLDivElement | null>;
   vh: number;
@@ -387,8 +394,11 @@ function Story({
       data-step={step}
     >
       <div
-        className="sticky mx-auto flex max-w-[84rem] flex-col gap-3 overflow-hidden px-4 pt-3 pb-4 sm:px-6 lg:flex-row lg:items-center lg:gap-10 lg:py-0"
-        style={{ top: nav, height: pinned, ['--stage-h' as string]: `${Math.min(720, pinned - 48)}px` }}
+        className={cn(
+          'sticky mx-auto flex max-w-[84rem] flex-col gap-3 overflow-hidden px-4 pt-3 pb-4 sm:px-6 lg:flex-row lg:items-center lg:gap-10 lg:py-0',
+          floatRoom === 'tablet' ? 'sm:max-lg:pb-20' : 'max-lg:pb-20',
+        )}
+        style={{ top: nav, height: pinned, ['--stage-h' as string]: `${Math.min(720, pinned - 150)}px` }}
       >
         {/* What is happening */}
         <motion.div style={{ opacity: textIn }} className="mx-auto w-full max-w-xl shrink-0 lg:mx-0 lg:w-[30%] lg:max-w-none">

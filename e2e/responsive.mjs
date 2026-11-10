@@ -120,13 +120,16 @@ for (const size of SIZES) {
   await step('home page fits', async () => {
     await page.goto(BASE);
     await page.getByTestId('dashboard').waitFor();
-    await page.getByTestId('new-doc').waitFor();
+    // With nothing here yet (the first size checked), the full-screen cover page with Start writing in its top bar;
+    // the later sizes share the browser profile, so they have documents and show the map.
+    await page.locator('[data-testid=ideas-nav-start], [data-testid=new-doc]:visible').first().waitFor();
+    if (await page.getByTestId('landing').count()) assert.equal(await page.getByTestId('new-doc').isVisible(), false, 'the app toolbar steps aside for the cover');
     await assertFits('home');
     await shot('home');
   });
 
   await step('create a document from the master resume template and compile it', async () => {
-    await page.getByTestId('new-doc').click();
+    await page.locator('[data-testid=ideas-nav-start], [data-testid=new-doc]:visible').first().click();
     await page.getByTestId('template-resume-master').click();
     await page.getByTestId('create-doc').click();
     await page.getByTestId('editor-page').waitFor();
