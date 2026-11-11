@@ -19,6 +19,7 @@ export const RELEASES: Release[] = [
       ['new', 'Editor panels fold away: drag the line between two panels onto the next one and the panel becomes a slim strip at the edge; click the strip to open it again. The side panel button does the same on large screens, and the layout is remembered.'],
       ['new', 'Compare: Save has a menu to save only one side, or to keep one side’s edits as a new variant and put the original back as it was.'],
       ['new', 'Compare: each side can be set to view only (the eye), to look at one document while writing another.'],
+      ['improved', 'Compare: Blocks that differ has a hide button; Blocks at the top brings it back.'],
       ['improved', 'Compare: each side’s document and version now sit right above that side, with a pencil, eye or lock instead of “Current (editable)”. Swap and the button that sets which way the copy arrows go sit between them, above the arrows; the top bar keeps only the view options and Save.'],
     ],
   },

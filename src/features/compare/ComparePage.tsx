@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowLeft as ArrowL, Columns2, FileText, Rows2, Save, Blocks, SlidersHorizontal, Pencil, Eye, Lock, ChevronDown, GitBranchPlus } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowLeft as ArrowL, Columns2, FileText, Rows2, Save, Blocks, SlidersHorizontal, Pencil, Eye, Lock, ChevronDown, GitBranchPlus, PanelRightClose } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useDocs, useDocCommits, useWork } from '@/app/repo';
 import type { DocMeta } from '@/core/model';
@@ -17,7 +17,7 @@ import { EngineBanner } from '@/features/compile/EngineBanner';
 import { Badge, Button, Dialog, Drawer, DrawerClose, EmptyState, Input, Select, Spinner, Tip } from '@/components/ui';
 import { saveWorkAsVariant } from '@/variants/ops';
 import { ActionDropdown } from '@/components/ActionMenu';
-import { usePaneLayout, usePhone } from '@/lib/useMediaQuery';
+import { readSession, usePaneLayout, usePhone, writeSession } from '@/lib/useMediaQuery';
 import { cn, timeAgo } from '@/lib/utils';
 
 
@@ -148,7 +148,11 @@ export function ComparePage() {
   const rightDoc = docs?.find((d) => d.id === right?.docId);
   const [layout, setLayout] = useState<Layout>('split');
   const [direction, setDirection] = useState<'a-to-b' | 'b-to-a'>('a-to-b');
-  const [showBlocks, setShowBlocks] = useState(true);
+  const [showBlocks, setShowBlocksState] = useState(() => readSession('compare-blocks', ['shown', 'hidden'], 'shown') === 'shown');
+  const setShowBlocks = (v: boolean) => {
+    setShowBlocksState(v);
+    writeSession('compare-blocks', v ? 'shown' : 'hidden');
+  };
   const [onlyChanges, setOnlyChanges] = useState(true);
   const [path, setPath] = useState<string>();
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -348,9 +352,16 @@ export function ComparePage() {
   };
 
   const blocksIntro = (
-    <div className="border-b border-line px-3 py-2">
-      <div className="text-xs font-semibold tracking-wide text-muted uppercase">Blocks that differ</div>
-      <p className="mt-0.5 text-[11px] text-muted">Copy a whole section, job or bullet across. Matching is by block id.</p>
+    <div className="border-b border-line py-2 pr-1.5 pl-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs font-semibold tracking-wide text-muted uppercase">Blocks that differ</div>
+        <Tip content="Hide (Blocks at the top brings it back)">
+          <Button variant="ghost" size="icon-sm" onClick={() => setShowBlocks(false)} aria-label="Hide blocks that differ" data-testid="compare-blocks-hide">
+            <PanelRightClose className="size-4" />
+          </Button>
+        </Tip>
+      </div>
+      <p className="mt-0.5 pr-1.5 text-[11px] text-muted">Copy a whole section, job or bullet across. Matching is by block id.</p>
     </div>
   );
 
@@ -630,7 +641,7 @@ export function ComparePage() {
         {fileSelect}
         {layoutSwitch}
         {onlyChangesToggle}
-        <Button variant={showBlocks ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowBlocks(!showBlocks)}>
+        <Button variant={showBlocks ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowBlocks(!showBlocks)} aria-pressed={showBlocks} data-testid="compare-blocks-toggle">
           <Blocks className="size-3.5" /> Blocks
         </Button>
         {saveButton}

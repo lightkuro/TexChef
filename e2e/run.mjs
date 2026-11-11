@@ -783,6 +783,11 @@ await step('compare side by side, copy a block across', async () => {
     return (await repo.getWork(id)).files['main.tex'].text;
   }, v);
   assert.match(text, /streaming ingestion/);
+  // Blocks that differ can be hidden, and come back from Blocks at the top.
+  await page.getByTestId('compare-blocks-hide').click();
+  await blocks.waitFor({ state: 'detached' });
+  await page.getByTestId('compare-blocks-toggle').click();
+  await blocks.waitFor();
   // The arrows' direction sits above them, between the two names.
   const dir = page.getByTestId('compare-direction');
   assert.equal(await dir.getAttribute('aria-label'), 'Arrows copy left to right');
