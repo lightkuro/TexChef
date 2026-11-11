@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowLeft as ArrowL, Columns2, FileText, Rows2, Save, Blocks, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, ArrowRight, ArrowLeft as ArrowL, Columns2, FileText, Rows2, Save, Blocks, SlidersHorizontal, Pencil, Eye, Lock, ChevronDown, GitBranchPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useDocs, useDocCommits, useWork } from '@/app/repo';
 import type { DocMeta } from '@/core/model';
@@ -14,7 +14,8 @@ import { DocPicker, type SideRef } from './DocPicker';
 import { PdfViewer } from '@/features/preview/PdfViewer';
 import { useAutoCompile, useEngineStatus } from '@/features/compile/useCompile';
 import { EngineBanner } from '@/features/compile/EngineBanner';
-import { Badge, Button, Drawer, DrawerClose, EmptyState, Select, Spinner, Tip } from '@/components/ui';
+import { Badge, Button, Dialog, Drawer, DrawerClose, EmptyState, Input, Select, Spinner, Tip } from '@/components/ui';
+import { saveWorkAsVariant } from '@/variants/ops';
 import { ActionDropdown } from '@/components/ActionMenu';
 import { usePaneLayout, usePhone } from '@/lib/useMediaQuery';
 import { cn, timeAgo } from '@/lib/utils';
@@ -31,15 +32,15 @@ function fmtSide(s: SideRef) {
 }
 
 /** Files for one side: the live working copy (editable) or a pinned version (read-only). */
-function useSideFiles(side: SideRef | undefined): { files?: FileMap; editable: boolean } {
+function useSideFiles(side: SideRef | undefined): { files?: FileMap; editable: boolean; dirty: boolean } {
   const work = useWork(side && !side.commitId ? side.docId : undefined);
   const [commitFiles, setCommitFiles] = useState<FileMap>();
   useEffect(() => {
     setCommitFiles(undefined);
     if (side?.commitId) void repo.readCommitFiles(side.commitId).then(setCommitFiles);
   }, [side?.commitId]);
-  if (!side) return { editable: false };
-  return side.commitId ? { files: commitFiles, editable: false } : { files: work?.files, editable: true };
+  if (!side) return { editable: false, dirty: false };
+  return side.commitId ? { files: commitFiles, editable: false, dirty: false } : { files: work?.files, editable: true, dirty: !!work?.dirty };
 }
 
 /**
@@ -53,6 +54,8 @@ function SidePicker({
   onChange,
   label,
   fit,
+  viewOnly,
+  onViewOnly,
 }: {
   docs: DocMeta[];
   value?: SideRef;
@@ -60,6 +63,8 @@ function SidePicker({
   onChange: (s: SideRef) => void;
   label: string;
   fit?: 'shrink' | 'stacked';
+  viewOnly: boolean;
+  onViewOnly: (v: boolean) => void;
 }) {
   const commits = useDocCommits(value?.docId);
   const phone = usePhone();
@@ -68,21 +73,56 @@ function SidePicker({
       <span className={cn('text-xs text-muted', fit === 'stacked' && 'px-0.5 text-[11px] font-medium tracking-wide uppercase')}>{label}</span>
       <DocPicker docs={docs} value={value} other={other} onChange={onChange} label={label} className={fit === 'stacked' ? 'w-full max-w-none max-sm:h-9' : fit && 'min-w-0 flex-1'} />
       {value && (
+        <div className={cn('flex min-w-0 items-center gap-1', fit === 'shrink' && 'flex-1', fit === 'stacked' && 'w-full')}>
         <Select
           value={value.commitId ?? ''}
           onChange={(e) => onChange({ docId: value.docId, commitId: e.target.value || undefined })}
-          className={cn('max-w-56 text-xs', fit === 'shrink' && 'min-w-0 flex-1', fit === 'stacked' && 'w-full max-w-none max-sm:h-9')}
+          className={cn('w-36 text-xs xl:w-44', fit === 'shrink' && 'min-w-0 flex-1', fit === 'stacked' && 'w-full max-w-none max-sm:h-9')}
           aria-label={`${label} version`}
         >
-          <option value="">{fit === 'stacked' && phone ? 'Current' : 'Current (editable)'}</option>
+          <option value="">Current</option>
           {(commits ?? []).map((c) => (
             <option key={c.id} value={c.id}>
               {c.message.slice(0, 40)} · {timeAgo(c.createdAt)}
             </option>
           ))}
         </Select>
+        <EditToggle label={label} pinned={!!value.commitId} viewOnly={viewOnly} onViewOnly={onViewOnly} big={phone} />
+        </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Whether a side can be edited, as an icon: a pencil (editing; click to just look), an eye (view
+ * only; click to edit) or a lock (a saved version, which can't change).
+ */
+function EditToggle({ label, pinned, viewOnly, onViewOnly, big }: { label: string; pinned: boolean; viewOnly: boolean; onViewOnly: (v: boolean) => void; big?: boolean }) {
+  const cls = cn('shrink-0', big ? 'size-9' : 'size-7');
+  if (pinned)
+    return (
+      <Tip content="A saved version: view only. Pick Current to edit.">
+        <span className={cn(cls, 'flex items-center justify-center text-muted')} aria-label={`${label}: saved version, view only`} data-testid={`compare-edit-${label.toLowerCase()}`} data-state="pinned">
+          <Lock className="size-3.5" />
+        </span>
+      </Tip>
+    );
+  return (
+    <Tip content={viewOnly ? 'View only. Click to edit this side.' : 'Editing. Click to just look (view only).'}>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className={cn(cls, !viewOnly && 'text-accent')}
+        onClick={() => onViewOnly(!viewOnly)}
+        aria-label={viewOnly ? `${label}: view only` : `${label}: editing`}
+        aria-pressed={!viewOnly}
+        data-testid={`compare-edit-${label.toLowerCase()}`}
+        data-state={viewOnly ? 'view' : 'edit'}
+      >
+        {viewOnly ? <Eye className="size-3.5" /> : <Pencil className="size-3.5" />}
+      </Button>
+    </Tip>
   );
 }
 
@@ -97,8 +137,13 @@ export function ComparePage() {
   const engine = useEngineStatus();
   const left = parseSide(params.get('left'));
   const right = parseSide(params.get('right'));
-  const L = useSideFiles(left);
-  const R = useSideFiles(right);
+  const Lf = useSideFiles(left);
+  const Rf = useSideFiles(right);
+  // A side can be set to view only, to look at one document while writing another.
+  const [viewOnly, setViewOnly] = useState({ left: false, right: false });
+  const L = { ...Lf, editable: Lf.editable && !viewOnly.left };
+  const R = { ...Rf, editable: Rf.editable && !viewOnly.right };
+  const [asVariant, setAsVariant] = useState<'left' | 'right'>();
   const leftDoc = docs?.find((d) => d.id === left?.docId);
   const rightDoc = docs?.find((d) => d.id === right?.docId);
   const [layout, setLayout] = useState<Layout>('split');
@@ -107,6 +152,7 @@ export function ComparePage() {
   const [onlyChanges, setOnlyChanges] = useState(true);
   const [path, setPath] = useState<string>();
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingWrites = useRef<Record<string, () => Promise<void>>>({});
   // Narrower windows: two-row header (split); small screens: one view at a time (single).
   const pl = usePaneLayout();
   const phone = usePhone();
@@ -133,7 +179,11 @@ export function ComparePage() {
 
   const write = useCallback((docId: string, p: string, text: string) => {
     clearTimeout(timers.current[docId]);
-    timers.current[docId] = setTimeout(() => void repo.writeWorkText(docId, p, text), 300);
+    pendingWrites.current[docId] = () => repo.writeWorkText(docId, p, text);
+    timers.current[docId] = setTimeout(() => {
+      delete pendingWrites.current[docId];
+      void repo.writeWorkText(docId, p, text);
+    }, 300);
   }, []);
 
   const leftCompile = useAutoCompile({
@@ -168,8 +218,8 @@ export function ComparePage() {
   const copyBlock = async (id: string, to: 'left' | 'right') => {
     if (!activePath) return;
     const target = to === 'left' ? left : right;
-    if (!target || target.commitId) {
-      toast.error('That side is a saved version. Switch it to “Current (editable)” to change it.');
+    if (!target || target.commitId || !(to === 'left' ? L : R).editable) {
+      toast.error(target && !target.commitId ? 'That side is view only. Click its eye icon to edit it.' : 'That side is a saved version. Switch it to Current to change it.');
       return;
     }
     const src = to === 'left' ? bText : aText;
@@ -183,15 +233,36 @@ export function ComparePage() {
     toast.success(`Copied block to “${(to === 'left' ? leftDoc : rightDoc)?.name}”`);
   };
 
-  const saveBoth = async () => {
+  /** Let a pending (debounced) edit land before saving. */
+  const flushSide = async (s: SideRef) => {
+    clearTimeout(timers.current[s.docId]);
+    const w = pendingWrites.current[s.docId];
+    delete pendingWrites.current[s.docId];
+    if (w) await w();
+  };
+  const save = async (which: ('left' | 'right')[]) => {
     let n = 0;
-    for (const s of [left, right]) {
-      if (s && !s.commitId) {
-        clearTimeout(timers.current[s.docId]);
-        if (await repo.commitWork(s.docId, 'Saved from compare view', 'save')) n++;
-      }
+    const seen = new Set<string>();
+    for (const k of which) {
+      const s = k === 'left' ? left : right;
+      if (!s || s.commitId || seen.has(s.docId)) continue;
+      seen.add(s.docId);
+      await flushSide(s);
+      if (await repo.commitWork(s.docId, 'Saved from compare view', 'save')) n++;
     }
     toast[n ? 'success' : 'info'](n ? `Saved ${n} version${n === 1 ? '' : 's'}` : 'No changes to save');
+  };
+  const saveAsVariant = async (k: 'left' | 'right', name: string) => {
+    const s = k === 'left' ? left : right;
+    if (!s || s.commitId) return;
+    await flushSide(s);
+    try {
+      const v = await saveWorkAsVariant(repo, s.docId, name);
+      setSide(k, { docId: v.id });
+      toast.success(`Saved your edits as the variant “${v.name}”. The original is back to its last version.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
   };
 
   if (!docs) return <div className="flex h-full items-center justify-center"><Spinner /></div>;
@@ -199,8 +270,41 @@ export function ComparePage() {
   const sameDocBothEditable = left && right && left.docId === right.docId && !left.commitId && !right.commitId;
   const revert = direction === 'a-to-b' ? (R.editable && !sameDocBothEditable ? 'a-to-b' : undefined) : L.editable && !sameDocBothEditable ? 'b-to-a' : undefined;
 
+  const unified = pl === 'single' && phone;
+  const sideName = (k: 'left' | 'right') => {
+    const d = k === 'left' ? leftDoc : rightDoc;
+    const s = k === 'left' ? left : right;
+    return d ? `${d.name}${s?.commitId ? ' · saved version' : ''}` : '';
+  };
+  /** Above the two columns: their names, and between them (over the arrows) which way the arrows copy. */
+  const diffHeader = !unified && left && right && (
+    <div className="grid h-8 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-line bg-subtle/60 px-2 text-xs text-muted" data-testid="compare-diff-header">
+      <span className="truncate">{sideName('left')}</span>
+      <Tip content={revert ? 'The arrows between the columns copy a change this way. Click to flip.' : 'The side the arrows would copy to is view only. Click to flip.'}>
+        <button
+          onClick={() => setDirection(direction === 'a-to-b' ? 'b-to-a' : 'a-to-b')}
+          className={cn('flex h-6 items-center gap-1 rounded-md border border-line bg-panel px-2 font-medium text-fg hover:bg-subtle', !revert && 'opacity-60')}
+          aria-label={direction === 'a-to-b' ? 'Arrows copy left to right' : 'Arrows copy right to left'}
+          data-testid="compare-direction"
+        >
+          {direction === 'a-to-b' ? (
+            <>
+              Copy <ArrowRight className="size-3.5" />
+            </>
+          ) : (
+            <>
+              <ArrowL className="size-3.5" /> Copy
+            </>
+          )}
+        </button>
+      </Tip>
+      <span className="truncate text-right">{sideName('right')}</span>
+    </div>
+  );
+
   const textPane = (
     <div className="flex h-full min-h-0 flex-col">
+      {diffHeader}
       {left && right && activePath && L.files && R.files ? (
         <DiffView
           resetKey={`${activePath}|${fmtSide(left)}|${fmtSide(right)}`}
@@ -212,7 +316,7 @@ export function ComparePage() {
           onChangeB={(t) => right && write(right.docId, activePath, t)}
           revert={revert}
           collapseUnchanged={onlyChanges}
-          unified={pl === 'single' && phone}
+          unified={unified}
         />
       ) : left && right && (!L.files || !R.files) ? (
         // Both chosen, files still loading: build the diff once both sides are here.
@@ -294,13 +398,6 @@ export function ComparePage() {
     </Select>
   );
 
-  const arrowsButton = (
-    <Tip content="Which way the per-change arrows copy text">
-      <Button variant="outline" size="sm" onClick={() => setDirection(direction === 'a-to-b' ? 'b-to-a' : 'a-to-b')}>
-        Arrows copy {direction === 'a-to-b' ? <>left <ArrowRight className="size-3" /> right</> : <>right <ArrowL className="size-3" /> left</>}
-      </Button>
-    </Tip>
-  );
 
   const layoutSwitch = (
     <div className="inline-flex rounded-lg bg-subtle p-0.5">
@@ -324,10 +421,68 @@ export function ComparePage() {
     </label>
   );
 
+  // Save: every side with changes, one side only, or one side's edits as a new variant.
+  const current = (k: 'left' | 'right') => {
+    const s = k === 'left' ? left : right;
+    return !!s && !s.commitId && !(k === 'right' && left && right && left.docId === right.docId);
+  };
+  const changed = (k: 'left' | 'right') => current(k) && (k === 'left' ? Lf : Rf).dirty;
+  const bothChanged = changed('left') && changed('right');
+  const saveLabel = bothChanged ? 'Save both' : 'Save';
+  const saveActions = (withAll: boolean) => [
+    ...(withAll ? [{ key: 'all', label: bothChanged ? 'Save both' : 'Save changes', icon: <Save className="size-4" />, disabled: !current('left') && !current('right'), run: () => void save(['left', 'right']), testId: 'compare-save-all' }] : []),
+    ...(['left', 'right'] as const)
+      .filter(current)
+      .map((k, i) => ({
+        key: `only-${k}`,
+        label: `Save only “${(k === 'left' ? leftDoc : rightDoc)?.name}”`,
+        hint: changed(k) ? k : 'no changes',
+        separatorBefore: withAll && i === 0,
+        disabled: !changed(k),
+        run: () => void save([k]),
+        testId: `compare-save-${k}`,
+      })),
+    ...(['left', 'right'] as const)
+      .filter(current)
+      .map((k, i) => ({
+        key: `variant-${k}`,
+        label: `Save “${(k === 'left' ? leftDoc : rightDoc)?.name}” edits as a new variant…`,
+        icon: <GitBranchPlus className="size-4" />,
+        separatorBefore: i === 0,
+        groupLabel: i === 0 ? 'Keep the original as it was' : undefined,
+        disabled: !changed(k),
+        run: () => setAsVariant(k),
+        testId: `compare-variant-${k}`,
+      })),
+  ];
   const saveButton = (
-    <Button variant="primary" size="sm" onClick={saveBoth} disabled={!L.editable && !R.editable}>
-      <Save className="size-3.5" /> Save both
-    </Button>
+    <div className="flex shrink-0">
+      <Button variant="primary" size="sm" className="rounded-r-none" onClick={() => void save(['left', 'right'])} disabled={!current('left') && !current('right')} data-testid="compare-save">
+        <Save className="size-3.5" /> {saveLabel}
+      </Button>
+      <ActionDropdown
+        label="Save"
+        actions={saveActions(false)}
+        trigger={
+          <Button variant="primary" size="sm" className="rounded-l-none border-l border-white/25 px-1.5" aria-label="More ways to save" data-testid="compare-save-menu">
+            <ChevronDown className="size-3.5" />
+          </Button>
+        }
+      />
+    </div>
+  );
+  const variantSide = asVariant === 'left' ? leftDoc : asVariant === 'right' ? rightDoc : undefined;
+  const variantDialog = (
+    <SaveAsVariantDialog
+      key={asVariant}
+      original={variantSide?.name}
+      onClose={() => setAsVariant(undefined)}
+      onSave={(name) => {
+        const k = asVariant!;
+        setAsVariant(undefined);
+        void saveAsVariant(k, name);
+      }}
+    />
   );
 
   const swapButton = (
@@ -376,12 +531,6 @@ export function ComparePage() {
             label="Compare options"
             actions={[
               { key: 'only', label: 'Only changes', hint: 'fold matching lines', checked: onlyChanges, run: () => setOnlyChanges(!onlyChanges) },
-              ...(phone
-                ? []
-                : [
-                    { key: 'ltr', label: 'Arrows copy left → right', checked: direction === 'a-to-b', separatorBefore: true, run: () => setDirection('a-to-b') },
-                    { key: 'rtl', label: 'Arrows copy right → left', checked: direction === 'b-to-a', run: () => setDirection('b-to-a') },
-                  ]),
               { key: 'swap', label: 'Swap sides', icon: <ArrowLeftRight className="size-4" />, separatorBefore: true, disabled: !left || !right, run: swapSides },
             ]}
             trigger={
@@ -390,15 +539,21 @@ export function ComparePage() {
               </Button>
             }
           />
-          <Button variant="primary" size={phone ? 'icon' : 'sm'} onClick={saveBoth} disabled={!L.editable && !R.editable} aria-label="Save both">
-            <Save className={phone ? 'size-4' : 'size-3.5'} />
-            {phone ? null : ' Save both'}
-          </Button>
+          <ActionDropdown
+            label="Save"
+            actions={saveActions(true)}
+            trigger={
+              <Button variant="primary" size={phone ? 'icon' : 'sm'} aria-label="Save" data-testid="compare-save-menu">
+                <Save className={phone ? 'size-4' : 'size-3.5'} />
+                {phone ? null : <> {saveLabel} <ChevronDown className="size-3.5" /></>}
+              </Button>
+            }
+          />
         </header>
         <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 border-b border-line bg-panel px-2 pt-1.5 pb-2">
-          <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" fit="stacked" />
+          <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" viewOnly={viewOnly.left} onViewOnly={(v) => setViewOnly((o) => ({ ...o, left: v }))} fit="stacked" />
           <div className="pt-4">{swapButton}</div>
-          <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" fit="stacked" />
+          <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" viewOnly={viewOnly.right} onViewOnly={(v) => setViewOnly((o) => ({ ...o, right: v }))} fit="stacked" />
         </div>
         {sameDocNote}
         <EngineBanner status={engine} />
@@ -435,6 +590,7 @@ export function ComparePage() {
             <PdfViewer key={view} pdf={side.entry?.output?.pdf} running={side.entry?.running} pages={side.entry?.pages} compact />
           )}
         </div>
+        {variantDialog}
         <Drawer side="right" open={blocksOpen} onOpenChange={setBlocksOpen} title="Blocks that differ" testId="compare-blocks">
           <div className="flex h-12 shrink-0 items-center justify-between border-b border-line pr-2 pl-3 text-xs font-semibold tracking-wide text-muted uppercase">
             Blocks that differ
@@ -456,12 +612,11 @@ export function ComparePage() {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
             <ArrowLeft className="size-4" />
           </Button>
-          <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" />
+          <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" viewOnly={viewOnly.left} onViewOnly={(v) => setViewOnly((o) => ({ ...o, left: v }))} />
           {swapButton}
-          <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" />
+          <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" viewOnly={viewOnly.right} onViewOnly={(v) => setViewOnly((o) => ({ ...o, right: v }))} />
           <div className="flex-1" />
           {fileSelect}
-          {arrowsButton}
           {layoutSwitch}
           {onlyChangesToggle}
           <Button variant={showBlocks ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowBlocks(!showBlocks)}>
@@ -477,9 +632,9 @@ export function ComparePage() {
               <ArrowLeft className="size-4" />
             </Button>
             <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-              <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" fit="shrink" />
+              <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" viewOnly={viewOnly.left} onViewOnly={(v) => setViewOnly((o) => ({ ...o, left: v }))} fit="shrink" />
               {swapButton}
-              <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" fit="shrink" />
+              <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" viewOnly={viewOnly.right} onViewOnly={(v) => setViewOnly((o) => ({ ...o, right: v }))} fit="shrink" />
             </div>
             {saveButton}
           </div>
@@ -488,7 +643,6 @@ export function ComparePage() {
             {fileSelect}
             {onlyChangesToggle}
             <div className="flex-1" />
-            {arrowsButton}
             <Button variant={showBlocks ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowBlocks(!showBlocks)}>
               <Blocks className="size-3.5" /> Blocks
             </Button>
@@ -496,6 +650,7 @@ export function ComparePage() {
         </header>
       )}
       {sameDocNote}
+      {variantDialog}
       <EngineBanner status={engine} />
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1">
@@ -521,5 +676,41 @@ export function ComparePage() {
         )}
       </div>
     </div>
+  );
+}
+
+/** Name the variant that takes a side's unsaved edits. */
+function SaveAsVariantDialog({ original, onClose, onSave }: { original?: string; onClose: () => void; onSave: (name: string) => void }) {
+  const [name, setName] = useState(original ? `${original} (variant)` : '');
+  return (
+    <Dialog
+      open={!!original}
+      onOpenChange={(o) => !o && onClose()}
+      title="Save edits as a new variant"
+      description={`Your unsaved edits go into a new variant of “${original}”, which goes back to its last saved version.`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="primary" disabled={!name.trim()} onClick={() => onSave(name.trim())} data-testid="compare-variant-create">
+            <GitBranchPlus className="size-4" /> Create variant
+          </Button>
+        </>
+      }
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name.trim()) onSave(name.trim());
+        }}
+      >
+        <label className="text-sm font-medium" htmlFor="variant-name">
+          Name
+        </label>
+        <Input id="variant-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full" data-testid="compare-variant-name" />
+        <p className="mt-2 text-xs text-muted">It stays linked: Get updates brings in later changes to the original.</p>
+      </form>
+    </Dialog>
   );
 }

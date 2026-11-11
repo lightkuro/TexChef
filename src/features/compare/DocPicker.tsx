@@ -247,7 +247,7 @@ function DocPickerDialog({
             <p className="p-3 text-xs text-muted">Pick a document to see its saved versions.</p>
           ) : (
             <div className="min-h-0 flex-1 overflow-auto p-1">
-              {[{ id: undefined as string | undefined, message: 'Current (editable)', createdAt: pickedDoc.updatedAt, kind: 'work' }, ...(commits ?? [])].map((c) => (
+              {[{ id: undefined as string | undefined, message: 'Current', createdAt: pickedDoc.updatedAt, kind: 'work' }, ...(commits ?? [])].map((c) => (
                 <button
                   key={c.id ?? 'work'}
                   onClick={() => setVersion(c.id)}

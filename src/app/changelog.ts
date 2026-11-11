@@ -12,6 +12,17 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.10.0',
+    date: '2026-11-11',
+    title: 'Room to work',
+    notes: [
+      ['new', 'Editor panels fold away: drag the line between two panels onto the next one and the panel becomes a slim strip at the edge; click the strip to open it again. The side panel button does the same on large screens, and the layout is remembered.'],
+      ['new', 'Compare: Save has a menu to save only one side, or to keep one side’s edits as a new variant and put the original back as it was.'],
+      ['new', 'Compare: each side can be set to view only (the eye), to look at one document while writing another.'],
+      ['improved', 'Compare: a pencil, eye or lock next to each side replaces “Current (editable)”, and the button that sets which way the copy arrows go sits right above them.'],
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-11-10',
     title: 'A cover page that shows instead of tells',

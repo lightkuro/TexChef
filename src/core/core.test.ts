@@ -4,7 +4,7 @@ import { RCDatabase } from '@/storage/db';
 import { Repo, fileText } from './repo';
 import { merge3, findConflicts, resolveConflict, resolveAll } from './merge';
 import { emptyRecipe } from './model';
-import { applyPull, createVariant, newParentBlocks, planPull, pushBlockToParent, forkDocument } from '@/variants/ops';
+import { applyPull, createVariant, newParentBlocks, planPull, pushBlockToParent, forkDocument, saveWorkAsVariant } from '@/variants/ops';
 
 const master = readFileSync(new URL('../templates/resume-master.tex', import.meta.url), 'utf8');
 let n = 0;
@@ -110,6 +110,18 @@ describe('repo + variants', () => {
     const push = await pushBlockToParent(repo, v.id, 'contoso-api');
     expect(push.parentChanged).toBe(true);
     expect((await pushBlockToParent(repo, v.id, 'contoso-api', true)).ok).toBe(true);
+  });
+
+  it('saves unsaved edits as a new variant and puts the original back', async () => {
+    const m = await repo.createDoc({ name: 'Master', files: { 'main.tex': { kind: 'text', text: master } } });
+    await repo.writeWorkText(m.id, 'main.tex', master.replace('Jordan Rivera', 'Jo Rivera'));
+    const v = await saveWorkAsVariant(repo, m.id, 'Short');
+    expect(v.parent).toEqual({ docId: m.id, baseCommitId: m.head });
+    expect(fileText((await repo.getWork(v.id)).files, 'main.tex')).toContain('Jo Rivera');
+    const back = await repo.getWork(m.id);
+    expect(fileText(back.files, 'main.tex')).toBe(master);
+    expect(back.dirty).toBe(false);
+    expect((await repo.getDoc(m.id))!.head).toBe(m.head);
   });
 
   it('forks keep every parent change', async () => {

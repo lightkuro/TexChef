@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Group, Panel, Separator } from 'react-resizable-panels';
+import { Group, Separator, useDefaultLayout, usePanelRef } from 'react-resizable-panels';
+import { CollapsiblePanel, layoutStorage } from '@/components/CollapsiblePanel';
 import {
   ArrowLeft,
   ChevronDown,
@@ -102,6 +103,11 @@ export function EditorPage() {
     writeSession(SIDE_KEY, open ? 'open' : 'closed');
   };
   const [drawer, setDrawer] = useState(false);
+  // Desktop: panels fold into rails (drag an edge onto the next one, or the header button).
+  const sideRef = usePanelRef();
+  const [sideFolded, setSideFolded] = useState(false);
+  const wideLayout = useDefaultLayout({ id: 'editor-wide', storage: layoutStorage });
+  const splitLayout = useDefaultLayout({ id: 'editor-split', storage: layoutStorage });
   const single = layout === 'single';
   useEffect(() => {
     if (!single) setDrawer(false);
@@ -568,15 +574,19 @@ export function EditorPage() {
             <ArrowLeft className="size-4" />
           </Button>
         </Tip>
-        {layout === 'split' && (
-          <Tip content={sideOpen ? 'Hide the side panel' : 'Show blocks, files and history'}>
+        {layout !== 'single' && (
+          <Tip content={(layout === 'wide' ? !sideFolded : sideOpen) ? 'Hide the side panel' : 'Show blocks, files and history'}>
             <Button
               variant="ghost"
               size="icon"
-              className={cn(sideOpen && 'bg-subtle')}
-              onClick={() => setSideOpen(!sideOpen)}
+              className={cn((layout === 'wide' ? !sideFolded : sideOpen) && 'bg-subtle')}
+              onClick={() => {
+                if (layout !== 'wide') return setSideOpen(!sideOpen);
+                if (sideRef.current?.isCollapsed()) sideRef.current.expand();
+                else sideRef.current?.collapse();
+              }}
               aria-label="Side panel"
-              aria-pressed={sideOpen}
+              aria-pressed={layout === 'wide' ? !sideFolded : sideOpen}
               data-testid="toggle-side"
             >
               <PanelLeft className="size-4" />
@@ -864,19 +874,29 @@ export function EditorPage() {
       </header>
       <EngineBanner status={engine} />
       {wide ? (
-        <Group orientation="horizontal" className="min-h-0 flex-1">
-          <Panel defaultSize="20%" minSize="160px" className="flex flex-col bg-panel" data-testid="side-panel">
+        <Group orientation="horizontal" className="min-h-0 flex-1" defaultLayout={wideLayout.defaultLayout} onLayoutChanged={wideLayout.onLayoutChanged}>
+          <CollapsiblePanel
+            id="side"
+            label={side === 'files' ? 'Files' : side === 'history' ? 'History' : 'Blocks'}
+            icon={PanelLeft}
+            defaultSize="20%"
+            minSize="160px"
+            className="bg-panel"
+            testId="side-panel"
+            panelRef={sideRef}
+            onCollapsedChange={setSideFolded}
+          >
             {sideTabs(false)}
             {sideBody}
-          </Panel>
+          </CollapsiblePanel>
           <Separator />
-          <Panel defaultSize="42%" minSize="240px" className="flex flex-col">
+          <CollapsiblePanel id="code" label="Code" icon={Code2} defaultSize="42%" minSize="240px" testId="code-panel">
             {codePane}
-          </Panel>
+          </CollapsiblePanel>
           <Separator />
-          <Panel defaultSize="38%" minSize="220px" className="flex flex-col">
+          <CollapsiblePanel id="pdf" label="PDF" icon={FileText} defaultSize="38%" minSize="220px" testId="pdf-panel">
             {pdfPane}
-          </Panel>
+          </CollapsiblePanel>
         </Group>
       ) : layout === 'split' ? (
         // Code and PDF side by side; the side panel folds away (header button).
@@ -887,14 +907,14 @@ export function EditorPage() {
               {sideBody}
             </aside>
           )}
-          <Group orientation="horizontal" className="min-h-0 min-w-0 flex-1">
-            <Panel defaultSize="52%" minSize="280px" className="flex flex-col">
+          <Group orientation="horizontal" className="min-h-0 min-w-0 flex-1" defaultLayout={splitLayout.defaultLayout} onLayoutChanged={splitLayout.onLayoutChanged}>
+            <CollapsiblePanel id="code" label="Code" icon={Code2} defaultSize="52%" minSize="280px" testId="code-panel">
               {codePane}
-            </Panel>
+            </CollapsiblePanel>
             <Separator />
-            <Panel defaultSize="48%" minSize="240px" className="flex flex-col">
+            <CollapsiblePanel id="pdf" label="PDF" icon={FileText} defaultSize="48%" minSize="240px" testId="pdf-panel">
               {pdfPane}
-            </Panel>
+            </CollapsiblePanel>
           </Group>
         </div>
       ) : (

@@ -305,3 +305,29 @@ export async function pushBlockToParent(
   await repo.commitWork(parentId, `Copied “${located.block.label}” from “${variant.name}”`, 'push-up');
   return { ok: true, message: `Updated “${located.block.label}” in “${(await repo.getDoc(parentId))?.name ?? 'the original'}”` };
 }
+
+/**
+ * Keep a document's unsaved edits as a new linked variant instead: the variant starts from the
+ * original's last saved version plus the edits, and the original goes back to that version.
+ * (A plain linked copy, like a duplicate: Get updates brings in every later change of the original.)
+ */
+export async function saveWorkAsVariant(repo: Repo, docId: string, name: string): Promise<DocMeta> {
+  const doc = await repo.getDoc(docId);
+  if (!doc) throw new Error('Document not found');
+  if (!doc.head) throw new Error('This document has no saved version to branch from yet');
+  const edited = (await repo.getWork(docId)).files;
+  const saved = await repo.readCommitFiles(doc.head);
+  const variant = await repo.createDoc({
+    name,
+    files: edited,
+    mainFile: doc.mainFile,
+    engine: doc.engine,
+    tags: doc.tags,
+    folder: doc.folder,
+    parent: { docId: doc.id, baseCommitId: doc.head },
+  });
+  await repo.setWorkFiles(docId, saved);
+  // Same files as the last version: marks the working copy clean without a new version.
+  await repo.commitWork(docId, '', 'save');
+  return variant;
+}

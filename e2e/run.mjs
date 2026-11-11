@@ -190,6 +190,30 @@ await step('whole-page preview toggle fits a page in the pane', async () => {
   });
 });
 
+await step('panels fold into rails: drag an edge onto the next one, click the rail to open it again', async () => {
+  const pdf = page.getByTestId('pdf-panel');
+  const sep = page.locator('[data-separator]').nth(1);
+  const box = await sep.boundingBox();
+  // Drag the line between the code and the PDF almost to the right edge: the PDF folds.
+  await page.mouse.move(box.x + box.width / 2, box.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(1430, box.y + 200, { steps: 12 });
+  await page.mouse.up();
+  await page.getByTestId('pdf-panel-rail').waitFor();
+  assert.ok((await pdf.boundingBox()).width < 40);
+  await page.screenshot({ path: `${OUT}02c-pdf-folded.png` });
+  await page.getByTestId('pdf-panel-rail').click();
+  await page.getByTestId('pdf-viewer').waitFor();
+  assert.ok((await pdf.boundingBox()).width > 200);
+  // The header button folds and opens the side panel.
+  await page.getByTestId('toggle-side').click();
+  await page.getByTestId('side-panel-rail').waitFor();
+  assert.equal(await page.getByTestId('toggle-side').getAttribute('aria-pressed'), 'false');
+  await page.getByTestId('side-panel-rail').click();
+  await page.getByTestId('tab-blocks').waitFor();
+  assert.equal(await page.getByTestId('toggle-side').getAttribute('aria-pressed'), 'true');
+});
+
 await step('editing the source recompiles the PDF', async () => {
   const cm = page.locator('.cm-content');
   await cm.click();
@@ -759,6 +783,19 @@ await step('compare side by side, copy a block across', async () => {
     return (await repo.getWork(id)).files['main.tex'].text;
   }, v);
   assert.match(text, /streaming ingestion/);
+  // The arrows' direction sits above them, between the two names.
+  const dir = page.getByTestId('compare-direction');
+  assert.equal(await dir.getAttribute('aria-label'), 'Arrows copy left to right');
+  await dir.click();
+  assert.equal(await dir.getAttribute('aria-label'), 'Arrows copy right to left');
+  await dir.click();
+  // A side can be view only: its copy arrows stop.
+  assert.equal(await page.getByTestId('compare-edit-right').getAttribute('data-state'), 'edit');
+  await page.getByTestId('compare-edit-right').click();
+  assert.equal(await page.getByTestId('compare-edit-right').getAttribute('data-state'), 'view');
+  assert.equal(await page.locator('.cm-merge-revert button').count(), 0);
+  await page.getByTestId('compare-edit-right').click();
+  await page.locator('.cm-merge-revert button').first().waitFor();
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${OUT}06-compare.png` });
   // Choosing a document: a few nearby in the menu, everything in "Other files…" (with versions).
@@ -772,6 +809,36 @@ await step('compare side by side, copy a block across', async () => {
   await page.getByTestId('doc-picker-ok').click();
   await page.waitForFunction((id) => new URL(location.href).searchParams.get('right')?.startsWith(id + '@'), m);
   await page.getByTestId('right-doc-picker').getByText('Master resume').waitFor();
+  assert.equal(await page.getByTestId('compare-edit-right').getAttribute('data-state'), 'pinned');
+  // Save only one side: the variant (left now) gets a version, nothing else.
+  await page.goto(`${BASE}/compare?left=${v}&right=${m}`);
+  await page.locator('.cm-mergeView').waitFor();
+  const versions = async (id) => page.evaluate((id) => window.rc.db.commits.where('docId').equals(id).count(), id);
+  const [vBefore, mBefore] = [await versions(v), await versions(m)];
+  await page.getByTestId('compare-save-menu').click();
+  await page.getByTestId('compare-save-left').click();
+  await page.getByText('Saved 1 version').waitFor();
+  assert.equal(await versions(v), vBefore + 1);
+  assert.equal(await versions(m), mBefore);
+  // Keep one side's edits as a new variant instead: the original goes back to its last version.
+  await page.evaluate(async (id) => {
+    const { repo } = window.rc;
+    const t = (await repo.getWork(id)).files['main.tex'].text;
+    await repo.writeWorkText(id, 'main.tex', t.replace('\\end{document}', 'A trial paragraph.\n\\end{document}'));
+  }, m);
+  await page.getByTestId('compare-save-menu').click();
+  await page.getByTestId('compare-variant-right').click();
+  await page.getByTestId('compare-variant-name').fill('Master trial');
+  await page.getByTestId('compare-variant-create').click();
+  await page.waitForFunction((id) => new URL(location.href).searchParams.get('right') !== id, m);
+  const newId = new URL(page.url()).searchParams.get('right');
+  const check = await page.evaluate(async ([nid, mid]) => {
+    const { repo } = window.rc;
+    const nv = await repo.getDoc(nid);
+    return { name: nv.name, parent: nv.parent?.docId, trial: (await repo.getWork(nid)).files['main.tex'].text.includes('A trial paragraph'), back: !(await repo.getWork(mid)).files['main.tex'].text.includes('A trial paragraph') };
+  }, [newId, m]);
+  assert.deepEqual(check, { name: 'Master trial', parent: m, trial: true, back: true });
+  await page.evaluate((id) => window.rc.repo.deleteDoc(id), newId);
 });
 
 await step('upload a .zip as a new document and download it again', async () => {

@@ -68,6 +68,11 @@ export const TOPICS: Topic[] = [
           ]}
         />
 
+        <Note kind="tip">
+          Need more room? Drag the line between two panels onto the next one and the panel folds into a slim strip at the edge; click the strip
+          to bring it back. The button at the top left hides or shows the Blocks, Files and History panel.
+        </Note>
+
         <H2>3. Make a change right on the PDF</H2>
         <P>
           Click a sentence in the PDF. A box opens with its words, without any LaTeX. Type your change and press <Kbd>Enter</Kbd>: TexChef edits
@@ -601,7 +606,7 @@ export const TOPICS: Topic[] = [
       <>
         <P>
           Open it from a document menu (<b>Compare with original</b>), the editor’s <b>⌄</b> menu, or the compare button on any version. At the top
-          you choose the <b>Left</b> and <b>Right</b> document, and for each one either <b>Current (editable)</b> or any saved version.
+          you choose the <b>Left</b> and <b>Right</b> document, and for each one either <b>Current</b> or any saved version.
         </P>
         <P>
           Each side's document menu lists a few from the same folder (and the original and variants, if they're elsewhere).{' '}
@@ -613,11 +618,14 @@ export const TOPICS: Topic[] = [
             Changed lines are highlighted. <b>Only changes</b> hides the unchanged parts.
           </li>
           <li>
-            Both sides are editable when they show a current document. Edits are saved into that document as you type; <b>Save both</b> saves a
-            version of each.
+            A side showing a current document can be edited (a pencil next to it). Click the pencil to make that side view only (an eye), when
+            you only want to look at one document while writing the other; a saved version shows a lock. Edits are kept in the document as you
+            type. <b>Save</b> saves a version of each side that changed; its <b>⌄</b> menu saves only one side, or keeps one side's edits as a{' '}
+            <b>new variant</b> and puts the original back as it was.
           </li>
           <li>
-            The arrows between the two sides copy one change across. <b>Arrows copy left → right</b> switches their direction.
+            The arrows between the two sides copy one change across. The <b>Copy →</b> button above them, between the two names, flips their
+            direction.
           </li>
           <li>
             The <b>Blocks</b> panel lists blocks that differ. Use ← or → to copy a whole section, job or bullet to the other side; a missing block is
