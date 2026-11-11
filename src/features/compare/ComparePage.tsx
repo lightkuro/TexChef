@@ -70,14 +70,14 @@ function SidePicker({
   const phone = usePhone();
   return (
     <div className={cn('flex min-w-0 items-center gap-1.5', fit === 'stacked' && 'flex-col items-stretch gap-1')}>
-      <span className={cn('text-xs text-muted', fit === 'stacked' && 'px-0.5 text-[11px] font-medium tracking-wide uppercase')}>{label}</span>
-      <DocPicker docs={docs} value={value} other={other} onChange={onChange} label={label} className={fit === 'stacked' ? 'w-full max-w-none max-sm:h-9' : fit && 'min-w-0 flex-1'} />
+      <span className={cn('text-xs text-muted', fit === 'stacked' && 'px-0.5 text-[11px] font-medium tracking-wide uppercase', fit === 'shrink' && 'sr-only')}>{label}</span>
+      <DocPicker docs={docs} value={value} other={other} onChange={onChange} label={label} className={fit === 'stacked' ? 'w-full max-w-none max-sm:h-9' : fit && 'min-w-0 flex-1 max-w-64'} />
       {value && (
-        <div className={cn('flex min-w-0 items-center gap-1', fit === 'shrink' && 'flex-1', fit === 'stacked' && 'w-full')}>
+        <div className={cn('flex min-w-0 items-center gap-1', fit === 'stacked' && 'w-full')}>
         <Select
           value={value.commitId ?? ''}
           onChange={(e) => onChange({ docId: value.docId, commitId: e.target.value || undefined })}
-          className={cn('w-36 text-xs xl:w-44', fit === 'shrink' && 'min-w-0 flex-1', fit === 'stacked' && 'w-full max-w-none max-sm:h-9')}
+          className={cn('w-36 text-xs xl:w-44', fit === 'shrink' && 'h-8 w-28 min-w-0 shrink-[2] xl:w-44', fit === 'stacked' && 'w-full max-w-none max-sm:h-9')}
           aria-label={`${label} version`}
         >
           <option value="">Current</option>
@@ -277,27 +277,30 @@ export function ComparePage() {
     return d ? `${d.name}${s?.commitId ? ' · saved version' : ''}` : '';
   };
   /** Above the two columns: their names, and between them (over the arrows) which way the arrows copy. */
-  const diffHeader = !unified && left && right && (
+  const directionButton = (
+    <Tip content={revert ? 'The arrows between the columns copy a change this way. Click to flip.' : 'The side the arrows would copy to is view only. Click to flip.'}>
+      <button
+        onClick={() => setDirection(direction === 'a-to-b' ? 'b-to-a' : 'a-to-b')}
+        className={cn('flex h-7 items-center gap-1 rounded-md border border-line bg-panel px-2 text-xs font-medium text-fg hover:bg-subtle', !revert && 'opacity-60')}
+        aria-label={direction === 'a-to-b' ? 'Arrows copy left to right' : 'Arrows copy right to left'}
+        data-testid="compare-direction"
+      >
+        {direction === 'a-to-b' ? (
+          <>
+            Copy <ArrowRight className="size-3.5" />
+          </>
+        ) : (
+          <>
+            <ArrowL className="size-3.5" /> Copy
+          </>
+        )}
+      </button>
+    </Tip>
+  );
+  const diffHeader = !unified && pl === 'single' && left && right && (
     <div className="grid h-8 shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-line bg-subtle/60 px-2 text-xs text-muted" data-testid="compare-diff-header">
       <span className="truncate">{sideName('left')}</span>
-      <Tip content={revert ? 'The arrows between the columns copy a change this way. Click to flip.' : 'The side the arrows would copy to is view only. Click to flip.'}>
-        <button
-          onClick={() => setDirection(direction === 'a-to-b' ? 'b-to-a' : 'a-to-b')}
-          className={cn('flex h-6 items-center gap-1 rounded-md border border-line bg-panel px-2 font-medium text-fg hover:bg-subtle', !revert && 'opacity-60')}
-          aria-label={direction === 'a-to-b' ? 'Arrows copy left to right' : 'Arrows copy right to left'}
-          data-testid="compare-direction"
-        >
-          {direction === 'a-to-b' ? (
-            <>
-              Copy <ArrowRight className="size-3.5" />
-            </>
-          ) : (
-            <>
-              <ArrowL className="size-3.5" /> Copy
-            </>
-          )}
-        </button>
-      </Tip>
+      {directionButton}
       <span className="truncate text-right">{sideName('right')}</span>
     </div>
   );
@@ -493,6 +496,17 @@ export function ComparePage() {
     </Tip>
   );
 
+  /** Larger screens: each side's document and version sit right above its column; the swap and arrow direction in between. */
+  const sidesBar = (
+    <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b border-line bg-subtle/60 px-2 py-1.5" data-testid="compare-sides">
+      <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" viewOnly={viewOnly.left} onViewOnly={(v) => setViewOnly((o) => ({ ...o, left: v }))} fit="shrink" />
+      <div className="flex items-center gap-1">
+        {swapButton}
+        {layout !== 'pdf' && left && right && directionButton}
+      </div>
+      <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" viewOnly={viewOnly.right} onViewOnly={(v) => setViewOnly((o) => ({ ...o, right: v }))} fit="shrink" />
+    </div>
+  );
   const sameDocNote = sameDocBothEditable && (
     <div className="shrink-0 border-b border-line bg-warn-soft px-3 py-1 text-xs text-warn">
       Both sides show the same working copy, so only the left side is editable. Pick a saved version on one side to compare history.
@@ -607,53 +621,27 @@ export function ComparePage() {
 
   return (
     <div className="flex h-full flex-col" data-testid="compare-page">
-      {pl === 'wide' ? (
-        <header className="flex min-h-12 shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-2 py-1.5">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
-            <ArrowLeft className="size-4" />
-          </Button>
-          <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" viewOnly={viewOnly.left} onViewOnly={(v) => setViewOnly((o) => ({ ...o, left: v }))} />
-          {swapButton}
-          <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" viewOnly={viewOnly.right} onViewOnly={(v) => setViewOnly((o) => ({ ...o, right: v }))} />
-          <div className="flex-1" />
-          {fileSelect}
-          {layoutSwitch}
-          {onlyChangesToggle}
-          <Button variant={showBlocks ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowBlocks(!showBlocks)}>
-            <Blocks className="size-3.5" /> Blocks
-          </Button>
-          {saveButton}
-        </header>
-      ) : (
-        // Narrower windows: the two sides (and Save) on the first row, view options on the second.
-        <header className="flex shrink-0 flex-col border-b border-line bg-panel">
-          <div className="flex h-12 items-center gap-2 px-2">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
-              <ArrowLeft className="size-4" />
-            </Button>
-            <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-              <SidePicker docs={docs} value={left} other={right} onChange={(s) => setSide('left', s)} label="Left" viewOnly={viewOnly.left} onViewOnly={(v) => setViewOnly((o) => ({ ...o, left: v }))} fit="shrink" />
-              {swapButton}
-              <SidePicker docs={docs} value={right} other={left} onChange={(s) => setSide('right', s)} label="Right" viewOnly={viewOnly.right} onViewOnly={(v) => setViewOnly((o) => ({ ...o, right: v }))} fit="shrink" />
-            </div>
-            {saveButton}
-          </div>
-          <div className="flex h-10 items-center gap-2 border-t border-line px-2">
-            {layoutSwitch}
-            {fileSelect}
-            {onlyChangesToggle}
-            <div className="flex-1" />
-            <Button variant={showBlocks ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowBlocks(!showBlocks)}>
-              <Blocks className="size-3.5" /> Blocks
-            </Button>
-          </div>
-        </header>
-      )}
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-panel px-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft className="size-4" />
+        </Button>
+        <span className="text-sm font-semibold max-lg:hidden">Compare</span>
+        <div className="flex-1" />
+        {fileSelect}
+        {layoutSwitch}
+        {onlyChangesToggle}
+        <Button variant={showBlocks ? 'secondary' : 'ghost'} size="sm" onClick={() => setShowBlocks(!showBlocks)}>
+          <Blocks className="size-3.5" /> Blocks
+        </Button>
+        {saveButton}
+      </header>
       {sameDocNote}
       {variantDialog}
       <EngineBanner status={engine} />
       <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          {sidesBar}
+          <div className="min-h-0 flex-1">
           {layout === 'text' && textPane}
           {layout === 'pdf' && pdfPane}
           {layout === 'split' && (
@@ -667,6 +655,7 @@ export function ComparePage() {
               </Panel>
             </Group>
           )}
+          </div>
         </div>
         {showBlocks && (
           <aside className={cn('w-72 shrink-0 overflow-auto border-l border-line bg-panel', pl === 'split' && 'w-64')} data-testid="compare-blocks">

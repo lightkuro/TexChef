@@ -605,8 +605,8 @@ export const TOPICS: Topic[] = [
     body: () => (
       <>
         <P>
-          Open it from a document menu (<b>Compare with original</b>), the editor’s <b>⌄</b> menu, or the compare button on any version. At the top
-          you choose the <b>Left</b> and <b>Right</b> document, and for each one either <b>Current</b> or any saved version.
+          Open it from a document menu (<b>Compare with original</b>), the editor’s <b>⌄</b> menu, or the compare button on any version. Above each
+          side you choose its document, and for each one either <b>Current</b> or any saved version.
         </P>
         <P>
           Each side's document menu lists a few from the same folder (and the original and variants, if they're elsewhere).{' '}
