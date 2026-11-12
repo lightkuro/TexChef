@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Group, Separator, useDefaultLayout, usePanelRef } from 'react-resizable-panels';
 import { CollapsiblePanel, layoutStorage } from '@/components/CollapsiblePanel';
+import { useAgentsDialog } from '@/features/agents/agents';
 import {
   ArrowLeft,
   ChevronDown,
@@ -22,6 +23,7 @@ import {
   Zap,
   ZapOff,
   PanelLeft,
+  Bot,
   Code2,
   Check,
   AlertCircle,
@@ -88,6 +90,8 @@ export function EditorPage() {
 
   // Layout by window width: three panes (wide), code + PDF with a side panel that folds away
   // (split), or one pane at a time with the side panel in a drawer (single).
+  const agentsEnabled = usePrefs((s) => s.agentsEnabled);
+  const openAgents = useAgentsDialog((s) => s.set);
   const layout = usePaneLayout();
   const phone = usePhone();
   const [pane, setPaneState] = useState<Pane>(() => readSession(PANE_KEY, ['code', 'pdf'], 'code'));
@@ -859,6 +863,11 @@ export function EditorPage() {
             <MenuItem onSelect={() => navigate(`/compare?left=${doc.id}${parent ? `&right=${parent.id}` : ''}`)}>
               <GitCompare className="size-4" /> Compare side by side…
             </MenuItem>
+            {agentsEnabled && (
+              <MenuItem onSelect={async () => (await flush(), openAgents(true))}>
+                <Bot className="size-4" /> Replies from AI agents…
+              </MenuItem>
+            )}
             <MenuSeparator />
             <MenuItem disabled={!pdf} onSelect={() => pdf && downloadPdf(doc.name, pdf)}>
               <Download className="size-4" /> Download PDF

@@ -17,6 +17,7 @@ class FakeDrive {
       return '';
     });
     for (const m of s.matchAll(/mimeType='([^']+)'/g)) conds.push((f) => f.mimeType === m[1]);
+    for (const m of s.matchAll(/mimeType!='([^']+)'/g)) conds.push((f) => f.mimeType !== m[1]);
     for (const m of s.matchAll(/'([^']+)' in parents/g)) conds.push((f) => f.parents.includes(m[1]));
     for (const m of s.matchAll(/(?<![A-Za-z])name='([^']+)'/g)) conds.push((f) => f.name === m[1]);
     if (/trashed=false/.test(s)) conds.push((f) => !f.trashed);
@@ -24,7 +25,7 @@ class FakeDrive {
   }
 
   private meta(f: { id: string; name: string; version: number; appProperties: Record<string, string>; mimeType?: string }) {
-    return { id: f.id, name: f.name, version: String(f.version), appProperties: f.appProperties, mimeType: f.mimeType };
+    return { id: f.id, name: f.name, version: String(f.version), appProperties: f.appProperties, mimeType: f.mimeType, parents: (f as { parents?: string[] }).parents };
   }
 
   private async multipart(init: RequestInit) {
@@ -45,6 +46,11 @@ class FakeDrive {
     const method = init.method ?? 'GET';
     this.calls.push(`${method} ${url.pathname}`);
     const json = (v: unknown) => new Response(JSON.stringify(v), { headers: { 'Content-Type': 'application/json' } });
+    const exportMatch = /\/files\/([^/]+)\/export$/.exec(url.pathname);
+    if (exportMatch) {
+      const f = this.files.get(exportMatch[1]);
+      return f ? new Response(f.data as BlobPart) : new Response('not found', { status: 404 });
+    }
     const idMatch = /\/files\/([^/]+)$/.exec(url.pathname);
     if (url.pathname.endsWith('/about')) return json({ user: { displayName: 'Test', emailAddress: 't@example.com' } });
     if (url.pathname === '/drive/v3/files' && method === 'GET') {
@@ -63,7 +69,7 @@ class FakeDrive {
     if (url.pathname === '/upload/drive/v3/files' && method === 'POST') {
       const { meta, data } = await this.multipart(init);
       const id = `f${this.next++}`;
-      const f = { id, name: meta.name, mimeType: meta.mimeType, parents: meta.parents ?? [], appProperties: meta.appProperties ?? {}, data, version: 1, trashed: false };
+      const f = { id, name: meta.name, mimeType: meta.mimeType ?? 'text/plain', parents: meta.parents ?? [], appProperties: meta.appProperties ?? {}, data, version: 1, trashed: false };
       this.files.set(id, f);
       return json(this.meta(f));
     }
@@ -80,6 +86,8 @@ class FakeDrive {
         return json(this.meta(f));
       }
       if (method === 'PATCH') {
+        const add = url.searchParams.get('addParents');
+        if (add) f.parents = [...f.parents.filter((p) => !(url.searchParams.get('removeParents') ?? '').split(',').includes(p)), add];
         Object.assign(f, JSON.parse(init.body as string), { version: f.version + 1 });
         return json(this.meta(f));
       }
@@ -151,6 +159,32 @@ describe('DriveProvider against a fake Drive API', () => {
     expect(snap.version).toBe('1');
     expect(await A.provider.writeIndex(snap.index!, snap.version)).toBe('2');
     expect(await A.provider.writeIndex(snap.index!, snap.version)).toBeNull();
+  });
+
+  it('makes the Agents folder only when asked; read-me, replies, Done and trash', async () => {
+    const A = device();
+    await A.provider.mirror((await A.repo.createDoc({ name: 'Resume', files: { 'main.tex': { kind: 'text', text: 'x' } } })), { 'main.tex': new TextEncoder().encode('x') });
+    const named = (name: string) => [...drive.files.values()].filter((f) => f.name === name && !f.trashed);
+    expect(named('Agents(optional_AI)')).toHaveLength(0);
+    expect(await A.provider.listAgentReplies()).toEqual([]);
+    await A.provider.writeAgentsReadme('# v1');
+    await A.provider.writeAgentsReadme('# v2');
+    const [agents] = named('Agents(optional_AI)');
+    const readmes = named('Read me first (for AI agents).md');
+    expect(readmes).toHaveLength(1);
+    expect(new TextDecoder().decode(readmes[0].data)).toBe('# v2');
+    // A reply TexChef can see (in real Drive: one it was given access to).
+    drive.files.set('r1', { id: 'r1', name: 'Resume - Acme.tex', mimeType: 'text/plain', parents: [agents.id], appProperties: {}, data: new TextEncoder().encode('% texchef-reply doc=x'), version: 1, trashed: false });
+    drive.files.set('g1', { id: 'g1', name: 'Resume - doc', mimeType: 'application/vnd.google-apps.document', parents: [agents.id], appProperties: {}, data: new TextEncoder().encode('from a doc'), version: 1, trashed: false });
+    expect((await A.provider.listAgentReplies()).map((f) => f.id).sort()).toEqual(['g1', 'r1']);
+    expect(await A.provider.readText('r1')).toEqual({ name: 'Resume - Acme.tex', text: '% texchef-reply doc=x' });
+    expect((await A.provider.readText('g1')).text).toBe('from a doc');
+    const { done } = await A.provider.ensureAgentsFolder();
+    await A.provider.moveTo('r1', done);
+    expect(drive.files.get('r1')!.parents).toEqual([done]);
+    expect((await A.provider.listAgentReplies()).map((f) => f.id)).toEqual(['g1']);
+    expect(await A.provider.trashAgentsFolder()).toBe(true);
+    expect(named('Agents(optional_AI)')).toHaveLength(0);
   });
 
   it('keeps a readable mirror of each document and its PDF', async () => {

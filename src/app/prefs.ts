@@ -50,6 +50,8 @@ interface Prefs {
   folderMode: 'browse' | 'grouped';
   /** Folder open on the home page: a path, "__unfiled__", or null for all documents. */
   currentFolder: string | null;
+  /** Experimental, opt-in: an Agents(optional_AI) folder in Drive that AI agents read and reply into. */
+  agentsEnabled: boolean;
   set: (patch: Partial<Omit<Prefs, 'set'>>) => void;
 }
 
@@ -94,6 +96,7 @@ export const usePrefs = create<Prefs>((set, get) => ({
   showFolders: true,
   folderMode: 'browse',
   currentFolder: null,
+  agentsEnabled: false,
   ...load(),
   set: (patch) => {
     set(patch);

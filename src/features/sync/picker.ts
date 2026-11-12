@@ -42,6 +42,28 @@ const HELP_TOAST = 'drive-picker-help';
  * offers to close it and says what to try.
  */
 export async function pickFromDrive(): Promise<File[]> {
+  const provider = driveProvider();
+  const picked = await showPicker({
+    title: 'Import into TexChef',
+    mimeTypes: 'text/x-tex,application/x-tex,text/plain,application/zip,application/x-zip-compressed,image/png,image/jpeg,application/octet-stream',
+  });
+  const files: File[] = [];
+  for (const d of picked) {
+    const { name, data } = await provider!.downloadPicked(d.id);
+    files.push(new File([data as BlobPart], name));
+  }
+  return files;
+}
+
+interface PickerOptions {
+  title: string;
+  mimeTypes: string;
+  /** Open inside this folder. */
+  parent?: string;
+}
+
+/** Show Google Picker and return what was picked ([] when closed). */
+async function showPicker(opts: PickerOptions): Promise<NonNullable<PickerResponse['docs']>> {
   const token = currentToken();
   const provider = driveProvider();
   if (!token || !provider) throw new Error('Connect Google Drive first');
@@ -69,16 +91,15 @@ export async function pickFromDrive(): Promise<File[]> {
       if (error) reject(error);
       else resolve(docs);
     };
-    const view = new gp.DocsView(gp.ViewId.DOCS)
-      .setMimeTypes('text/x-tex,application/x-tex,text/plain,application/zip,application/x-zip-compressed,image/png,image/jpeg,application/octet-stream')
-      .setIncludeFolders(true);
+    const view = new gp.DocsView(gp.ViewId.DOCS).setMimeTypes(opts.mimeTypes).setIncludeFolders(true);
+    if (opts.parent) view.setParent(opts.parent);
     picker = new gp.PickerBuilder()
       .addView(view)
       .enableFeature(gp.Feature.MULTISELECT_ENABLED)
       .setOAuthToken(token.accessToken)
       .setDeveloperKey(API_KEY)
       .setAppId(APP_ID)
-      .setTitle('Import into TexChef')
+      .setTitle(opts.title)
       .setCallback((data: PickerResponse) => {
         if (data.action === gp.Action.PICKED) finish(data.docs);
         else if (data.action === gp.Action.CANCEL) finish([]);
@@ -93,10 +114,18 @@ export async function pickFromDrive(): Promise<File[]> {
       action: { label: 'Close picker', onClick: () => finish([]) },
     });
   });
-  const files: File[] = [];
-  for (const d of picked ?? []) {
-    const { name, data } = await provider.downloadPicked(d.id);
-    files.push(new File([data as BlobPart], name));
-  }
-  return files;
+  return picked ?? [];
+}
+
+/**
+ * Experimental AI agents: pick replies in TexChef/Agents(optional_AI). Picking is what lets TexChef
+ * (with its narrow drive.file permission) read files an agent created.
+ */
+export async function pickAgentReplies(folder?: string): Promise<{ id: string; name: string }[]> {
+  const picked = await showPicker({
+    title: 'Pick replies from AI agents',
+    mimeTypes: 'text/plain,text/x-tex,application/x-tex,text/markdown,application/vnd.google-apps.document,application/octet-stream',
+    parent: folder,
+  });
+  return picked.map((d) => ({ id: d.id, name: d.name }));
 }

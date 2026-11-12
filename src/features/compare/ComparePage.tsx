@@ -14,8 +14,9 @@ import { DocPicker, type SideRef } from './DocPicker';
 import { PdfViewer } from '@/features/preview/PdfViewer';
 import { useAutoCompile, useEngineStatus } from '@/features/compile/useCompile';
 import { EngineBanner } from '@/features/compile/EngineBanner';
-import { Badge, Button, Dialog, Drawer, DrawerClose, EmptyState, Input, Select, Spinner, Tip } from '@/components/ui';
+import { Badge, Button, Drawer, DrawerClose, EmptyState, Select, Spinner, Tip } from '@/components/ui';
 import { saveWorkAsVariant } from '@/variants/ops';
+import { SaveAsVariantDialog } from '@/features/variants/SaveAsVariantDialog';
 import { ActionDropdown } from '@/components/ActionMenu';
 import { readSession, usePaneLayout, usePhone, writeSession } from '@/lib/useMediaQuery';
 import { cn, timeAgo } from '@/lib/utils';
@@ -679,38 +680,3 @@ export function ComparePage() {
   );
 }
 
-/** Name the variant that takes a side's unsaved edits. */
-function SaveAsVariantDialog({ original, onClose, onSave }: { original?: string; onClose: () => void; onSave: (name: string) => void }) {
-  const [name, setName] = useState(original ? `${original} (variant)` : '');
-  return (
-    <Dialog
-      open={!!original}
-      onOpenChange={(o) => !o && onClose()}
-      title="Save edits as a new variant"
-      description={`Your unsaved edits go into a new variant of “${original}”, which goes back to its last saved version.`}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="primary" disabled={!name.trim()} onClick={() => onSave(name.trim())} data-testid="compare-variant-create">
-            <GitBranchPlus className="size-4" /> Create variant
-          </Button>
-        </>
-      }
-    >
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (name.trim()) onSave(name.trim());
-        }}
-      >
-        <label className="text-sm font-medium" htmlFor="variant-name">
-          Name
-        </label>
-        <Input id="variant-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full" data-testid="compare-variant-name" />
-        <p className="mt-2 text-xs text-muted">It stays linked: Get updates brings in later changes to the original.</p>
-      </form>
-    </Dialog>
-  );
-}

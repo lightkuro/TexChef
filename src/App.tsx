@@ -18,6 +18,8 @@ const HelpPage = lazy(() => import('@/help/HelpPage').then((m) => ({ default: m.
 const TermsPage = lazy(() => import('@/legal/TermsPage').then((m) => ({ default: m.TermsPage })));
 // The landing page as a scroll story: /ideas with snapping (what new users see), /ideas/1 without; /ideas/classic the earlier page.
 const IdeasPage = lazy(() => import('@/features/ideas/IdeasPage').then((m) => ({ default: m.IdeasPage })));
+const AgentReplyPage = lazy(() => import('@/features/agents/AgentReplyPage').then((m) => ({ default: m.AgentReplyPage })));
+const AgentRepliesDialog = lazy(() => import('@/features/agents/AgentRepliesDialog').then((m) => ({ default: m.AgentRepliesDialog })));
 const ClassicLanding = lazy(() => import('@/features/ideas/ClassicLanding').then((m) => ({ default: m.ClassicLanding })));
 
 function Loading() {
@@ -31,6 +33,7 @@ import { repo, useDoc } from '@/app/repo';
 import { applyPalette, applyTheme, usePrefs } from '@/app/prefs';
 import { startSyncLoop } from '@/features/sync/controller';
 import { requestPersistence } from '@/app/persist';
+import { watchQuotaErrors } from '@/app/storageErrors';
 import { mergeDivergedHead, discardDivergedHead } from '@/storage/sync/engine';
 
 /** Autosave dirty working copies as checkpoints: after a minute idle and when the page is hidden. */
@@ -119,6 +122,8 @@ function Root() {
     return () => mq.removeEventListener('change', on);
   }, [theme]);
   useEffect(() => startSyncLoop(), []);
+  useEffect(() => watchQuotaErrors(), []);
+  const agentsEnabled = usePrefs((s) => s.agentsEnabled);
   // Ask the browser to keep local data once there is something worth keeping.
   useEffect(() => {
     const off = repo.on('commit', () => {
@@ -136,6 +141,11 @@ function Root() {
       </div>
       <LeaveGuard />
       <ConfirmHost />
+      {agentsEnabled && (
+        <Suspense fallback={null}>
+          <AgentRepliesDialog />
+        </Suspense>
+      )}
       <Toaster position="bottom-right" richColors closeButton theme={document.documentElement.classList.contains('dark') ? 'dark' : 'light'} />
     </TooltipProvider>
   );
@@ -156,6 +166,7 @@ const router = createBrowserRouter([
         ],
       },
       { path: '/compare', element: <ComparePage /> },
+      { path: '/agent-reply', element: <AgentReplyPage /> },
       { path: '/settings', element: <SettingsPage /> },
       { path: '/privacy', element: <PrivacyPage /> },
       { path: '/terms', element: <TermsPage /> },

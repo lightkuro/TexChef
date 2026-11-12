@@ -10,6 +10,8 @@ export interface Topic {
   body: () => ReactNode;
   /** Bigger text (the first page new users read). */
   large?: boolean;
+  /** Listed only while Settings → Experimental → AI agents is on. */
+  agentsOnly?: boolean;
 }
 
 /** Old topic addresses that still work. */
@@ -1103,6 +1105,60 @@ TexChef/
             <b>Keep this one</b>: keep this device’s version; the other one stays available in history.
           </li>
         </UL>
+      </>
+    ),
+  },
+  {
+    id: 'agents',
+    title: 'AI agents through Google Drive (experimental)',
+    summary: 'Let an AI assistant you connect to Drive suggest edits, and review them before they change anything.',
+    agentsOnly: true,
+    body: () => (
+      <>
+        <Note>
+          This is an <b>experimental, opt-in</b> feature (Settings → Experimental). TexChef never sends your documents to an AI. You connect an
+          assistant to your own Google Drive, and it reads what TexChef already keeps there.
+        </Note>
+        <H2>How it works</H2>
+        <OL>
+          <li>
+            With the switch on and Google Drive connected, TexChef adds a <b>TexChef/Agents(optional_AI)</b> folder with a file called{' '}
+            <b>Read me first (for AI agents)</b>. It lists your documents and explains exactly how to reply.
+          </li>
+          <li>
+            Connect your assistant to Google Drive (for example Claude with its Google Drive connector) and ask it something like:{' '}
+            <i>“Open TexChef/Agents(optional_AI)/Read me first, then tailor my Master resume for this job: …”</i>
+          </li>
+          <li>
+            The assistant reads the document’s readable copy (its LaTeX and PDF) and writes a <b>new file</b> in the Agents folder: the whole
+            edited file, starting with a <C>% texchef-reply</C> line that names the document and the version it read.
+          </li>
+          <li>
+            In TexChef, open <b>Import → Replies from AI agents</b> on the home page (or the editor’s <b>⌄</b> menu). Pick the reply in Google
+            Drive, or paste it if the assistant gave it to you in the chat.
+          </li>
+          <li>
+            Review it side by side: your document on the left, with the agent’s edits on the right. Edits you made after the agent read the file
+            are kept. <b>Accept</b> saves a new version, <b>As a new variant</b> keeps your document as it is, <b>Dismiss</b> changes nothing.
+            Handled replies move to <b>Done</b>.
+          </li>
+        </OL>
+        <H2>Why you pick replies</H2>
+        <P>
+          TexChef asks Google only for the narrow <C>drive.file</C> permission: it can see the files it made and the files you pick, nothing else
+          in your Drive. A reply is a file the assistant made, so TexChef can read it once you pick it.
+        </P>
+        <H2>If Google’s file picker shows an error</H2>
+        <P>
+          “The API developer key is invalid” means the picker’s API key doesn’t allow this site. Whoever runs this copy of TexChef fixes it in the
+          Google Cloud console: allow both the site’s address and <C>https://docs.google.com/*</C> under the key’s website restrictions, and allow
+          the Google Picker API and Google Drive API. Until then, <b>Paste a reply</b> works without the picker.
+        </P>
+        <H2>Turning it off</H2>
+        <P>
+          Switch it off in Settings → Experimental. TexChef stops updating the folder, hides the buttons, and offers to move the Agents folder to
+          the Drive trash.
+        </P>
       </>
     ),
   },

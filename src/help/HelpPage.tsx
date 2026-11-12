@@ -5,6 +5,7 @@ import { KurolightMark, Logo } from '@/components/Logo';
 import { cn } from '@/lib/utils';
 import { TOPIC_ALIASES, TOPICS } from './topics';
 import { APP_VERSION } from '@/app/changelog';
+import { usePrefs } from '@/app/prefs';
 
 // The Intro is the home page's scroll story (loaded on its own).
 const Cover = lazy(() => import('@/features/ideas/IdeasPage').then((m) => ({ default: m.IdeasPage })));
@@ -13,11 +14,13 @@ const Cover = lazy(() => import('@/features/ideas/IdeasPage').then((m) => ({ def
 export function HelpPage() {
   const { topic: raw } = useParams();
   const topic = raw ? (TOPIC_ALIASES[raw] ?? raw) : undefined;
-  const index = Math.max(0, TOPICS.findIndex((t) => t.id === topic));
-  const current = TOPICS[index];
+  const agentsEnabled = usePrefs((s) => s.agentsEnabled);
+  const topics = TOPICS.filter((t) => !t.agentsOnly || agentsEnabled);
+  const index = Math.max(0, topics.findIndex((t) => t.id === topic));
+  const current = topics[index];
   const intro = current.id === 'intro';
-  const prev = TOPICS[index - 1];
-  const next = TOPICS[index + 1];
+  const prev = topics[index - 1];
+  const next = topics[index + 1];
   const scroller = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -49,7 +52,7 @@ export function HelpPage() {
       </header>
       <div className="flex min-h-0 flex-1">
         <nav className="hidden w-64 shrink-0 flex-col overflow-auto border-r border-line bg-panel p-3 md:flex" aria-label="Help topics">
-          {TOPICS.map((t) => (
+          {topics.map((t) => (
             <NavLink
               key={t.id}
               to={`/help/${t.id}`}
@@ -78,7 +81,7 @@ export function HelpPage() {
               onChange={(e) => navigate(`/help/${e.target.value}`)}
               aria-label="Help topic"
             >
-              {TOPICS.map((t) => (
+              {topics.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.title}
                 </option>

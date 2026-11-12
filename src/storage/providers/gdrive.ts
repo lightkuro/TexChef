@@ -4,6 +4,9 @@ import type { IndexSnapshot, Pack, PackRef, RemoteIndex, SyncProvider } from '..
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 const FOLDER = 'application/vnd.google-apps.folder';
+/** Experimental AI agents folder, inside TexChef/ (only when the person turns it on). */
+export const AGENTS_FOLDER = 'Agents(optional_AI)';
+export const AGENTS_README = 'Read me first (for AI agents).md';
 
 interface DriveFile {
   id: string;
@@ -18,6 +21,7 @@ interface DriveFile {
  *
  *   TexChef/                      (visible; readable copies of each document + PDFs)
  *     <Document name>/ main.tex, …, <Document name>.pdf
+ *     Agents(optional_AI)/          (only if turned on in Settings → Experimental) read-me + replies from AI agents
  *     .texchef/
  *       index.json                   document metadata + heads (compare-and-swap via Drive `version`)
  *       packs/<id>.json              immutable commit bundles
@@ -246,6 +250,75 @@ export class DriveProvider implements SyncProvider {
     for (const [name, id] of existing) {
       if (!wanted.has(name)) await this.request(`${API}/files/${id}`, { method: 'DELETE' }).catch(() => undefined);
     }
+  }
+
+  /** Drive folder holding a document's readable copy, if it was mirrored in this session or exists. */
+  async docFolder(docId: string): Promise<{ id: string; name: string } | undefined> {
+    if (this.docFolders.has(docId)) return this.docFolders.get(docId);
+    const { root } = await this.ensureFolders();
+    const found = (await this.list(`mimeType='${FOLDER}' and trashed=false and '${root}' in parents and appProperties has { key='doc' and value='${docId}' }`))[0];
+    if (found) this.docFolders.set(docId, { id: found.id, name: found.name });
+    return found && { id: found.id, name: found.name };
+  }
+
+  // ---------- AI agents folder (experimental, opt-in) ----------
+
+  /** TexChef/Agents(optional_AI) and its Done subfolder, made only when the person turns the feature on. */
+  async ensureAgentsFolder(): Promise<{ folder: string; done: string }> {
+    const { root } = await this.ensureFolders();
+    const folder = await this.findOrCreateFolder(AGENTS_FOLDER, 'agents', root);
+    const done = await this.findOrCreateFolder('Done', 'agents-done', folder);
+    return { folder, done };
+  }
+
+  /** The Agents folder's id if it exists (never creates it). */
+  async findAgentsFolder(): Promise<string | undefined> {
+    const { root } = await this.ensureFolders();
+    return (await this.list(`mimeType='${FOLDER}' and trashed=false and '${root}' in parents and appProperties has { key='rc' and value='agents' }`))[0]?.id;
+  }
+
+  /** Write (or rewrite) the instructions file agents read first. */
+  async writeAgentsReadme(markdown: string): Promise<void> {
+    const { folder } = await this.ensureAgentsFolder();
+    const found = (await this.list(`'${folder}' in parents and trashed=false and appProperties has { key='rc' and value='agents-readme' }`))[0];
+    const body = new Blob([markdown], { type: 'text/markdown' });
+    if (found) await this.upload({ name: AGENTS_README }, body, found.id);
+    else await this.upload({ name: AGENTS_README, parents: [folder], mimeType: 'text/markdown', appProperties: { rc: 'agents-readme' } }, body);
+  }
+
+  /**
+   * Replies TexChef can already see in the Agents folder (not in Done, not the read-me). With the
+   * `drive.file` permission that is only files it made or the person picked; others need the picker.
+   */
+  async listAgentReplies(): Promise<{ id: string; name: string }[]> {
+    const folder = await this.findAgentsFolder();
+    if (!folder) return [];
+    const files = await this.list(`'${folder}' in parents and trashed=false and mimeType!='${FOLDER}'`, 'files(id,name,mimeType,appProperties)');
+    return files.filter((f) => f.appProperties?.rc !== 'agents-readme').map((f) => ({ id: f.id, name: f.name }));
+  }
+
+  /** A file's text; Google Docs are exported as plain text. */
+  async readText(fileId: string): Promise<{ name: string; text: string }> {
+    const meta = await this.json<DriveFile>(`${API}/files/${fileId}?fields=id,name,mimeType`);
+    const res = meta.mimeType?.startsWith('application/vnd.google-apps.')
+      ? await this.request(`${API}/files/${fileId}/export?mimeType=text/plain`)
+      : await this.download(fileId);
+    return { name: meta.name, text: await res.text() };
+  }
+
+  /** Move a file into another folder (e.g. a handled reply into Agents/Done). */
+  async moveTo(fileId: string, folderId: string): Promise<void> {
+    const meta = await this.json<{ parents?: string[] }>(`${API}/files/${fileId}?fields=parents`);
+    const params = new URLSearchParams({ addParents: folderId, removeParents: (meta.parents ?? []).join(','), fields: 'id' });
+    await this.request(`${API}/files/${fileId}?${params}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  }
+
+  /** Move the Agents folder to the Drive trash (when the person turns the feature off and asks to). */
+  async trashAgentsFolder(): Promise<boolean> {
+    const id = await this.findAgentsFolder();
+    if (!id) return false;
+    await this.request(`${API}/files/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+    return true;
   }
 
   /** Save one file (e.g. a backup .zip) in the user's Drive, in TexChef/<sub>. Returns its id. */

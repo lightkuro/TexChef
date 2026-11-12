@@ -846,6 +846,87 @@ await step('compare side by side, copy a block across', async () => {
   await page.evaluate((id) => window.rc.repo.deleteDoc(id), newId);
 });
 
+await step('AI agents (experimental): off by default; on, a pasted reply is reviewed, accepted or dismissed', async () => {
+  const m = masterUrl.split('/doc/')[1];
+  // Off by default: no menu entry, no help topic.
+  await page.goto(BASE);
+  await page.getByTestId('import-menu').click();
+  await page.getByTestId('import-files').waitFor();
+  assert.equal(await page.getByTestId('import-agents').count(), 0);
+  await page.keyboard.press('Escape');
+  await page.goto(`${BASE}/help/agents`);
+  assert.equal(await page.getByRole('link', { name: /AI agents through Google Drive/ }).count(), 0);
+  // Turn it on in Settings → Experimental (no Drive here: it asks to connect).
+  await page.goto(`${BASE}/settings`);
+  await page.getByTestId('settings-agents-toggle').check();
+  await page.getByText('This needs Google Drive.').waitFor();
+  // A reply that edits a line the document still has as the agent read it.
+  const { head, text } = await page.evaluate(async (id) => {
+    const { repo } = window.rc;
+    await repo.commitWork(id, 'before agent', 'save');
+    const d = await repo.getDoc(id);
+    return { head: d.head, text: (await repo.getWork(id)).files['main.tex'].text };
+  }, m);
+  assert.match(text, /Seattle, WA/);
+  const reply = `% texchef-reply doc=${m} base=${head} file=main.tex note="Moved to Portland"\n${text.replace('Seattle, WA', 'Portland, OR')}`;
+  const openPaste = async (t) => {
+    await page.goto(BASE);
+    await page.getByTestId('import-menu').click();
+    await page.getByTestId('import-agents').click();
+    await page.getByTestId('agent-replies-paste').click();
+    await page.getByTestId('agent-replies-paste-text').fill(t);
+    await page.getByTestId('agent-replies-paste-review').click();
+    await page.getByTestId('agent-reply-page').waitFor();
+  };
+  // Meanwhile the person edits a line next to the agent's: a conflict, and Accept waits until it's resolved.
+  await page.evaluate(async ([id, t]) => window.rc.repo.writeWorkText(id, 'main.tex', t.replace('{jordan@example.com}', '{jo@example.com}')), [m, text]);
+  await openPaste(reply);
+  await page.getByText('1 file has conflicts').waitFor();
+  assert.equal(await page.getByTestId('agent-reply-accept').isDisabled(), true);
+  await page.screenshot({ path: `${OUT}06d-agent-conflict.png` });
+  await page.getByTestId('agent-reply-dismiss').click();
+  await page.waitForURL(`**/doc/${m}`);
+  // Now an edit far from the agent's: it must survive.
+  await page.evaluate(async ([id, t]) => window.rc.repo.writeWorkText(id, 'main.tex', t.replace('\\rcEntry{Northwind Analytics}', '\\rcEntry{Northwind Analytics Inc.}')), [m, text]);
+  await openPaste(reply);
+  await page.getByText('“Moved to Portland”').waitFor();
+  await page.getByText('Your later edits are kept').waitFor();
+  await page.locator('.cm-mergeView').waitFor();
+  await page.screenshot({ path: `${OUT}06c-agent-reply.png` });
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${m}`);
+  const after = await page.evaluate(async (id) => {
+    const { repo, db } = window.rc;
+    const d = await repo.getDoc(id);
+    const c = await db.commits.get(d.head);
+    return { message: c.message, text: (await repo.getWork(id)).files['main.tex'].text };
+  }, m);
+  assert.equal(after.message, 'Edits from an AI agent: Moved to Portland');
+  assert.match(after.text, /Portland, OR/);
+  assert.match(after.text, /Northwind Analytics Inc\./);
+  // Dismiss changes nothing.
+  await openPaste(`% texchef-reply doc=${m} base=${head}\n\\documentclass{article}\\begin{document}Nope\\end{document}`);
+  await page.getByTestId('agent-reply-dismiss').click();
+  await page.waitForURL(`**/doc/${m}`);
+  assert.equal(await workText(m), after.text);
+  // No header: choose the document (here: a new one).
+  await openPaste('\\documentclass{article}\n\\begin{document}\nFrom the chat.\n\\end{document}\n');
+  await page.getByTestId('agent-reply-doc').selectOption('new');
+  await page.getByTestId('agent-reply-accept').click();
+  await page.getByTestId('editor-page').waitFor();
+  assert.match(await page.evaluate(async (id) => (await window.rc.repo.getWork(id)).files['main.tex'].text, page.url().split('/doc/')[1]), /From the chat/);
+  // The help topic is listed while it's on; switching off hides the menu entry again.
+  await page.goto(`${BASE}/help/agents`);
+  await page.getByRole('heading', { name: 'Why you pick replies' }).waitFor();
+  await page.goto(`${BASE}/settings`);
+  await page.getByTestId('settings-agents-toggle').uncheck();
+  await page.goto(BASE);
+  await page.getByTestId('import-menu').click();
+  await page.getByTestId('import-files').waitFor();
+  assert.equal(await page.getByTestId('import-agents').count(), 0);
+  await page.keyboard.press('Escape');
+});
+
 await step('upload a .zip as a new document and download it again', async () => {
   const zip = zipSync({
     'proj/main.tex': strToU8('\\documentclass{article}\n\\begin{document}\nHello from a zip.\n\\input{part}\n\\end{document}\n'),

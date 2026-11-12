@@ -42,6 +42,11 @@ export function PrivacyPage() {
           files it created, and opens files you pick for import.
         </li>
         <li>
+          Only if you turn on the experimental <b>AI agents</b> setting, {app} also keeps a “TexChef/Agents(optional_AI)” folder with a
+          read-me listing your documents, and reads the replies you pick or paste there so you can review them. {app} never sends your
+          documents to an AI service; an AI assistant sees them only if you connect it to your Google Drive yourself.
+        </li>
+        <li>
           {app} reads your Google account's name, email address and profile photo only to show which account is connected. They are displayed
           in the app and are not stored on any server or shared.
         </li>

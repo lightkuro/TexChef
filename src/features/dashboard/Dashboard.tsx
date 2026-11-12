@@ -26,10 +26,12 @@ import {
   Files,
   X,
   MoreHorizontal,
+  Bot,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
+import { useAgentsDialog } from '@/features/agents/agents';
 import { createDocumentFromProject, planImport, type ImportPlan } from '@/features/importexport/io';
 import { RestoreDialog } from '@/features/workspace/RestoreDialog';
 import type { RestorePlan } from '@/features/workspace/backup';
@@ -272,6 +274,8 @@ export function Dashboard() {
     }
   };
 
+  const agentsEnabled = usePrefs((s) => s.agentsEnabled);
+  const openAgents = useAgentsDialog((s) => s.set);
   const importActions: MenuAction[] = [
     { key: 'files', label: 'Upload files or a .zip…', hint: '.tex .zip images', icon: <Upload className="size-4" />, run: () => upload.current?.click(), testId: 'import-files' },
     { key: 'folder', label: 'Upload a folder…', hint: 'projects or a backup', icon: <FolderUp className="size-4" />, run: () => folderInput.current?.click(), testId: 'import-folder' },
@@ -285,6 +289,19 @@ export function Dashboard() {
             separatorBefore: true,
             run: () => void importFromDrive(),
             testId: 'import-drive',
+          },
+        ]
+      : []),
+    ...(agentsEnabled
+      ? [
+          {
+            key: 'agents',
+            label: 'Replies from AI agents…',
+            hint: 'experimental',
+            icon: <Bot className="size-4" />,
+            separatorBefore: true,
+            run: () => openAgents(true),
+            testId: 'import-agents',
           },
         ]
       : []),

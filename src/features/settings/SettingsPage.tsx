@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ArrowLeft, Cloud, HardDrive, Cpu, Palette, Database, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Cloud, HardDrive, Cpu, Palette, Database, ShieldCheck, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/app/repo';
 import { PALETTES, usePrefs, type Theme } from '@/app/prefs';
@@ -8,7 +8,8 @@ import { Swatch } from '@/components/ThemeMenu';
 import { cn } from '@/lib/utils';
 import { compiler } from '@/compile/compiler';
 import { useEngineStatus } from '@/features/compile/useCompile';
-import { useSync, connectDrive, disconnectDrive, syncNow } from '@/features/sync/controller';
+import { useSync, connectDrive, disconnectDrive, syncNow, agentsChanged, driveProvider } from '@/features/sync/controller';
+import { confirmAction } from '@/components/confirm';
 import { googleConfigured } from '@/features/auth/google';
 import { pickerConfigured } from '@/features/sync/picker';
 import { Badge, Button, Dialog, Select } from '@/components/ui';
@@ -35,6 +36,7 @@ export function SettingsPage() {
   const palette = usePrefs((s) => s.palette);
   const autoCompile = usePrefs((s) => s.autoCompile);
   const mapLines = usePrefs((s) => s.mapLines);
+  const agentsEnabled = usePrefs((s) => s.agentsEnabled);
   const setPref = usePrefs((s) => s.set);
   const [reset, setReset] = useState(false);
   const [storage, setStorage] = useState<StorageStatus>();
@@ -171,6 +173,66 @@ export function SettingsPage() {
               Terms of Service
             </Link>
           </p>
+        </Section>
+
+        <Section icon={<FlaskConical className="size-4" />} title="Experimental">
+          <label className="flex items-start gap-3" data-testid="settings-agents">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={agentsEnabled}
+              onChange={async (e) => {
+                const on = e.target.checked;
+                if (!on) {
+                  setPref({ agentsEnabled: false });
+                  await agentsChanged(false);
+                  const provider = driveProvider();
+                  if (provider && (await provider.findAgentsFolder().catch(() => undefined))) {
+                    const trash = await confirmAction({
+                      title: 'Also move the Agents folder to the Drive trash?',
+                      body: 'TexChef/Agents(optional_AI) holds the read-me for AI agents and their replies. Your documents aren’t affected either way.',
+                      ok: 'Move to trash',
+                      danger: true,
+                    });
+                    if (trash) {
+                      await provider.trashAgentsFolder();
+                      toast.success('The Agents folder is in the Drive trash');
+                    }
+                  }
+                  return;
+                }
+                setPref({ agentsEnabled: true });
+                await agentsChanged(true).catch((err) => toast.error(String(err?.message ?? err)));
+              }}
+              data-testid="settings-agents-toggle"
+            />
+            <span className="space-y-1">
+              <span className="flex flex-wrap items-center gap-2 font-medium">
+                Work with AI agents through Google Drive <Badge tone="warn">Experimental</Badge>
+              </span>
+              <span className="block text-muted">
+                Adds a <b>TexChef/Agents(optional_AI)</b> folder to your Drive with instructions for an AI assistant you connect to Drive
+                yourself (for example Claude with its Google Drive connector). The assistant reads your documents’ readable copies and leaves
+                replies in that folder; you review each reply side by side before anything changes. TexChef itself never sends anything to an AI.
+              </span>
+            </span>
+          </label>
+          {agentsEnabled && sync.state === 'local' && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-subtle p-3">
+              <span className="flex-1">This needs Google Drive.</span>
+              <Button variant="primary" size="sm" onClick={() => connectDrive().catch((e) => toast.error(String(e?.message ?? e)))} disabled={!googleConfigured}>
+                Connect Google Drive
+              </Button>
+            </div>
+          )}
+          {agentsEnabled && (
+            <p className="text-xs text-muted">
+              Open replies from <b>Import → Replies from AI agents</b> on the home page, or the editor’s ⌄ menu.{' '}
+              <Link to="/help/agents" className="text-accent underline">
+                How it works
+              </Link>
+            </p>
+          )}
         </Section>
 
         <Section icon={<Database className="size-4" />} title="Local data">
