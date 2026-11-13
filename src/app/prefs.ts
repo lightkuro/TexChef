@@ -61,6 +61,15 @@ interface Prefs {
   agentsEnabled: boolean;
   /** Show the tip (with a Close picker button) while Google's file picker is open. */
   pickerTip: boolean;
+  /**
+   * What this device brings down from Google Drive: every version of every document, each document's current
+   * version (older ones when asked for), or only the list until a document is opened (data saver).
+   */
+  driveData: 'all' | 'needed' | 'saver';
+  /** Renew Google's sign-in quietly on the next click when it has run out. Unset: on with a mouse, off on touch-only devices. */
+  driveRenew?: boolean;
+  /** Bigger TeX package sets (fonts and more): ask before downloading on phones and metered connections, or never ask. */
+  texDownloads: 'ask' | 'always';
   set: (patch: Partial<Omit<Prefs, 'set'>>) => void;
 }
 
@@ -110,6 +119,8 @@ export const usePrefs = create<Prefs>((set, get) => ({
   currentFolder: null,
   agentsEnabled: false,
   pickerTip: true,
+  driveData: 'needed',
+  texDownloads: 'ask',
   ...load(),
   set: (patch) => {
     set(patch);

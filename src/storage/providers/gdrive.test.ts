@@ -82,7 +82,7 @@ class FakeDrive {
       }
       if (method === 'PATCH' && url.pathname.startsWith('/upload/')) {
         const { meta, data } = await this.multipart(init);
-        Object.assign(f, { name: meta.name ?? f.name, data, version: f.version + 1 });
+        Object.assign(f, { name: meta.name ?? f.name, data, version: f.version + 1, appProperties: { ...f.appProperties, ...(meta.appProperties ?? {}) } });
         return json(this.meta(f));
       }
       if (method === 'PATCH') {
@@ -132,7 +132,7 @@ describe('DriveProvider against a fake Drive API', () => {
     await A.engine.sync();
     await B.engine.sync();
     const folders = [...drive.files.values()].filter((f) => f.mimeType === 'application/vnd.google-apps.folder');
-    expect(folders.map((f) => f.name).sort()).toEqual(['.texchef', 'TexChef', 'blobs', 'packs']);
+    expect(folders.map((f) => f.name).sort()).toEqual(['.texchef', 'TexChef', 'blobs', 'heads', 'packs']);
 
     B.repo.blobFetcher = (h) => B.provider.readBlob(h);
     const work = await B.repo.getWork(doc.id);
@@ -198,5 +198,65 @@ describe('DriveProvider against a fake Drive API', () => {
     const inside = [...drive.files.values()].filter((f) => f.parents.includes(folder.id));
     expect(inside.map((f) => f.name).sort()).toEqual(['main.tex']);
     expect(new TextDecoder().decode(inside[0].data)).toBe('v2');
+  });
+
+  it('a light device takes current versions from head files; an unchanged index is not downloaded again', async () => {
+    const A = device();
+    const one = await A.repo.createDoc({ name: 'One', files: { 'main.tex': { kind: 'text', text: 'v1' } } });
+    await A.repo.writeWorkText(one.id, 'main.tex', 'v2');
+    await A.repo.commitWork(one.id, 'v2');
+    const logo = new Uint8Array(100 * 1024).map((_, i) => i % 250);
+    await A.repo.addBinaryFile(one.id, 'logo.png', logo);
+    await A.repo.commitWork(one.id, 'logo');
+    await A.engine.sync();
+    const heads = [...drive.files.values()].filter((f) => f.name === `${one.id}.json`);
+    expect(heads).toHaveLength(1);
+    expect(heads[0].appProperties.head).toBe((await A.repo.getDoc(one.id))!.head);
+    // The logo is too big to ride along: it is stored on its own.
+    expect(new TextDecoder().decode(heads[0].data).length).toBeLessThan(20 * 1024);
+
+    const B = device();
+    B.engine.mode = 'needed';
+    B.repo.blobFetcher = (h) => B.provider.readBlob(h);
+    drive.calls.length = 0;
+    await B.engine.sync();
+    const packDownloads = () => drive.calls.filter((c) => c.startsWith('GET /drive/v3/files/')).length;
+    expect(await B.repo.docCommits(one.id)).toHaveLength(1);
+    const work = await B.repo.getWork(one.id);
+    expect(fileText(work.files, 'main.tex')).toBe('v2');
+    expect(await B.repo.getBlob((work.files['logo.png'] as { hash: string }).hash)).toEqual(logo);
+
+    // A second version: the same head file is replaced, not added to.
+    await A.repo.writeWorkText(one.id, 'main.tex', 'v3');
+    await A.repo.commitWork(one.id, 'v3');
+    await A.engine.sync();
+    expect([...drive.files.values()].filter((f) => f.name === `${one.id}.json`)).toHaveLength(1);
+    await B.engine.sync();
+    expect(fileText((await B.repo.getWork(one.id)).files, 'main.tex')).toBe('v3');
+
+    // Idle: one listing of packs and one look at the index's version; the index itself is not fetched.
+    const before = packDownloads();
+    drive.calls.length = 0;
+    await B.engine.sync();
+    expect(drive.calls.filter((c) => c.includes('alt=media') || /files\/f\d+$/.test(c)).length).toBeLessThanOrEqual(1);
+    expect(before).toBeGreaterThan(0);
+  });
+
+  it('the readable copy sends only what changed', async () => {
+    const A = device();
+    const doc = await A.repo.createDoc({ name: 'Resume', files: { 'main.tex': { kind: 'text', text: 'x' } } });
+    const enc = (s: string) => new TextEncoder().encode(s);
+    await A.provider.mirror(doc, { 'main.tex': enc('v1'), 'refs.bib': enc('b') }, enc('%PDF-1'));
+    const uploads = () => drive.calls.filter((c) => c.includes('/upload/')).length;
+    const before = uploads();
+    await A.provider.mirror(doc, { 'main.tex': enc('v2'), 'refs.bib': enc('b') }, undefined, new Set(['refs.bib', DriveProvider.PDF]));
+    expect(uploads() - before).toBe(1);
+    const folder = [...drive.files.values()].find((f) => f.appProperties.doc === doc.id)!;
+    const inside = [...drive.files.values()].filter((f) => f.parents.includes(folder.id));
+    expect(inside.map((f) => f.name).sort()).toEqual(['Resume.pdf', 'main.tex', 'refs.bib']);
+    expect(new TextDecoder().decode(inside.find((f) => f.name === 'main.tex')!.data)).toBe('v2');
+    // A rename carries the kept PDF along.
+    await A.provider.mirror({ ...doc, name: 'CV' }, { 'main.tex': enc('v2'), 'refs.bib': enc('b') }, undefined, new Set(['main.tex', 'refs.bib', DriveProvider.PDF]));
+    expect([...drive.files.values()].filter((f) => f.parents.includes(folder.id)).map((f) => f.name).sort()).toEqual(['CV.pdf', 'main.tex', 'refs.bib']);
   });
 });

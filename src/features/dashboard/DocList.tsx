@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { GitBranch, FileText, GitPullRequestArrow, AlertTriangle, Folder, GripVertical, MoreHorizontal } from 'lucide-react';
+import { GitBranch, FileText, GitPullRequestArrow, AlertTriangle, Folder, GripVertical, MoreHorizontal, CloudDownload } from 'lucide-react';
 import type { DocMeta } from '@/core/model';
 import { repo, usePreviews } from '@/app/repo';
 import { Badge } from '@/components/ui';
@@ -68,6 +68,11 @@ export function DocList({
             <Link to={`/doc/${doc.id}`} className="truncate text-sm font-medium hover:underline">
               {doc.name}
             </Link>
+            {doc.remoteOnly && (
+              <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted" title="In Google Drive. It comes to this device when you open it." data-testid="doc-remote-only">
+                <CloudDownload className="size-3.5" /> in Drive
+              </span>
+            )}
             {showFolder && doc.folder && (
               <span className="flex min-w-0 shrink items-center gap-1 truncate text-[11px] text-muted" title={doc.folder}>
                 <Folder className="size-3 shrink-0" />

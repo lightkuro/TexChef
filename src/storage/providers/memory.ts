@@ -1,5 +1,5 @@
 import type { Hash } from '@/core/model';
-import type { IndexSnapshot, Pack, PackRef, RemoteIndex, SyncProvider } from '../sync/types';
+import { packDocId, type HeadRef, type IndexSnapshot, type Pack, type PackRef, type RemoteIndex, type SyncProvider } from '../sync/types';
 
 /** In-memory provider: used by tests (two "devices" sharing one instance). */
 export class MemoryProvider implements SyncProvider {
@@ -9,13 +9,17 @@ export class MemoryProvider implements SyncProvider {
   index: string | null = null;
   version = 0;
   writes = 0;
+  heads = new Map<string, string>();
+  /** What was read, for tests that check how little a device brings down. */
+  reads = { packs: 0, heads: 0, index: 0, blobs: 0 };
 
   async listPacks(): Promise<PackRef[]> {
-    return [...this.packs.keys()].sort().map((id) => ({ id, ref: id }));
+    return [...this.packs.keys()].sort().map((id) => ({ id, ref: id, docId: packDocId(id) }));
   }
   async readPack(ref: string): Promise<Pack> {
     const p = this.packs.get(ref);
     if (!p) throw new Error(`Missing pack ${ref}`);
+    this.reads.packs++;
     return JSON.parse(p);
   }
   async writePack(pack: Pack): Promise<void> {
@@ -26,13 +30,31 @@ export class MemoryProvider implements SyncProvider {
     refs.forEach((r) => this.packs.delete(r));
   }
   async readBlob(hash: Hash) {
+    this.reads.blobs++;
     return this.blobs.get(hash);
+  }
+  async listHeads(): Promise<Map<string, HeadRef>> {
+    return new Map([...this.heads].map(([docId, json]) => [docId, { ref: docId, head: (JSON.parse(json) as Pack).commits[0]?.id }]));
+  }
+  async readHead(ref: string): Promise<Pack> {
+    const p = this.heads.get(ref);
+    if (!p) throw new Error(`Missing head ${ref}`);
+    this.reads.heads++;
+    return JSON.parse(p);
+  }
+  async writeHead(docId: string, pack: Pack): Promise<string> {
+    this.heads.set(docId, JSON.stringify(pack));
+    this.writes++;
+    return docId;
   }
   async writeBlob(hash: Hash, data: Uint8Array) {
     this.blobs.set(hash, data);
   }
-  async readIndex(): Promise<IndexSnapshot> {
-    return { index: this.index ? (JSON.parse(this.index) as RemoteIndex) : null, version: this.index ? String(this.version) : null };
+  async readIndex(known?: string | null): Promise<IndexSnapshot> {
+    const version = this.index ? String(this.version) : null;
+    if (version && known === version) return { index: null, version, unchanged: true };
+    this.reads.index++;
+    return { index: this.index ? (JSON.parse(this.index) as RemoteIndex) : null, version };
   }
   async writeIndex(index: RemoteIndex, expected: string | null): Promise<string | null> {
     const current = this.index ? String(this.version) : null;

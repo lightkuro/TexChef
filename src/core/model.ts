@@ -67,6 +67,8 @@ export interface DocMeta {
   deleted?: boolean;
   /** Heads from other devices that diverged from ours; shown in the graph for merging. */
   divergedHeads?: string[];
+  /** Listed from the storage, but its contents are not on this device yet (data saver). Local-only field. */
+  remoteOnly?: boolean;
   createdAt: number;
   updatedAt: number;
 }

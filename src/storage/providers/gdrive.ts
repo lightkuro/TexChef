@@ -1,5 +1,5 @@
 import type { DocMeta, Hash } from '@/core/model';
-import type { IndexSnapshot, Pack, PackRef, RemoteIndex, SyncProvider } from '../sync/types';
+import { packDocId, type HeadRef, type IndexSnapshot, type Pack, type PackRef, type RemoteIndex, type SyncProvider } from '../sync/types';
 
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
@@ -24,14 +24,17 @@ interface DriveFile {
  *     Agents(optional_AI)/          (only if turned on in Settings → Experimental) read-me + replies from AI agents
  *     .texchef/
  *       index.json                   document metadata + heads (compare-and-swap via Drive `version`)
- *       packs/<id>.json              immutable commit bundles
- *       blobs/<sha256>               large binary files (images, fonts)
+ *       packs/<doc>~<id>.json        immutable bundles of one document's versions (earlier: <id>.json, several documents)
+ *       heads/<doc>.json             each document's current version on its own (for devices that take only that)
+ *       blobs/<sha256>               bigger files (images, fonts), fetched when needed
  */
 export class DriveProvider implements SyncProvider {
   readonly id = 'gdrive';
   private folders?: Promise<{ root: string; data: string; packs: string; blobs: string }>;
   private indexFileId?: string;
   private blobIds = new Map<Hash, string>();
+  private headsFolder?: Promise<string>;
+  private headIds = new Map<string, string>();
   private docFolders = new Map<string, { id: string; name: string }>();
 
   constructor(private getToken: () => Promise<string>) {}
@@ -132,7 +135,10 @@ export class DriveProvider implements SyncProvider {
     const { packs } = await this.ensureFolders();
     const files = await this.list(`'${packs}' in parents and trashed=false`, 'files(id,name)');
     return files
-      .map((f) => ({ id: f.name.replace(/\.json$/, ''), ref: f.id }))
+      .map((f) => {
+        const id = f.name.replace(/\.json$/, '');
+        return { id, ref: f.id, docId: packDocId(id) };
+      })
       .sort((a, b) => a.id.localeCompare(b.id));
   }
 
@@ -140,9 +146,49 @@ export class DriveProvider implements SyncProvider {
     return (await this.download(ref)).json();
   }
 
-  async writePack(pack: Pack): Promise<void> {
+  async writePack(pack: Pack): Promise<string> {
     const { packs } = await this.ensureFolders();
-    await this.upload({ name: `${pack.id}.json`, parents: [packs], mimeType: 'application/json' }, new Blob([JSON.stringify(pack)], { type: 'application/json' }));
+    const f = await this.upload({ name: `${pack.id}.json`, parents: [packs], mimeType: 'application/json' }, new Blob([JSON.stringify(pack)], { type: 'application/json' }));
+    return f.id;
+  }
+
+  // ---------- current versions ----------
+
+  private heads(): Promise<string> {
+    this.headsFolder ??= this.ensureFolders()
+      .then(({ data }) => this.findOrCreateFolder('heads', 'heads', data))
+      .catch((e) => {
+        this.headsFolder = undefined;
+        throw e;
+      });
+    return this.headsFolder;
+  }
+
+  async listHeads(): Promise<Map<string, HeadRef>> {
+    const folder = await this.heads();
+    const out = new Map<string, HeadRef>();
+    for (const f of await this.list(`'${folder}' in parents and trashed=false`, 'files(id,name,appProperties)')) {
+      const docId = f.name.replace(/\.json$/, '');
+      out.set(docId, { ref: f.id, head: f.appProperties?.head });
+      this.headIds.set(docId, f.id);
+    }
+    return out;
+  }
+
+  async readHead(ref: string): Promise<Pack> {
+    return (await this.download(ref)).json();
+  }
+
+  async writeHead(docId: string, pack: Pack, ref?: string): Promise<string> {
+    const folder = await this.heads();
+    const body = new Blob([JSON.stringify(pack)], { type: 'application/json' });
+    const appProperties = { head: pack.commits[0]?.id ?? '' };
+    let id = ref ?? this.headIds.get(docId);
+    // Not seen in this session: it may still exist (written by another device).
+    if (!id) id = (await this.list(`name='${docId}.json' and '${folder}' in parents and trashed=false`, 'files(id,name)'))[0]?.id;
+    const f = id ? await this.upload({ appProperties }, body, id) : await this.upload({ name: `${docId}.json`, parents: [folder], mimeType: 'application/json', appProperties }, body);
+    this.headIds.set(docId, f.id);
+    return f.id;
   }
 
   async deletePacks(refs: string[]): Promise<void> {
@@ -186,9 +232,11 @@ export class DriveProvider implements SyncProvider {
     return f;
   }
 
-  async readIndex(): Promise<IndexSnapshot> {
+  async readIndex(known?: string | null): Promise<IndexSnapshot> {
     const f = await this.findIndex();
     if (!f) return { index: null, version: null };
+    // Nothing changed since the caller last looked: no need to download it again.
+    if (known && f.version === known) return { index: null, version: known, unchanged: true };
     const index = (await (await this.download(f.id)).json()) as RemoteIndex;
     return { index, version: f.version ?? null };
   }
@@ -210,7 +258,14 @@ export class DriveProvider implements SyncProvider {
 
   // ---------- readable mirror ----------
 
-  async mirror(doc: DocMeta, files: Record<string, Uint8Array>, pdf?: Uint8Array): Promise<void> {
+  /** Passed in `keep` for the PDF. */
+  static readonly PDF = '@pdf';
+
+  /**
+   * `keep`: paths (and `DriveProvider.PDF`) whose copy in Drive is already right. They are not sent again,
+   * and are left in place.
+   */
+  async mirror(doc: DocMeta, files: Record<string, Uint8Array>, pdf?: Uint8Array, keep: Set<string> = new Set()): Promise<void> {
     const { root } = await this.ensureFolders();
     let folder = this.docFolders.get(doc.id);
     if (!folder) {
@@ -240,10 +295,25 @@ export class DriveProvider implements SyncProvider {
     }
     const folderId = folder.id;
     const existing = new Map((await this.list(`'${folderId}' in parents and trashed=false`)).map((f) => [f.name, f.id]));
-    const wanted = new Map<string, Uint8Array>();
-    for (const [path, data] of Object.entries(files)) wanted.set(path.replace(/\//g, ' ∕ '), data);
-    if (pdf) wanted.set(`${doc.name.replace(/[\\/]/g, '-')}.pdf`, pdf);
+    // null: keep the copy that is there.
+    const wanted = new Map<string, Uint8Array | null>();
+    const fileName = (path: string) => path.replace(/\//g, ' ∕ ');
+    for (const [path, data] of Object.entries(files)) wanted.set(fileName(path), keep.has(path) && existing.has(fileName(path)) ? null : data);
+    for (const path of keep) if (path !== DriveProvider.PDF && !(path in files) && existing.has(fileName(path))) wanted.set(fileName(path), null);
+    const pdfName = `${doc.name.replace(/[\\/]/g, '-')}.pdf`;
+    if (pdf) wanted.set(pdfName, pdf);
+    else if (keep.has(DriveProvider.PDF)) {
+      // The PDF follows a rename of the document.
+      const old = [...existing.keys()].find((n) => n.endsWith('.pdf'));
+      if (old && old !== pdfName) {
+        await this.request(`${API}/files/${existing.get(old)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: pdfName }) });
+        existing.set(pdfName, existing.get(old)!);
+        existing.delete(old);
+      }
+      if (existing.has(pdfName)) wanted.set(pdfName, null);
+    }
     for (const [name, data] of wanted) {
+      if (!data) continue;
       const type = name.endsWith('.pdf') ? 'application/pdf' : name.endsWith('.tex') ? 'text/x-tex' : 'application/octet-stream';
       await this.upload(existing.has(name) ? {} : { name, parents: [folderId] }, new Blob([data as BlobPart], { type }), existing.get(name));
     }

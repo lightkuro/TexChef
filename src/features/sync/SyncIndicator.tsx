@@ -12,7 +12,7 @@ export function SyncIndicator({ compact }: { compact?: boolean }) {
 
   if (s.state === 'local') {
     return (
-      <Button variant="ghost" size="sm" onClick={connect} title={googleConfigured ? 'Sync your documents to your Google Drive' : 'Google sign-in is not configured'} data-testid="sync-indicator">
+      <Button variant="ghost" size="sm" onClick={connect} title={googleConfigured ? 'Sync your documents to your Google Drive' : 'Google sign-in is not configured'} data-testid="sync-indicator" data-sync>
         <HardDrive className="size-3.5 text-muted" />
         {!compact && <span className="text-muted max-sm:sr-only">Local only</span>}
         {googleConfigured && !compact && <span className="text-accent max-sm:sr-only">· Connect Drive</span>}
@@ -21,7 +21,7 @@ export function SyncIndicator({ compact }: { compact?: boolean }) {
   }
   if (s.state === 'needs-signin') {
     return (
-      <Button variant="outline" size="sm" onClick={connect} className="border-warn text-warn" data-testid="sync-indicator">
+      <Button variant="outline" size="sm" onClick={connect} className="border-warn text-warn" data-testid="sync-indicator" data-sync>
         <CloudOff className="size-3.5" /> <span className="max-sm:sr-only">Reconnect Drive</span>
       </Button>
     );
@@ -29,7 +29,7 @@ export function SyncIndicator({ compact }: { compact?: boolean }) {
   return (
     <Menu>
       <MenuTrigger asChild>
-        <Button variant="ghost" size="sm" data-testid="sync-indicator">
+        <Button variant="ghost" size="sm" data-testid="sync-indicator" data-sync>
           {s.state === 'syncing' ? (
             <Spinner className="text-accent" />
           ) : s.state === 'error' ? (

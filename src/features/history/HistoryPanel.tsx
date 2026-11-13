@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { GitBranch, GitCompare, GitMerge, History, RotateCcw, Save, Download, ArrowUpFromLine, Sparkles, FileInput, Bot } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useDocCommits } from '@/app/repo';
+import { ensureHistory, historyIsPartial } from '@/features/sync/controller';
 import type { Commit, DocMeta } from '@/core/model';
 import { Button, Input, Tip, Badge } from '@/components/ui';
 import { cn, timeAgo } from '@/lib/utils';
@@ -82,6 +83,19 @@ export function kindIcon(kind: Commit['kind']) {
 
 export function HistoryPanel({ doc, dirty }: { doc: DocMeta; dirty: boolean }) {
   const commits = useDocCommits(doc.id);
+  // A device that keeps only current versions fetches this document's older ones when its history is opened.
+  const [fetching, setFetching] = useState(false);
+  useEffect(() => {
+    if (!historyIsPartial()) return;
+    let live = true;
+    setFetching(true);
+    void ensureHistory([doc.id])
+      .catch(() => undefined)
+      .finally(() => live && setFetching(false));
+    return () => {
+      live = false;
+    };
+  }, [doc.id]);
   const [showAuto, setShowAuto] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
@@ -193,6 +207,7 @@ export function HistoryPanel({ doc, dirty }: { doc: DocMeta; dirty: boolean }) {
             </div>
           </li>
         ))}
+        {fetching && <li className="px-3 py-2 text-[11px] text-muted">Getting older versions from Google Drive…</li>}
         {hidden > 0 && (
           <li className="px-3 py-2 text-[11px] text-muted">
             {hidden} autosave{hidden === 1 ? '' : 's'} hidden

@@ -5,6 +5,8 @@ interface ConfirmRequest {
   title: string;
   body?: React.ReactNode;
   ok?: string;
+  /** The other button (default: Cancel). */
+  cancel?: string;
   danger?: boolean;
   resolve: (ok: boolean) => void;
 }
@@ -31,7 +33,7 @@ export function ConfirmHost() {
       footer={
         <>
           <Button variant="ghost" onClick={() => done(false)} data-testid="confirm-cancel">
-            Cancel
+            {req?.cancel ?? 'Cancel'}
           </Button>
           <Button variant={req?.danger ? 'danger' : 'primary'} onClick={() => done(true)} autoFocus data-testid="confirm-ok">
             {req?.ok ?? 'OK'}

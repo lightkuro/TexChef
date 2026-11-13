@@ -1,6 +1,6 @@
 import { memo, useEffect } from 'react';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps, type Node } from '@xyflow/react';
-import { GitBranch, GitPullRequestArrow, AlertTriangle, FileText, Crown } from 'lucide-react';
+import { GitBranch, GitPullRequestArrow, AlertTriangle, FileText, Crown, CloudDownload } from 'lucide-react';
 import type { DocMeta, PreviewRecord } from '@/core/model';
 import { Badge } from '@/components/ui';
 import { cn, docColor, timeAgo } from '@/lib/utils';
@@ -73,6 +73,11 @@ export const DocCard = memo(function DocCard({ id, data, selected }: NodeProps<D
               doc.parent && <GitBranch className="size-3.5 shrink-0 text-muted" />
             )}
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">{doc.name}</span>
+            {doc.remoteOnly && (
+              <span title="In Google Drive. It comes to this device when you open it." data-testid="doc-remote-only">
+                <CloudDownload className="size-3.5 shrink-0 text-muted" aria-label="In Google Drive, not on this device yet" />
+              </span>
+            )}
             <span className="opacity-0 group-hover:opacity-100">
               <DocActionsMenu doc={doc} />
             </span>

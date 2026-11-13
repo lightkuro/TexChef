@@ -59,6 +59,17 @@ export class BusyTexCompiler implements Compiler {
   private latest = new Map<string, CompileInput>();
   private packages = new PackageIndex(BASE);
   private loadingLabel = 'Downloading TeX Live core (93 MB, one time)';
+  /**
+   * Asked before package sets that are not on this device yet are downloaded (the app asks the person on
+   * phones and limited data). False: not now.
+   */
+  confirmDownload?: (need: { bundles: BundleName[]; mb: number }) => Promise<boolean>;
+  private declined = new Set<BundleName>();
+
+  /** The person pressed Compile themselves: ask again about a download they turned down. */
+  askAgain() {
+    this.declined.clear();
+  }
   private statusListeners = new Set<(s: EngineStatus) => void>();
   status: EngineStatus = { state: 'idle' };
 
@@ -122,6 +133,27 @@ export class BusyTexCompiler implements Compiler {
     const plan = await this.packages.plan(input.files, input.mainFile, [...this.loaded, ...(retry?.force ?? [])]);
     const files = input.files.map((f) => (f.path === input.mainFile ? { path: f.path, content: plan.mainText } : f));
     const extra = plan.bundles.filter((b) => b !== 'basic');
+    const toFetch: BundleName[] = [];
+    for (const b of extra) if (!this.loaded.has(b) && !(await this.runner!.isPackageCached(`${BASE}/texlive-${b}.js`))) toFetch.push(b);
+    if (toFetch.length && this.confirmDownload) {
+      const mb = toFetch.reduce((n, b) => n + BUNDLE_SIZE_MB[b], 0);
+      if (toFetch.some((b) => this.declined.has(b)) || !(await this.confirmDownload({ bundles: toFetch, mb }))) {
+        toFetch.forEach((b) => this.declined.add(b));
+        return {
+          ok: false,
+          log: '',
+          diagnostics: [
+            {
+              severity: 'error',
+              message: `This document needs additional font and package sets (about ${mb} MB) that aren’t on this device yet.`,
+              hint: 'Press Compile to download them. They are kept on this device afterwards.',
+            },
+          ],
+          durationMs: performance.now() - t0,
+          bundles: plan.bundles,
+        };
+      }
+    }
     for (const b of extra) {
       if (!(await this.runner!.isPackageCached(`${BASE}/texlive-${b}.js`))) {
         this.loadingLabel = `Downloading TeX Live “${b}” packages (${BUNDLE_SIZE_MB[b]} MB, one time)`;

@@ -1,3 +1,4 @@
+import { compiler } from '@/compile/compiler';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Group, Separator, useDefaultLayout, usePanelRef } from 'react-resizable-panels';
@@ -223,6 +224,8 @@ export function EditorPage() {
   const compile = useCallback(async () => {
     await flush();
     force((n) => n + 1);
+    // Pressing Compile asks again about a package download that was turned down.
+    compiler.askAgain();
     // Read the files back after saving: the last render may not have seen the newest text yet.
     void compileNow(id ? (await repo.getWork(id)).files : undefined);
   }, [compileNow, flush, id]);

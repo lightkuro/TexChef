@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { compiler, type CompileOutput, type EngineStatus } from '@/compile/compiler';
+import { confirmTexDownload } from '@/compile/downloadPrompt';
 import { renderThumbnail, pageCount } from '@/compile/pdf';
 import { db, repo } from '@/app/repo';
 import type { FileMap } from '@/core/repo';
 import type { Engine } from '@/core/model';
+
+// Phones and limited data: ask before a document pulls in a few hundred megabytes of TeX packages.
+compiler.confirmDownload = confirmTexDownload;
 
 export interface CompileEntry {
   output?: CompileOutput;

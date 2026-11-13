@@ -6,6 +6,7 @@ import { Background, BaseEdge, Controls, Handle, Position, ReactFlow, useEdgesSt
 import { X, GitCompare, RotateCcw, GitBranch, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useAllCommits } from '@/app/repo';
+import { ensureHistory, historyIsPartial, useSync } from '@/features/sync/controller';
 import type { Commit, DocMeta } from '@/core/model';
 import { docColor, timeAgo } from '@/lib/utils';
 import { kindIcon, kindLabel } from '@/features/history/HistoryPanel';
@@ -163,6 +164,19 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
   const commits = useAllCommits();
   const navigate = useNavigate();
   const [selected, setSelected] = useState<Commit | null>(null);
+  // A device that keeps only current versions shows what it has, and offers to fetch the rest for these documents.
+  const connected = useSync((s) => s.state === 'idle' || s.state === 'syncing');
+  const [history, setHistory] = useState<'partial' | 'loading' | 'full'>(() => (historyIsPartial() ? 'partial' : 'full'));
+  const loadHistory = async () => {
+    setHistory('loading');
+    try {
+      await ensureHistory(docs.map((d) => d.id));
+      setHistory('full');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+      setHistory('partial');
+    }
+  };
 
   const { nodes, edges } = useMemo(() => {
     const lanes = laneOrder(docs);
@@ -311,6 +325,14 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
         <Background gap={COL_W} size={1} color="var(--border)" />
         <Controls showInteractive={false} />
       </ReactFlow>
+      {connected && history !== 'full' && (
+        <div className="absolute top-3 left-1/2 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-3 rounded-lg border border-line bg-panel px-3 py-1.5 text-xs shadow-md" data-testid="history-partial">
+          <span className="text-muted">Showing the versions on this device.</span>
+          <Button size="sm" variant="outline" disabled={history === 'loading'} onClick={() => void loadHistory()} data-testid="history-load">
+            {history === 'loading' ? 'Getting them…' : 'Get older versions from Drive'}
+          </Button>
+        </div>
+      )}
       {hover && hoverDoc && (
         <div
           role="tooltip"

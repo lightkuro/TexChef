@@ -38,6 +38,11 @@ export class Repo {
   private listeners = new Map<RepoEvent, Set<() => void>>();
   /** Fetches a blob that is referenced but not present locally (e.g. from Drive). */
   blobFetcher?: (hash: Hash) => Promise<Uint8Array | undefined>;
+  /**
+   * Brings a version that is referenced but not on this device (sync that takes only what is needed).
+   * Called when a version's contents are asked for; walking the history never fetches.
+   */
+  commitFetcher?: (id: string) => Promise<void>;
   author?: string;
 
   constructor(readonly db: RCDatabase) {}
@@ -114,14 +119,22 @@ export class Repo {
     return this.db.commits.get(id);
   }
 
+  /** A version whose contents are wanted: fetched from the storage if it is not on this device. */
+  async needCommit(id: string): Promise<Commit | undefined> {
+    const c = await this.db.commits.get(id);
+    if (c || !this.commitFetcher) return c;
+    await this.commitFetcher(id);
+    return this.db.commits.get(id);
+  }
+
   async readCommitFiles(commitId: string): Promise<FileMap> {
-    const c = await this.getCommit(commitId);
+    const c = await this.needCommit(commitId);
     if (!c) throw new Error(`Unknown version ${commitId}`);
     return this.treeToFiles(c.tree);
   }
 
   async readCommitText(commitId: string, path: string): Promise<string | undefined> {
-    const c = await this.getCommit(commitId);
+    const c = await this.needCommit(commitId);
     const hash = c?.tree[path];
     if (!hash) return undefined;
     const data = await this.getBlob(hash);
@@ -289,7 +302,7 @@ export class Repo {
     const doc = await this.getDoc(docId);
     if (!doc) throw new Error('Document not found');
     // A working copy with an empty file would overwrite it on the next save: only make one with everything.
-    const head = doc.head ? await this.getCommit(doc.head) : undefined;
+    const head = doc.head ? await this.needCommit(doc.head) : undefined;
     if (doc.head && !head) throw new Error('This document’s latest version hasn’t arrived on this device yet.');
     const files = head ? await this.treeToFiles(head.tree, true) : {};
     const raced = await this.db.work.get(docId);

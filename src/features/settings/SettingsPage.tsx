@@ -8,7 +8,7 @@ import { Swatch } from '@/components/ThemeMenu';
 import { cn } from '@/lib/utils';
 import { compiler } from '@/compile/compiler';
 import { useEngineStatus } from '@/features/compile/useCompile';
-import { useSync, connectDrive, disconnectDrive, syncNow, agentsChanged, driveProvider } from '@/features/sync/controller';
+import { useSync, connectDrive, disconnectDrive, syncNow, agentsChanged, driveProvider, driveDataChanged, loadAllHistory, renewOn } from '@/features/sync/controller';
 import { confirmAction } from '@/components/confirm';
 import { googleConfigured } from '@/features/auth/google';
 import { pickerConfigured } from '@/features/sync/picker';
@@ -38,6 +38,10 @@ export function SettingsPage() {
   const mapLines = usePrefs((s) => s.mapLines);
   const agentsEnabled = usePrefs((s) => s.agentsEnabled);
   const pickerTip = usePrefs((s) => s.pickerTip);
+  const driveData = usePrefs((s) => s.driveData);
+  const texDownloads = usePrefs((s) => s.texDownloads);
+  // Unset, it follows the device (on with a mouse, off on touch-only screens).
+  const [renew, setRenew] = useState(renewOn);
   const setPref = usePrefs((s) => s.set);
   const [reset, setReset] = useState(false);
   const [storage, setStorage] = useState<StorageStatus>();
@@ -63,7 +67,7 @@ export function SettingsPage() {
           {sync.state === 'local' ? (
             <div className="flex flex-wrap items-center gap-2">
               <Badge>Local only</Badge>
-              <Button variant="primary" onClick={() => connectDrive().catch((e) => toast.error(String(e?.message ?? e)))} disabled={!googleConfigured}>
+              <Button variant="primary" onClick={() => connectDrive().catch((e) => toast.error(String(e?.message ?? e)))} disabled={!googleConfigured} data-sync>
                 Connect Google Drive
               </Button>
               {!googleConfigured && <span className="text-xs text-muted">Set VITE_GOOGLE_CLIENT_ID to enable (see README).</span>}
@@ -78,7 +82,7 @@ export function SettingsPage() {
               {sync.error && <p className="text-xs text-danger">{sync.error}</p>}
               <div className="flex flex-wrap gap-2">
                 {sync.state === 'needs-signin' ? (
-                  <Button variant="primary" onClick={() => connectDrive().catch((e) => toast.error(String(e?.message ?? e)))}>
+                  <Button variant="primary" onClick={() => connectDrive().catch((e) => toast.error(String(e?.message ?? e)))} data-sync>
                     Reconnect
                   </Button>
                 ) : (
@@ -101,6 +105,63 @@ export function SettingsPage() {
               </label>
             </div>
           )}
+          <div className="space-y-2 border-t border-line pt-3">
+            <label className="flex flex-wrap items-center gap-2">
+              This device keeps
+              <Select
+                value={driveData}
+                onChange={(e) => {
+                  setPref({ driveData: e.target.value as 'all' | 'needed' | 'saver' });
+                  driveDataChanged();
+                }}
+                data-testid="settings-drive-data"
+              >
+                <option value="needed">What’s needed (recommended)</option>
+                <option value="saver">Data saver: only what I open</option>
+                <option value="all">Everything</option>
+              </Select>
+            </label>
+            <p className="text-xs text-muted">
+              {driveData === 'needed'
+                ? 'The current version of every document. Older versions come down when you open a document’s history, compare, or take updates.'
+                : driveData === 'saver'
+                  ? 'Only the list of documents. A document comes down when you open it, and is then kept up to date. TexChef also stops checking Drive every minute and leaves PDFs out of what it sends: good for phones and limited data.'
+                  : 'Every version of every document, as soon as it is in Drive. Uses the most data and storage.'}
+            </p>
+            {driveData !== 'all' && sync.state !== 'local' && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={sync.state === 'needs-signin'}
+                onClick={async () => {
+                  const n = await loadAllHistory().catch((e) => (toast.error(String(e?.message ?? e)), -1));
+                  if (n >= 0) toast.success(n ? 'Every version is on this device now' : 'This device already has every version');
+                }}
+                data-testid="settings-drive-all-now"
+              >
+                Get every version now
+              </Button>
+            )}
+            <label className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={renew}
+                onChange={(e) => {
+                  setPref({ driveRenew: e.target.checked });
+                  setRenew(e.target.checked);
+                }}
+                data-testid="settings-drive-renew"
+              />
+              <span>
+                Stay signed in
+                <span className="block text-xs text-muted">
+                  Google’s sign-in lasts an hour. With this on, TexChef renews it on your next click: Google’s window flashes and closes by itself, and a small
+                  “Drive resynced” note shows. Off, you press Reconnect yourself.
+                </span>
+              </span>
+            </label>
+          </div>
         </Section>
 
         <Section icon={<Cpu className="size-4" />} title="LaTeX engine">
@@ -123,6 +184,15 @@ export function SettingsPage() {
           >
             Clear downloaded TeX packages
           </Button>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-1" checked={texDownloads === 'ask'} onChange={(e) => setPref({ texDownloads: e.target.checked ? 'ask' : 'always' })} data-testid="settings-tex-ask" />
+            <span>
+              Ask before big downloads on phones and limited data
+              <span className="block text-xs text-muted">
+                A document that needs extra font or package sets (200 MB and more) asks first on a phone, or when the browser is set to save data.
+              </span>
+            </span>
+          </label>
         </Section>
 
         <Section icon={<Palette className="size-4" />} title="Appearance">
