@@ -9,10 +9,12 @@ import { merge3 } from '@/core/merge';
  *   % texchef-reply doc=<document id> base=<version id> file=main.tex note="Tailored for Acme"
  *   % texchef-reply doc=<document id> rename="Resume, Acme" folder="Applications/Acme"
  *   % texchef-reply doc=new name="Cover letter, Acme" folder="Applications/Acme" variant-of=<document id>
+ *   % texchef-reply doc=<document id> archive=yes
  *
  * The rest of the file is the whole edited file (it may be left out when only renaming or moving). Several files
  * are separated by `% texchef-file: <path>` lines. Nothing is applied until the person reviews it, and each
- * proposed action can be unticked there. Agents cannot delete or archive anything.
+ * proposed action can be unticked there. Agents cannot delete anything; archiving (which only hides a document,
+ * and can be undone) is a proposal like the others.
  */
 export interface AgentReply {
   /** A document id, 'new' for a new document, or undefined when the header is missing. */
@@ -26,6 +28,8 @@ export interface AgentReply {
   folder?: string;
   /** For a new document: make it a linked variant of this document. */
   variantOf?: string;
+  /** Move the document to the archive (true) or bring it back (false). */
+  archive?: boolean;
   /** path → full text. A path of '' means "the document's main file". */
   files: Record<string, string>;
 }
@@ -67,7 +71,8 @@ export function parseReply(raw: string): AgentReply {
     buf.push(line);
   }
   flush();
-  return { doc: a.doc, base: a.base, name: a.name, note: a.note, rename: a.rename, folder: a.folder, variantOf: a['variant-of'] ?? a.variantof, files };
+  const archive = a.archive === undefined ? undefined : /^(yes|true|1)$/i.test(a.archive) ? true : /^(no|false|0)$/i.test(a.archive) ? false : undefined;
+  return { doc: a.doc, base: a.base, name: a.name, note: a.note, rename: a.rename, folder: a.folder, variantOf: a['variant-of'] ?? a.variantof, archive, files };
 }
 
 export interface ReplyFilePlan {

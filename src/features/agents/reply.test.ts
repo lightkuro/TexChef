@@ -23,6 +23,9 @@ describe('agent replies', () => {
     const move = parseReply('% texchef-reply doc=abc rename="Resume, Acme" folder="Applications/Acme" note="Filed"\n');
     expect(move).toMatchObject({ doc: 'abc', rename: 'Resume, Acme', folder: 'Applications/Acme', note: 'Filed' });
     expect(move.files).toEqual({});
+    expect(move.archive).toBeUndefined();
+    expect(parseReply('% texchef-reply doc=abc archive=yes').archive).toBe(true);
+    expect(parseReply('% texchef-reply doc=abc archive=no').archive).toBe(false);
     const variant = parseReply('% texchef-reply doc=new name="Letter" folder="Drafts" variant-of=m1\nBody');
     expect(variant).toMatchObject({ doc: 'new', name: 'Letter', folder: 'Drafts', variantOf: 'm1' });
     expect(variant.files).toEqual({ '': 'Body' });

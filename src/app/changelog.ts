@@ -18,9 +18,9 @@ export const RELEASES: Release[] = [
     notes: [
       ['new', 'Experimental and opt-in (Settings → Experimental): TexChef can keep a TexChef/Agents(optional_AI) folder in your Google Drive with instructions for an AI assistant you connect to Drive yourself. TexChef never sends anything to an AI.'],
       ['new', 'Replies from AI agents (Import menu, or the editor’s ⌄ menu): pick a reply in Drive or paste one, then review it side by side. Edits you made after the agent read the file are kept; Accept, keep it as a new variant, or Dismiss.'],
-      ['new', 'With AI agents on, an AI updates button on the home page and in the editor shows how many replies are waiting. An assistant can now also propose renaming a document, moving it to a folder, or creating one as a linked variant; each shows in the review with a tick box. Versions made this way are marked with a small robot.'],
+      ['new', 'With AI agents on, an AI updates button on the home page and in the editor shows how many replies are waiting. An assistant can now also propose renaming a document, moving it to a folder or to the archive, or creating one as a linked variant; each shows in the review with a tick box. Versions made this way are marked with a small robot.'],
       ['improved', 'Autosaves are small dots on the line in the Versions view and one-line rows in History, so they no longer crowd out the versions you saved. The toggles to show or hide them stay.'],
-      ['improved', 'Picking AI replies in Google Drive opens in the Agents folder, and the hint for Brave explains its sign-in step.'],
+      ['improved', 'Picking AI replies in Google Drive opens in the Agents folder, and the hint for Brave explains its sign-in step. The tip shown while Google’s picker is open has a “Don’t show again” button (and a switch in Settings).'],
       ['improved', 'When the browser’s storage is full, TexChef says so and what to do instead of failing quietly.'],
       ['fixed', 'Versions view: links between documents go around the versions in between instead of through them, and a link that brings updates in arrives from above or below.'],
       ['fixed', 'Coloured borders show as designed (the selected template and colour theme, ticked boxes, update badges, tip boxes), and the “working” spinner shows as a turning arc.'],

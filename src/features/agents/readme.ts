@@ -64,7 +64,9 @@ TexChef can't apply edits you make anywhere else. Write each answer as **one new
   changes); with \`variant-of\` you may leave the text out to start from a copy. Add \`folder="<folder>"\` to file it.
 - To **rename** a document add \`rename="<new name>"\`; to **move** it add \`folder="<folder>"\` (sub-folders as
   \`A/B\`). A reply may do only that: the header line alone, with no text after it.
-- You cannot delete or archive documents, and nothing you write takes effect until the owner accepts it.
+- To propose moving a document to the **archive** (it is kept, only hidden), add \`archive=yes\`; \`archive=no\`
+  brings one back.
+- You cannot delete documents, and nothing you write takes effect until the owner accepts it in TexChef.
 - Keep every comment line that starts with \`%% @block\` or \`%% @end\`: TexChef uses them to build tailored
   versions of a document.
 - Keep the document compiling with pdfLaTeX unless it already uses another engine.

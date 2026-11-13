@@ -37,6 +37,7 @@ export function SettingsPage() {
   const autoCompile = usePrefs((s) => s.autoCompile);
   const mapLines = usePrefs((s) => s.mapLines);
   const agentsEnabled = usePrefs((s) => s.agentsEnabled);
+  const pickerTip = usePrefs((s) => s.pickerTip);
   const setPref = usePrefs((s) => s.set);
   const [reset, setReset] = useState(false);
   const [storage, setStorage] = useState<StorageStatus>();
@@ -94,6 +95,10 @@ export function SettingsPage() {
                 <code className="mx-1 rounded bg-subtle px-1">TexChef/.texchef</code>; leave it as it is.
                 {!pickerConfigured && ' Importing existing Drive files needs VITE_GOOGLE_API_KEY and VITE_GOOGLE_APP_ID.'}
               </p>
+              <label className="flex items-center gap-2 text-xs">
+                <input type="checkbox" checked={pickerTip} onChange={(e) => setPref({ pickerTip: e.target.checked })} data-testid="settings-picker-tip" /> Show a tip while
+                Google’s file picker is open
+              </label>
             </div>
           )}
         </Section>

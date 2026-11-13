@@ -37,6 +37,12 @@ async function toWebp(png, maxWidth) {
   return { data: Buffer.from(b64[0], 'base64'), width: b64[1], height: b64[2] };
 }
 
+/** A 16:10 close-up, `w` CSS pixels wide, centred on (cx, cy) and kept inside the window. */
+const closeUp = (cx, cy, w = 640) => {
+  const h = (w * 10) / 16;
+  return { x: Math.round(Math.max(0, Math.min(VIEW.width - w, cx - w / 2))), y: Math.round(Math.max(0, Math.min(VIEW.height - h, cy - h / 2))), width: w, height: h };
+};
+
 /** Save one scene at two widths. `clip` is a box in CSS pixels; without one, the whole window. */
 async function shot(name, { clip, keepMouse = false } = {}) {
   if (!keepMouse) {
@@ -198,6 +204,9 @@ for (scheme of ['light', 'dark']) {
     });
     await page.waitForTimeout(400);
     await shot('pdf-edit', { keepMouse: true });
+    // Close-up: the sentence and its edit box.
+    const box = await page.getByTestId('pdf-edit-box').boundingBox();
+    await shot('pdf-edit-focus', { keepMouse: true, clip: closeUp(box.x + box.width / 2, box.y + box.height / 2 - 60, 560) });
     await page.keyboard.press('Escape');
   }
 
@@ -207,6 +216,11 @@ for (scheme of ['light', 'dark']) {
   await page.locator('.cm-vis-h1').first().waitFor();
   await page.waitForTimeout(700);
   await shot('visual');
+  {
+    // Close-up: the formatting bar and the text shown formatted.
+    const bar = await page.getByTestId('file-tabs').boundingBox();
+    await shot('visual-focus', { clip: { x: Math.round(bar.x), y: Math.round(bar.y), width: 560, height: 350 } });
+  }
   await page.getByTestId('editor-mode-code').click();
   await page.getByTestId('toggle-format-bar').click();
 
@@ -226,6 +240,23 @@ for (scheme of ['light', 'dark']) {
   {
     const area = await page.getByTestId('dashboard-content').boundingBox();
     await shot('map', { clip: { x: area.x, y: area.y, width: area.width, height: Math.min(area.height, VIEW.height - area.y) } });
+    // Close-up: the master and its versions only (the essay steps aside).
+    await page.evaluate((id) => window.rc.repo.updateDoc(id, { archived: true }), ids.essay);
+    await page.getByTestId('doc-node-Why cities plant trees').waitFor({ state: 'detached' });
+    await page.getByTestId('map-menu').click();
+    await page.getByTestId('map-fit').click();
+    await page.mouse.move(5, 400);
+    await page.waitForTimeout(1500);
+    const boxes = [];
+    for (const n of await page.locator('.react-flow__node').all()) boxes.push(await n.boundingBox());
+    const x0 = Math.min(...boxes.map((b) => b.x));
+    const x1 = Math.max(...boxes.map((b) => b.x + b.width));
+    const y0 = Math.min(...boxes.map((b) => b.y));
+    const y1 = Math.max(...boxes.map((b) => b.y + b.height));
+    const w = Math.min(VIEW.width - area.x, Math.max(x1 - x0 + 48, ((y1 - y0 + 32) * 16) / 10));
+    const h = (w * 10) / 16;
+    await shot('map-focus', { clip: { x: Math.round(Math.max(area.x, (x0 + x1) / 2 - w / 2)), y: Math.round(Math.max(area.y, Math.min(VIEW.height - h, (y0 + y1) / 2 - h / 2))), width: Math.round(w), height: Math.round(Math.min(h, VIEW.height - area.y)) } });
+    await page.evaluate((id) => window.rc.repo.updateDoc(id, { archived: false }), ids.essay);
   }
 
   // 5. Compare: the master beside its Frontend version, text only.
@@ -234,6 +265,11 @@ for (scheme of ['light', 'dark']) {
   await page.getByRole('button', { name: 'Text', exact: true }).click();
   await page.waitForTimeout(1200);
   await shot('compare');
+  {
+    // Close-up: the two columns around the arrows between them.
+    const view = await page.locator('.cm-mergeView').boundingBox();
+    await shot('compare-focus', { clip: { x: Math.round(view.x + view.width / 2 - 320), y: Math.round(view.y - 46), width: 640, height: 400 } });
+  }
 }
 
 console.log('Done');

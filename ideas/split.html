@@ -19,12 +19,14 @@
     <link rel="stylesheet" href="./ideas.css" />
   </head>
   <body>
-    <header class="head wrap">
-      <a class="brand" href="/"><svg viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="26" fill="var(--accent)" /><g fill="var(--paper)"><circle cx="39" cy="49" r="16" /><circle cx="60" cy="39" r="19" /><circle cx="81" cy="49" r="16" /><rect x="34" y="47" width="52" height="33" /><rect x="31" y="83" width="58" height="13" rx="4" /></g><path d="M50 53 L70 77" stroke="var(--accent)" stroke-width="8.5" stroke-linecap="round" /></svg>TexChef</a>
-      <nav>
-        <a href="/help/getting-started">Guide</a>
-        <a class="btn btn-sm" href="/?new=1" data-testid="ideas-static-nav-start">Start writing</a>
-      </nav>
+    <header class="head">
+      <div class="wrap head-in">
+        <a class="brand" href="/"><svg viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="26" fill="var(--accent)" /><g fill="var(--paper)"><circle cx="39" cy="49" r="16" /><circle cx="60" cy="39" r="19" /><circle cx="81" cy="49" r="16" /><rect x="34" y="47" width="52" height="33" /><rect x="31" y="83" width="58" height="13" rx="4" /></g><path d="M50 53 L70 77" stroke="var(--accent)" stroke-width="8.5" stroke-linecap="round" /></svg>TexChef</a>
+        <nav>
+          <a href="/help/getting-started">Guide</a>
+          <a class="btn btn-sm" href="/?new=1" data-testid="ideas-static-nav-start">Start writing</a>
+        </nav>
+      </div>
     </header>
 
     <main>
@@ -64,7 +66,7 @@
               <h3>Type LaTeX. Watch the PDF.</h3>
               <p>A full TeX Live runs in your browser. The PDF follows a moment after you stop typing.</p>
             </div>
-            <figure data-focus="left" class="shot">
+            <figure class="shot">
               <picture>
             <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-editor-dark-800.webp 800w, /landing/ideas-editor-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
             <img src="/landing/ideas-editor-light-800.webp" srcset="/landing/ideas-editor-light-800.webp 800w, /landing/ideas-editor-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="The editor: LaTeX source on the left, the compiled PDF on the right." loading="lazy" decoding="async" />
@@ -77,10 +79,10 @@
               <h3>Click the PDF. Type the change.</h3>
               <p>Click a sentence, change a number, press Enter. TexChef edits the source for you.</p>
             </div>
-            <figure data-focus="right" class="shot">
+            <figure class="shot">
               <picture>
-            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-pdf-edit-dark-800.webp 800w, /landing/ideas-pdf-edit-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
-            <img src="/landing/ideas-pdf-edit-light-800.webp" srcset="/landing/ideas-pdf-edit-light-800.webp 800w, /landing/ideas-pdf-edit-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="The PDF with an edit box open on a sentence." loading="lazy" decoding="async" />
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-pdf-edit-focus-dark-800.webp 800w, /landing/ideas-pdf-edit-focus-dark.webp 1120w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-pdf-edit-focus-light-800.webp" srcset="/landing/ideas-pdf-edit-focus-light-800.webp 800w, /landing/ideas-pdf-edit-focus-light.webp 1120w" sizes="(min-width: 900px) 56vw, 92vw" width="1120" height="700" alt="A sentence highlighted in the PDF, with a box below it holding the same words, ready to edit." loading="lazy" decoding="async" />
           </picture>
             </figure>
           </li>
@@ -90,10 +92,10 @@
               <h3>Write without the backslashes.</h3>
               <p>Headings, bold text and lists show formatted as you write. Same LaTeX underneath.</p>
             </div>
-            <figure data-focus="left" class="shot">
+            <figure class="shot">
               <picture>
-            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-visual-dark-800.webp 800w, /landing/ideas-visual-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
-            <img src="/landing/ideas-visual-light-800.webp" srcset="/landing/ideas-visual-light-800.webp 800w, /landing/ideas-visual-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="The editor in Visual mode, with headings and a list shown formatted." loading="lazy" decoding="async" />
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-visual-focus-dark-800.webp 800w, /landing/ideas-visual-focus-dark.webp 1120w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-visual-focus-light-800.webp" srcset="/landing/ideas-visual-focus-light-800.webp 800w, /landing/ideas-visual-focus-light.webp 1120w" sizes="(min-width: 900px) 56vw, 92vw" width="1120" height="700" alt="The editor in Visual mode: a formatting bar, a heading and a paragraph shown formatted." loading="lazy" decoding="async" />
           </picture>
             </figure>
           </li>
@@ -103,10 +105,10 @@
               <h3>One master. Many tailored versions.</h3>
               <p>Make a version per job or journal. Fix something once and every version can take the fix.</p>
             </div>
-            <figure data-focus="center" class="shot">
+            <figure class="shot">
               <picture>
-            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-map-dark-800.webp 800w, /landing/ideas-map-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
-            <img src="/landing/ideas-map-light-800.webp" srcset="/landing/ideas-map-light-800.webp 800w, /landing/ideas-map-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="955" alt="The map: a master resume linked to three tailored versions." loading="lazy" decoding="async" />
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-map-focus-dark-800.webp 800w, /landing/ideas-map-focus-dark.webp 1532w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-map-focus-light-800.webp" srcset="/landing/ideas-map-focus-light-800.webp 800w, /landing/ideas-map-focus-light.webp 1532w" sizes="(min-width: 900px) 56vw, 92vw" width="1532" height="958" alt="The map: a master resume linked to three tailored versions, each showing one update waiting." loading="lazy" decoding="async" />
           </picture>
             </figure>
           </li>
@@ -116,10 +118,10 @@
               <h3>Two documents, side by side.</h3>
               <p>Any two documents or versions, with the differences marked. Copy a line or a block across.</p>
             </div>
-            <figure data-focus="left" class="shot">
+            <figure class="shot">
               <picture>
-            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-compare-dark-800.webp 800w, /landing/ideas-compare-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
-            <img src="/landing/ideas-compare-light-800.webp" srcset="/landing/ideas-compare-light-800.webp 800w, /landing/ideas-compare-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="Two documents side by side with changed lines highlighted." loading="lazy" decoding="async" />
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-compare-focus-dark-800.webp 800w, /landing/ideas-compare-focus-dark.webp 1280w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-compare-focus-light-800.webp" srcset="/landing/ideas-compare-focus-light-800.webp 800w, /landing/ideas-compare-focus-light.webp 1280w" sizes="(min-width: 900px) 56vw, 92vw" width="1280" height="800" alt="Two documents side by side, changed lines highlighted, with arrows between them to copy a change across." loading="lazy" decoding="async" />
           </picture>
             </figure>
           </li>
@@ -142,9 +144,11 @@
       </section>
     </main>
 
-    <footer class="foot wrap">
-      <span>TexChef</span>
-      <ul><li><a href="/help/getting-started">Guide</a></li><li><a href="/terms">Terms</a></li><li><a href="/privacy">Privacy</a></li><li><a href="https://kurolight.dev">made by kurolight.dev</a></li></ul>
+    <footer class="foot">
+      <div class="wrap foot-in">
+        <span>TexChef</span>
+        <ul><li><a href="/help/getting-started">Guide</a></li><li><a href="/terms">Terms</a></li><li><a href="/privacy">Privacy</a></li><li><a href="https://kurolight.dev">made by kurolight.dev</a></li></ul>
+      </div>
     </footer>
 
     <nav class="ideas-switch" aria-label="Landing page ideas" data-testid="ideas-switch">

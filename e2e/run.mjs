@@ -1101,6 +1101,13 @@ await step('AI agents (experimental): off by default; on, a pasted reply is revi
     return { name: d.name, folder: d.folder };
   }, letter);
   assert.deepEqual(after2, { name: 'Agent letter, sent', folder: 'Agent drafts' });
+  // Archiving is a proposal too: nothing happens until it is accepted here.
+  await openPaste(`% texchef-reply doc=${letter} archive=yes note="No longer needed"`);
+  await page.getByTestId('agent-action-archive').waitFor();
+  assert.equal(await page.evaluate(async (id) => !!(await window.rc.repo.getDoc(id)).archived, letter), false, 'not archived before approval');
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${letter}`);
+  assert.equal(await page.evaluate(async (id) => !!(await window.rc.repo.getDoc(id)).archived, letter), true);
   await page.evaluate((id) => window.rc.repo.deleteDoc(id), letter);
   // The help topic is listed while it's on; switching off hides the button again.
   await page.goto(`${BASE}/help/agents`);

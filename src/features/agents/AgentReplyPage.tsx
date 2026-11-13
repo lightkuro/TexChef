@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Bot, Check, FolderInput, GitBranch, GitBranchPlus, PencilLine, X } from 'lucide-react';
+import { Archive, ArrowLeft, Bot, Check, FolderInput, GitBranch, GitBranchPlus, PencilLine, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
@@ -33,7 +33,7 @@ export function AgentReplyPage() {
   const [busy, setBusy] = useState(false);
   const [asVariant, setAsVariant] = useState(false);
   // The actions a reply proposes besides text (rename, move, make it a variant): each can be unticked.
-  const [use, setUse] = useState({ rename: true, folder: true, variant: true });
+  const [use, setUse] = useState({ rename: true, folder: true, variant: true, archive: true });
 
   // Load the reply: from Drive, or pasted.
   useEffect(() => {
@@ -104,8 +104,9 @@ export function AgentReplyPage() {
     rename: docId !== 'new' && !!doc && !!reply?.rename && reply.rename !== doc.name,
     folder: reply?.folder !== undefined && (docId === 'new' ? !!newFolder : !!doc && newFolder !== cleanFolder(doc.folder)),
     variant: docId === 'new' && !!variantOf?.head,
+    archive: docId !== 'new' && !!doc && reply?.archive !== undefined && reply.archive !== !!doc.archived,
   };
-  const anyAction = (actions.rename && use.rename) || (actions.folder && use.folder);
+  const anyAction = (actions.rename && use.rename) || (actions.folder && use.folder) || (actions.archive && use.archive);
   const active = plan?.files.find((f) => f.path === path) ?? plan?.files[0];
   const conflicted = useMemo(() => Object.values(proposed).filter(hasConflictMarkers).length, [proposed]);
   const changed = plan?.files.filter((f) => proposed[f.path] !== f.current) ?? [];
@@ -152,6 +153,7 @@ export function AgentReplyPage() {
       }
       if (actions.rename && use.rename) await repo.updateDoc(docId, { name: reply!.rename!.trim() });
       if (actions.folder && use.folder) await repo.updateDoc(docId, { folder: newFolder });
+      if (actions.archive && use.archive) await repo.updateDoc(docId, { archived: reply!.archive });
       toast.success(changed.length ? 'Saved as a new version' : 'Done');
       await finish(`/doc/${docId}`);
     } catch (e) {
@@ -248,7 +250,7 @@ export function AgentReplyPage() {
               </Select>
             )}
           </div>
-          {(actions.rename || actions.folder || actions.variant) && (
+          {(actions.rename || actions.folder || actions.variant || actions.archive) && (
             <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-line px-3 py-2 text-sm" data-testid="agent-reply-actions">
               <span className="text-xs font-medium tracking-wide text-muted uppercase">Also proposed</span>
               {actions.rename && (
@@ -262,6 +264,12 @@ export function AgentReplyPage() {
                   <input type="checkbox" checked={use.folder} onChange={(e) => setUse((u) => ({ ...u, folder: e.target.checked }))} data-testid="agent-action-folder" />
                   <FolderInput className="size-3.5 text-muted" /> {docId === 'new' ? 'Put it in' : newFolder ? 'Move to' : 'Move out of its folder'}
                   {newFolder ? ` the folder “${newFolder}”` : ''}
+                </label>
+              )}
+              {actions.archive && (
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={use.archive} onChange={(e) => setUse((u) => ({ ...u, archive: e.target.checked }))} data-testid="agent-action-archive" />
+                  <Archive className="size-3.5 text-muted" /> {reply!.archive ? 'Move it to the archive (it stays, hidden until you show archived documents)' : 'Bring it back from the archive'}
                 </label>
               )}
               {actions.variant && (

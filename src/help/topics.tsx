@@ -1152,9 +1152,10 @@ TexChef/
             <b>Create</b> a document, in a folder if it names one, and linked as a <b>variant</b> of one of yours if it asks for that.
           </li>
           <li>
-            <b>Rename</b> a document or <b>move</b> it to a folder. These show under <b>Also proposed</b> in the review, each with a tick box.
+            <b>Rename</b> a document, <b>move</b> it to a folder, or move it to the <b>archive</b>. These show under <b>Also proposed</b> in
+            the review, each with a tick box.
           </li>
-          <li>It cannot delete or archive anything, and nothing happens until you accept.</li>
+          <li>It cannot delete anything, and nothing happens until you accept.</li>
         </UL>
         <P>
           Versions made this way are marked with a small robot in <b>History</b> and in the <b>Versions</b> view.

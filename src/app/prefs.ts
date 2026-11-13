@@ -52,6 +52,8 @@ interface Prefs {
   currentFolder: string | null;
   /** Experimental, opt-in: an Agents(optional_AI) folder in Drive that AI agents read and reply into. */
   agentsEnabled: boolean;
+  /** Show the tip (with a Close picker button) while Google's file picker is open. */
+  pickerTip: boolean;
   set: (patch: Partial<Omit<Prefs, 'set'>>) => void;
 }
 
@@ -97,6 +99,7 @@ export const usePrefs = create<Prefs>((set, get) => ({
   folderMode: 'browse',
   currentFolder: null,
   agentsEnabled: false,
+  pickerTip: true,
   ...load(),
   set: (patch) => {
     set(patch);

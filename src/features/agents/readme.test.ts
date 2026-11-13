@@ -20,6 +20,7 @@ describe('agents read-me', () => {
     expect(md).toContain('Folders in use: `Applications`.');
     expect(md).toContain('variant-of=<id>');
     expect(md).toContain('rename="<new name>"');
+    expect(md).toContain('archive=yes');
     expect(md).toContain('% texchef-reply doc=<id> base=<base> file=main.tex note=');
     expect(md).toContain('Agents(optional_AI)');
   });

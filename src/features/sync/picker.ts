@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { API_KEY, APP_ID, currentToken, loadScript } from '@/features/auth/google';
 import { driveProvider } from './controller';
+import { usePrefs } from '@/app/prefs';
 
 interface PickerResponse {
   action: string;
@@ -111,12 +112,21 @@ async function showPicker(opts: PickerOptions): Promise<NonNullable<PickerRespon
       })
       .build();
     picker!.setVisible(true);
-    toast('Choosing files in Google Drive', {
-      id: HELP_TOAST,
-      duration: Infinity,
-      description: isBrave() ? pickerTroubleHint() : `Stuck on “Sign in” or an error? ${pickerTroubleHint()}`,
-      action: { label: 'Close picker', onClick: () => finish([]) },
-    });
+    // A tip while the picker is open (it can be turned off, here or in Settings; errors still explain themselves).
+    if (usePrefs.getState().pickerTip)
+      toast('Choosing files in Google Drive', {
+        id: HELP_TOAST,
+        duration: Infinity,
+        description: isBrave() ? pickerTroubleHint() : `Stuck on “Sign in” or an error? ${pickerTroubleHint()}`,
+        action: { label: 'Close picker', onClick: () => finish([]) },
+        cancel: {
+          label: 'Don’t show again',
+          onClick: () => {
+            usePrefs.getState().set({ pickerTip: false });
+            toast.info('The picker tip is off. You can turn it back on in Settings, under Storage.');
+          },
+        },
+      });
   });
   return picked ?? [];
 }
