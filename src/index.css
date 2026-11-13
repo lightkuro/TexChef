@@ -277,8 +277,18 @@ body {
   }
 }
 
-* {
-  border-color: var(--border);
+/*
+ * The default border colour. In the base layer, so Tailwind's border-* colour classes (border-accent,
+ * border-transparent, …) override it; outside a layer it would beat them all.
+ */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border);
+  }
 }
 
 ::selection {

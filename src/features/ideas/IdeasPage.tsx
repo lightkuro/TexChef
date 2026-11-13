@@ -888,8 +888,7 @@ function FeatureList() {
   return (
     <section className="mx-auto max-w-[90rem] px-4 py-20 sm:px-6 sm:py-28">
       <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Everything a LaTeX document needs</h2>
-      {/* (An inline colour: index.css sets every border's colour outside Tailwind's layers, which beats border-* classes.) */}
-      <ol className="mt-10 grid border-t sm:grid-cols-2 sm:gap-x-12 lg:grid-cols-3" style={{ borderTopColor: 'var(--fg)' }}>
+      <ol className="mt-10 grid border-t border-fg sm:grid-cols-2 sm:gap-x-12 lg:grid-cols-3">
         {BENTO.map((b, i) => (
           <li key={b.title} className="flex gap-4 border-b border-line py-5">
             <span className="pt-0.5 font-mono text-sm text-muted">{String(i + 1).padStart(2, '0')}</span>
@@ -938,7 +937,7 @@ function Cta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null>; on
 function CleanCta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null>; onStart: () => void }) {
   return (
     <section className="mx-auto max-w-[90rem] px-4 pb-20 sm:px-6 sm:pb-28">
-      <div ref={ctaRef} className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8 border-t pt-10" style={{ borderTopColor: 'var(--fg)' }}>
+      <div ref={ctaRef} className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8 border-t border-fg pt-10">
         <div>
           <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">Start writing. It’s free.</h2>
           <p className="mt-4 max-w-md text-pretty text-muted">A blank article, a master resume or a cover letter: pick one and the PDF is ready in seconds.</p>
