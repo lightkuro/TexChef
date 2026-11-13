@@ -84,7 +84,8 @@ export default defineConfig({
     chunkSizeWarningLimit: 2500,
     rollupOptions: {
       input: {
-        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        // Keyed 'index' so the app's files keep their names (assets/index-*.js).
+        index: fileURLToPath(new URL('./index.html', import.meta.url)),
         ...Object.fromEntries(IDEAS_PAGES.map((p) => [`ideas-${p}`, fileURLToPath(new URL(`./ideas/${p}.html`, import.meta.url))])),
       },
     },
