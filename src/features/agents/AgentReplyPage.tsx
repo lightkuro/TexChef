@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
-import { ArrowLeft, Bot, Check, GitBranchPlus, X } from 'lucide-react';
+import { ArrowLeft, Bot, Check, FolderInput, GitBranch, GitBranchPlus, PencilLine, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
@@ -9,6 +9,8 @@ import { DiffView } from '@/features/compare/DiffView';
 import { driveProvider } from '@/features/sync/controller';
 import { SaveAsVariantDialog } from '@/features/variants/SaveAsVariantDialog';
 import { saveWorkAsVariant } from '@/variants/ops';
+import { cleanFolder } from '@/features/folders/folderTree';
+import { fileText } from '@/core/repo';
 import { cn } from '@/lib/utils';
 import { dropPastedReply, markReplyHandled, pastedReply } from './agents';
 import { hasConflictMarkers, parseReply, planReply, type AgentReply, type ReplyPlan } from './reply';
@@ -30,6 +32,8 @@ export function AgentReplyPage() {
   const [path, setPath] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [asVariant, setAsVariant] = useState(false);
+  // The actions a reply proposes besides text (rename, move, make it a variant): each can be unticked.
+  const [use, setUse] = useState({ rename: true, folder: true, variant: true });
 
   // Load the reply: from Drive, or pasted.
   useEffect(() => {
@@ -65,9 +69,20 @@ export function AgentReplyPage() {
     setPlan(undefined);
     if (!source || !docId) return;
     if (docId === 'new') {
-      const files = Object.entries(source.reply.files).map(([p, t]) => ({ path: p || 'main.tex', current: '', proposed: t, conflicts: 0 }));
-      setPlan({ files, baseKnown: false, conflicts: 0 });
-      setProposed(Object.fromEntries(files.map((f) => [f.path, f.proposed])));
+      const show = (texts: [string, string][]) => {
+        const files = texts.map(([p, t]) => ({ path: p || 'main.tex', current: '', proposed: t, conflicts: 0 }));
+        setPlan({ files, baseKnown: false, conflicts: 0 });
+        setProposed(Object.fromEntries(files.map((f) => [f.path, f.proposed])));
+      };
+      const texts = Object.entries(source.reply.files);
+      const from = docs?.find((d) => d.id === source.reply.variantOf && !d.deleted);
+      // A new variant with no text of its own starts as a copy of the document it is a variant of.
+      if (!texts.length && from?.head) {
+        void repo
+          .readCommitFiles(from.head)
+          .then((files) => show(Object.keys(files).filter((p) => fileText(files, p) !== undefined).map((p) => [p, fileText(files, p)!])))
+          .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+      } else show(texts);
       return;
     }
     void planReply(repo, docId, docId === headerDoc ? source.reply : { ...source.reply, base: undefined })
@@ -76,9 +91,21 @@ export function AgentReplyPage() {
         setProposed(Object.fromEntries(p.files.map((f) => [f.path, f.proposed])));
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    // `docs` is read for the variant's source only; a later change to the list needn't rebuild the review.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, docId, headerDoc]);
 
   const doc = docs?.find((d) => d.id === docId);
+  const reply = source?.reply;
+  const variantOf = docs?.find((d) => d.id === reply?.variantOf && !d.deleted);
+  const newFolder = reply?.folder !== undefined ? cleanFolder(reply.folder) : undefined;
+  /** What the reply proposes besides text, for the document chosen. */
+  const actions = {
+    rename: docId !== 'new' && !!doc && !!reply?.rename && reply.rename !== doc.name,
+    folder: reply?.folder !== undefined && (docId === 'new' ? !!newFolder : !!doc && newFolder !== cleanFolder(doc.folder)),
+    variant: docId === 'new' && !!variantOf?.head,
+  };
+  const anyAction = (actions.rename && use.rename) || (actions.folder && use.folder);
   const active = plan?.files.find((f) => f.path === path) ?? plan?.files[0];
   const conflicted = useMemo(() => Object.values(proposed).filter(hasConflictMarkers).length, [proposed]);
   const changed = plan?.files.filter((f) => proposed[f.path] !== f.current) ?? [];
@@ -105,13 +132,27 @@ export function AgentReplyPage() {
       if (docId === 'new') {
         const files = Object.fromEntries(plan.files.map((f) => [f.path, { kind: 'text' as const, text: proposed[f.path] }]));
         const main = plan.files.find((f) => f.path === 'main.tex')?.path ?? plan.files.find((f) => f.path.endsWith('.tex'))?.path;
-        const d = await repo.createDoc({ name: source?.reply.name || 'From an AI agent', files, mainFile: main, message: note ? `From an AI agent: ${note}` : 'From an AI agent' });
+        const linked = actions.variant && use.variant ? variantOf : undefined;
+        const d = await repo.createDoc({
+          name: source?.reply.name || 'From an AI agent',
+          files,
+          mainFile: linked && files[linked.mainFile] ? linked.mainFile : main,
+          engine: linked?.engine,
+          folder: actions.folder && use.folder ? newFolder : undefined,
+          parent: linked ? { docId: linked.id, baseCommitId: linked.head! } : undefined,
+          kind: 'agent',
+          message: note ? `From an AI agent: ${note}` : 'From an AI agent',
+        });
         toast.success(`Created “${d.name}”`);
         return finish(`/doc/${d.id}`);
       }
-      await writeProposed(docId);
-      await repo.commitWork(docId, `Edits from an AI agent${note ? `: ${note}` : ''}`, 'save');
-      toast.success('Saved as a new version');
+      if (changed.length) {
+        await writeProposed(docId);
+        await repo.commitWork(docId, `Edits from an AI agent${note ? `: ${note}` : ''}`, 'agent');
+      }
+      if (actions.rename && use.rename) await repo.updateDoc(docId, { name: reply!.rename!.trim() });
+      if (actions.folder && use.folder) await repo.updateDoc(docId, { folder: newFolder });
+      toast.success(changed.length ? 'Saved as a new version' : 'Done');
       await finish(`/doc/${docId}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
@@ -161,7 +202,7 @@ export function AgentReplyPage() {
         )}
         <Tip content={conflicted ? 'Resolve the conflicts on the right first' : docId === 'new' ? 'Create this document' : 'Save these edits as a new version'}>
           <span>
-            <Button variant="primary" size="sm" onClick={() => void accept()} disabled={busy || !plan || !!conflicted || (docId !== 'new' && !changed.length)} data-testid="agent-reply-accept">
+            <Button variant="primary" size="sm" onClick={() => void accept()} disabled={busy || !plan || !!conflicted || (docId !== 'new' && !changed.length && !anyAction)} data-testid="agent-reply-accept">
               {busy ? <Spinner /> : <Check className="size-3.5" />} {docId === 'new' ? 'Create document' : 'Accept'}
             </Button>
           </span>
@@ -207,6 +248,30 @@ export function AgentReplyPage() {
               </Select>
             )}
           </div>
+          {(actions.rename || actions.folder || actions.variant) && (
+            <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-line px-3 py-2 text-sm" data-testid="agent-reply-actions">
+              <span className="text-xs font-medium tracking-wide text-muted uppercase">Also proposed</span>
+              {actions.rename && (
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={use.rename} onChange={(e) => setUse((u) => ({ ...u, rename: e.target.checked }))} data-testid="agent-action-rename" />
+                  <PencilLine className="size-3.5 text-muted" /> Rename to “{reply!.rename}”
+                </label>
+              )}
+              {actions.folder && (
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={use.folder} onChange={(e) => setUse((u) => ({ ...u, folder: e.target.checked }))} data-testid="agent-action-folder" />
+                  <FolderInput className="size-3.5 text-muted" /> {docId === 'new' ? 'Put it in' : newFolder ? 'Move to' : 'Move out of its folder'}
+                  {newFolder ? ` the folder “${newFolder}”` : ''}
+                </label>
+              )}
+              {actions.variant && (
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={use.variant} onChange={(e) => setUse((u) => ({ ...u, variant: e.target.checked }))} data-testid="agent-action-variant" />
+                  <GitBranch className="size-3.5 text-muted" /> Link it as a variant of “{variantOf!.name}”
+                </label>
+              )}
+            </div>
+          )}
           {conflicted > 0 && (
             <p className="shrink-0 border-b border-line bg-danger-soft px-3 py-1.5 text-xs text-danger">
               Some lines were changed both by you and by the agent. On the right, keep the lines you want and delete the {'<<<<<<<'}, {'======='} and{' '}
@@ -214,7 +279,7 @@ export function AgentReplyPage() {
             </p>
           )}
           <div className="grid h-8 shrink-0 grid-cols-2 items-center border-b border-line px-2 text-xs text-muted">
-            <span className="truncate">{docId === 'new' ? 'Nothing yet' : `${doc?.name ?? 'Choose a document'} now`}</span>
+            <span className="truncate">{docId === 'new' ? `New document: “${reply?.name || 'From an AI agent'}”` : `${doc?.name ?? 'Choose a document'} now`}</span>
             <span className={cn('truncate pl-3')}>With the agent’s edits (you can edit this side)</span>
           </div>
           <div className="min-h-0 flex-1">
@@ -229,6 +294,8 @@ export function AgentReplyPage() {
                 revert="a-to-b"
                 collapseUnchanged
               />
+            ) : plan && docId ? (
+              <EmptyState title="This reply doesn’t change any text">{anyAction ? 'Accept applies what is ticked above.' : 'There is nothing to apply.'}</EmptyState>
             ) : docId ? (
               <div className="flex h-full items-center justify-center">
                 <Spinner />

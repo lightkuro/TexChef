@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Bot, ClipboardPaste, CloudDownload, FileText, RefreshCw } from 'lucide-react';
+import { Bot, ClipboardPaste, CloudDownload, Copy, FileText, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePrefs } from '@/app/prefs';
 import { Badge, Button, Dialog, Spinner } from '@/components/ui';
 import { connectDrive, driveProvider, useSync } from '@/features/sync/controller';
 import { pickAgentReplies, pickerConfigured, pickerTroubleHint, PickerError } from '@/features/sync/picker';
-import { handledReplies, stashPastedReply, useAgentsDialog } from './agents';
+import { stashPastedReply, useAgentsDialog, waitingReplies } from './agents';
+import { AGENTS_FOLDER, AGENTS_README } from '@/storage/providers/gdrive';
+
+/** What to tell an assistant so it reads the instructions TexChef keeps in Drive. */
+const STARTER = `In my Google Drive, open “${AGENTS_README}” in the folder TexChef/${AGENTS_FOLDER} and follow it exactly. Then: `;
 
 /**
  * Experimental: open a reply an AI agent left in TexChef/Agents(optional_AI). Lists the replies TexChef
@@ -25,12 +29,10 @@ export function AgentRepliesDialog() {
   const connected = sync.state !== 'local' && sync.state !== 'needs-signin';
 
   const refresh = async () => {
-    const provider = driveProvider();
-    if (!provider || !connected) return setReplies([]);
+    if (!driveProvider() || !connected) return setReplies([]);
     setLoading(true);
     try {
-      const handled = new Set(await handledReplies());
-      setReplies((await provider.listAgentReplies()).filter((r) => !handled.has(r.id)));
+      setReplies(await waitingReplies());
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
       setReplies([]);
@@ -72,7 +74,7 @@ export function AgentRepliesDialog() {
       onOpenChange={setOpen}
       title={
         <span className="flex items-center gap-2">
-          <Bot className="size-4" /> Replies from AI agents <Badge tone="warn">Experimental</Badge>
+          <Bot className="size-4" /> AI updates <Badge tone="warn">Experimental</Badge>
         </span>
       }
       description="Agents write replies into TexChef/Agents(optional_AI) in your Google Drive. You review each one before anything changes."
@@ -117,6 +119,24 @@ export function AgentRepliesDialog() {
             )}
           </div>
         )}
+        <div className="rounded-lg border border-line p-3">
+          <div className="mb-1 text-xs font-medium tracking-wide text-muted uppercase">How to ask an assistant</div>
+          <p className="text-muted">Connect your assistant to Google Drive, then start your request with:</p>
+          <div className="mt-2 flex items-start gap-2">
+            <code className="min-w-0 flex-1 rounded bg-subtle px-2 py-1.5 text-xs break-words" data-testid="agent-prompt">
+              {STARTER}
+            </code>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void navigator.clipboard?.writeText(STARTER).then(() => toast.success('Copied. Paste it into your assistant, then add your request.'));
+              }}
+            >
+              <Copy className="size-3.5" /> Copy
+            </Button>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
           {connected && pickerConfigured && (
             <Button variant="outline" onClick={() => void pick()} data-testid="agent-replies-pick">

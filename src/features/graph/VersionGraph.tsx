@@ -18,9 +18,12 @@ const LABEL_W = 210;
 const NODE = 28;
 /** The free space between one version and the next column: links change lanes here, where no version can be. */
 const GAP = COL_W - NODE;
+/** Autosaves are drawn as a small dot on the line, in a narrower column, so they don't crowd out saved versions. */
+const DOT = 10;
+const DOT_COL = 22;
 
 type LaneData = { doc: DocMeta; color: string };
-type CommitData = { commit: Commit; color: string; head: boolean; diverged: boolean };
+type CommitData = { commit: Commit; color: string; head: boolean; diverged: boolean; dot: boolean };
 
 const LaneNode = memo(function LaneNode({ data }: NodeProps<Node<LaneData>>) {
   return (
@@ -32,7 +35,32 @@ const LaneNode = memo(function LaneNode({ data }: NodeProps<Node<LaneData>>) {
 });
 
 const CommitNode = memo(function CommitNode({ data, selected }: NodeProps<Node<CommitData>>) {
-  const { commit, color, head, diverged } = data;
+  const { commit, color, head, diverged, dot } = data;
+  const handles = (
+    <>
+      <Handle type="target" position={Position.Left} className="!size-1 !border-0 !opacity-0" />
+      {/* Links from another document's lane come in from above or below, clear of the lane's own line. */}
+      <Handle type="target" id="top" position={Position.Top} className="!size-1 !border-0 !opacity-0" />
+      <Handle type="target" id="bottom" position={Position.Bottom} className="!size-1 !border-0 !opacity-0" />
+      <Handle type="source" position={Position.Right} className="!size-1 !border-0 !opacity-0" />
+    </>
+  );
+  if (dot)
+    return (
+      <div
+        className="rounded-full"
+        style={{
+          width: DOT,
+          height: DOT,
+          background: color,
+          boxShadow: selected ? `0 0 0 4px color-mix(in oklab, ${color} 35%, transparent)` : head ? `0 0 0 3px color-mix(in oklab, ${color} 22%, transparent)` : undefined,
+        }}
+        title={`Autosave\n${new Date(commit.createdAt).toLocaleString()}`}
+        data-autosave
+      >
+        {handles}
+      </div>
+    );
   return (
     <div
       className="flex size-7 items-center justify-center rounded-full border-2 bg-panel"
@@ -43,12 +71,8 @@ const CommitNode = memo(function CommitNode({ data, selected }: NodeProps<Node<C
       }}
       title={`${commit.message}\n${new Date(commit.createdAt).toLocaleString()}`}
     >
-      <Handle type="target" position={Position.Left} className="!size-1 !border-0 !opacity-0" />
-      {/* Links from another document's lane come in from above or below, clear of the lane's own line. */}
-      <Handle type="target" id="top" position={Position.Top} className="!size-1 !border-0 !opacity-0" />
-      <Handle type="target" id="bottom" position={Position.Bottom} className="!size-1 !border-0 !opacity-0" />
       {kindIcon(commit.kind)}
-      <Handle type="source" position={Position.Right} className="!size-1 !border-0 !opacity-0" />
+      {handles}
     </div>
   );
 });
@@ -65,6 +89,10 @@ type CrossData = {
   angled: boolean;
   /** Nudges links that share a gutter apart. */
   offset: number;
+  /** The free space after the source (narrower after an autosave's dot). */
+  gap: number;
+  /** The target's height: a version's circle, or an autosave's dot. */
+  targetSize: number;
 };
 
 /** A polyline through `pts`, with its corners rounded by up to `r`. */
@@ -93,14 +121,14 @@ function roundedPath(pts: [number, number][], r: number): string {
  * column to itself, so no version can be there), and otherwise runs along an empty lane or between two lanes.
  * (tx, ty) is the target's left side for 'drop', and its top or bottom for 'gutter'.
  */
-export function crossLanePath(sx: number, sy: number, tx: number, ty: number, { route, angled, offset }: CrossData): string {
+export function crossLanePath(sx: number, sy: number, tx: number, ty: number, { route, angled, offset, gap, targetSize }: CrossData): string {
   const room = tx - sx;
   // Out of order (clocks that disagree between devices): nothing better than a straight line.
   if (room < 6 || sy === ty) return `M${sx},${sy} L${tx},${ty}`;
-  const turn = Math.min(angled ? 10 : GAP, angled ? room / 2 : room);
+  const turn = Math.min(angled ? Math.min(10, gap - 2) : gap, angled ? room / 2 : room);
   if (route === 'gutter') {
     // Halfway between the target's lane and the next lane towards the source.
-    const yg = ty - Math.sign(ty - sy) * (LANE_H / 2 - NODE / 2) + offset;
+    const yg = ty - Math.sign(ty - sy) * (LANE_H / 2 - targetSize / 2) + offset;
     return angled
       ? roundedPath([[sx, sy], [sx + turn, sy], [sx + turn, yg], [tx, yg], [tx, ty]], 6)
       : roundedPath([[sx, sy], [sx + turn, yg], [tx, yg], [tx, ty]], 5);
@@ -149,6 +177,14 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
     const visible = all.filter((c) => showAutosaves || c.kind !== 'auto' || heads.has(c.id) || divergedSet.has(c.id) || referencedAcross.has(c.id));
     const visibleIds = new Set(visible.map((c) => c.id));
     const col = new Map(visible.map((c, i) => [c.id, i]));
+    // Autosaves are dots in narrower columns.
+    const isDot = (c: Commit) => c.kind === 'auto';
+    const xOf = new Map<string, number>();
+    let nextX = LABEL_W;
+    for (const c of visible) {
+      xOf.set(c.id, nextX);
+      nextX += isDot(c) ? DOT_COL : COL_W;
+    }
 
     const nodes: Node[] = lanes.map((d, i) => ({
       id: `lane-${d.id}`,
@@ -163,8 +199,8 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
       nodes.push({
         id: c.id,
         type: 'commit',
-        position: { x: LABEL_W + col.get(c.id)! * COL_W, y: laneIndex.get(c.docId)! * LANE_H + 6 },
-        data: { commit: c, color: docColor(doc.id, doc.color), head: heads.has(c.id), diverged: divergedSet.has(c.id) },
+        position: { x: xOf.get(c.id)!, y: laneIndex.get(c.docId)! * LANE_H + 6 + (isDot(c) ? (NODE - DOT) / 2 : 0) },
+        data: { commit: c, color: docColor(doc.id, doc.color), head: heads.has(c.id), diverged: divergedSet.has(c.id), dot: isDot(c) },
         draggable: false,
       });
     }
@@ -204,7 +240,13 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
           target: c.id,
           type: 'cross',
           targetHandle: blocked ? (laneIndex.get(c.docId)! > laneIndex.get(pc.docId)! ? 'top' : 'bottom') : undefined,
-          data: { route: blocked ? 'gutter' : 'drop', angled, offset: ((n % 3) - (n % 3 === 2 ? 3 : 0)) * 5 } satisfies CrossData,
+          data: {
+            route: blocked ? 'gutter' : 'drop',
+            angled,
+            offset: ((n % 3) - (n % 3 === 2 ? 3 : 0)) * 5,
+            gap: isDot(pc) ? DOT_COL - DOT : GAP,
+            targetSize: isDot(c) ? DOT : NODE,
+          } satisfies CrossData,
           animated: c.kind === 'merge',
           style,
         });

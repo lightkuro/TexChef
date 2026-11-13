@@ -541,11 +541,19 @@ await step('versions view: links between documents go around the versions in bet
     await repo.writeWorkText(m.id, 'main.tex', tex('First, fixed.'));
     await repo.commitWork(m.id, 'A fix', 'save');
     await tick();
-    await repo.writeWorkText(a.id, 'main.tex', (await repo.getWork(a.id)).files['main.tex'].text.replace('\\end{document}', 'Own edit.\n\\end{document}'));
+    // (An autosave on the way: hidden unless autosaves are shown.)
+    await repo.writeWorkText(a.id, 'main.tex', (await repo.getWork(a.id)).files['main.tex'].text.replace('\\end{document}', 'Draft.\n\\end{document}'));
+    await repo.commitWork(a.id, '', 'auto');
+    await tick();
+    await repo.writeWorkText(a.id, 'main.tex', (await repo.getWork(a.id)).files['main.tex'].text.replace('Draft.', 'Own edit.'));
     await repo.commitWork(a.id, 'Own edit', 'save');
     await tick();
     const plan = await planPull(repo, a.id);
     await applyPull(repo, a.id, plan.files, plan.parentHead);
+    await tick();
+    // The master is autosaved, and a version is made from that autosave: it stays on the line as a dot.
+    await repo.writeWorkText(m.id, 'main.tex', tex('First, fixed again.'));
+    await repo.commitWork(m.id, '', 'auto');
     await tick();
     const c = await createVariant(repo, { parentId: m.id, name: 'Lines C', recipe: recipe(['x']) });
     return [m.id, a.id, b.id, c.id];
@@ -564,7 +572,7 @@ await step('versions view: links between documents go around the versions in bet
         const path = e.querySelector('path.react-flow__edge-path');
         const m = path.getScreenCTM();
         const len = path.getTotalLength();
-        if (path.getAttribute('d').includes('Q')) cross++;
+        if (getComputedStyle(path).strokeDasharray !== 'none') cross++;
         for (const n of nodes) {
           if (n.id === from || n.id === to) continue;
           for (let d = 0; d <= len; d += 1.5) {
@@ -585,9 +593,19 @@ await step('versions view: links between documents go around the versions in bet
   await page.mouse.move(5, 500);
   await page.waitForTimeout(1000);
   const straight = await throughVersions();
-  assert.ok(straight.cross >= 4, `links between documents are routed (found ${straight.cross})`);
+  assert.ok(straight.cross >= 4, `links between documents are drawn (found ${straight.cross}; other documents add their own)`);
   assert.deepEqual(straight.out, [], 'slanted lines');
+  // Autosaves are small dots on the line. Hidden by default, except one another document was made from.
+  const dots = () => page.locator('.react-flow__node-commit [data-autosave]');
+  assert.equal(await dots().count(), 1, 'the autosave a version was made from stays, as a dot');
+  assert.ok((await dots().first().boundingBox()).width < (await page.locator('.react-flow__node-commit').first().boundingBox()).width / 2, 'a dot is much smaller than a version');
+  await page.getByLabel('Show autosaves').check();
+  await page.waitForFunction(() => document.querySelectorAll('.react-flow__node-commit [data-autosave]').length === 2);
+  await page.mouse.move(5, 500);
+  await page.waitForTimeout(800);
+  assert.deepEqual((await throughVersions()).out, [], 'with autosaves shown');
   await page.screenshot({ path: `${OUT}07c-versions-links.png` });
+  await page.getByLabel('Show autosaves').uncheck();
   // The right-angled line style, too.
   await page.goto(`${BASE}/settings`);
   await page.getByTestId('settings-map-lines').selectOption('angled');
@@ -993,10 +1011,8 @@ await step('AI agents (experimental): off by default; on, a pasted reply is revi
   const m = masterUrl.split('/doc/')[1];
   // Off by default: no menu entry, no help topic.
   await page.goto(BASE);
-  await page.getByTestId('import-menu').click();
-  await page.getByTestId('import-files').waitFor();
-  assert.equal(await page.getByTestId('import-agents').count(), 0);
-  await page.keyboard.press('Escape');
+  await page.getByTestId('import-menu').waitFor();
+  assert.equal(await page.getByTestId('agents-button').count(), 0);
   await page.goto(`${BASE}/help/agents`);
   assert.equal(await page.getByRole('link', { name: /AI agents through Google Drive/ }).count(), 0);
   // Turn it on in Settings → Experimental (no Drive here: it asks to connect).
@@ -1014,8 +1030,7 @@ await step('AI agents (experimental): off by default; on, a pasted reply is revi
   const reply = `% texchef-reply doc=${m} base=${head} file=main.tex note="Moved to Portland"\n${text.replace('Seattle, WA', 'Portland, OR')}`;
   const openPaste = async (t) => {
     await page.goto(BASE);
-    await page.getByTestId('import-menu').click();
-    await page.getByTestId('import-agents').click();
+    await page.getByTestId('agents-button').click();
     await page.getByTestId('agent-replies-paste').click();
     await page.getByTestId('agent-replies-paste-text').fill(t);
     await page.getByTestId('agent-replies-paste-review').click();
@@ -1058,16 +1073,43 @@ await step('AI agents (experimental): off by default; on, a pasted reply is revi
   await page.getByTestId('agent-reply-accept').click();
   await page.getByTestId('editor-page').waitFor();
   assert.match(await page.evaluate(async (id) => (await window.rc.repo.getWork(id)).files['main.tex'].text, page.url().split('/doc/')[1]), /From the chat/);
-  // The help topic is listed while it's on; switching off hides the menu entry again.
+  // Besides text, a reply can propose a new linked variant in a folder, and later a rename and a move; each can be unticked.
+  await openPaste(`% texchef-reply doc=new name="Agent letter" folder="Agent drafts" variant-of=${m} note="A letter"\n\\documentclass{article}\n\\begin{document}\nDear team.\n\\end{document}\n`);
+  await page.getByTestId('agent-reply-actions').getByText('Link it as a variant of “Master resume”').waitFor();
+  await page.getByTestId('agent-reply-actions').getByText('Put it in the folder “Agent drafts”').waitFor();
+  await page.getByTestId('agent-reply-accept').click();
+  await page.getByTestId('editor-page').waitFor();
+  const letter = page.url().split('/doc/')[1];
+  const made = await page.evaluate(async (id) => {
+    const { repo, db } = window.rc;
+    const d = await repo.getDoc(id);
+    return { name: d.name, folder: d.folder, parent: d.parent?.docId, kind: (await db.commits.get(d.head)).kind };
+  }, letter);
+  assert.deepEqual(made, { name: 'Agent letter', folder: 'Agent drafts', parent: m, kind: 'agent' });
+  // The version is marked with the robot in History.
+  await page.getByTestId('tab-history').click();
+  await page.locator('[data-testid=history-panel] li[data-kind=agent]').waitFor();
+  await page.getByTestId('tab-blocks').click();
+  // A reply with no text: rename and move. The move is unticked, the rename accepted.
+  await openPaste(`% texchef-reply doc=${letter} rename="Agent letter, sent" folder="Sent" note="Filed"`);
+  await page.getByText('This reply doesn’t change any text').waitFor();
+  await page.getByTestId('agent-action-folder').uncheck();
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${letter}`);
+  const after2 = await page.evaluate(async (id) => {
+    const d = await window.rc.repo.getDoc(id);
+    return { name: d.name, folder: d.folder };
+  }, letter);
+  assert.deepEqual(after2, { name: 'Agent letter, sent', folder: 'Agent drafts' });
+  await page.evaluate((id) => window.rc.repo.deleteDoc(id), letter);
+  // The help topic is listed while it's on; switching off hides the button again.
   await page.goto(`${BASE}/help/agents`);
   await page.getByRole('heading', { name: 'Why you pick replies' }).waitFor();
   await page.goto(`${BASE}/settings`);
   await page.getByTestId('settings-agents-toggle').uncheck();
   await page.goto(BASE);
-  await page.getByTestId('import-menu').click();
-  await page.getByTestId('import-files').waitFor();
-  assert.equal(await page.getByTestId('import-agents').count(), 0);
-  await page.keyboard.press('Escape');
+  await page.getByTestId('import-menu').waitFor();
+  assert.equal(await page.getByTestId('agents-button').count(), 0);
 });
 
 await step('upload a .zip as a new document and download it again', async () => {

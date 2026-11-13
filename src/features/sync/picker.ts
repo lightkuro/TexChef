@@ -24,7 +24,7 @@ const isBrave = () => typeof navigator !== 'undefined' && 'brave' in navigator;
 /** What to try when Google's window can't show the files: shown while the picker is open, and on errors. */
 export function pickerTroubleHint(brave = isBrave()): string {
   return brave
-    ? 'Brave’s Shields block the cookies it needs: click the lion icon in the address bar, allow all cookies for this site (or turn Shields off for it), then try again.'
+    ? 'Brave blocks the cookies Google’s picker needs, so the page says “Sign in”: click it, and the picker opens in a small window of its own. To have it open right here instead, click the lion icon in the address bar and allow all cookies for this site.'
     : 'The browser may be blocking the cookies it needs: allow cookies for this site and try again, or download the file from Drive and use Import → Upload.';
 }
 
@@ -57,7 +57,8 @@ export async function pickFromDrive(): Promise<File[]> {
 
 interface PickerOptions {
   title: string;
-  mimeTypes: string;
+  /** Only these file types (ignored when `parent` is set). */
+  mimeTypes?: string;
   /** Open inside this folder. */
   parent?: string;
 }
@@ -91,8 +92,11 @@ async function showPicker(opts: PickerOptions): Promise<NonNullable<PickerRespon
       if (error) reject(error);
       else resolve(docs);
     };
-    const view = new gp.DocsView(gp.ViewId.DOCS).setMimeTypes(opts.mimeTypes).setIncludeFolders(true);
-    if (opts.parent) view.setParent(opts.parent);
+    const view = new gp.DocsView(gp.ViewId.DOCS).setIncludeFolders(true);
+    // A file-type filter turns the view into a flat search of the whole Drive, which ignores the folder to open
+    // in. So when a folder is given, show that folder as it is (as a list, where file names are readable).
+    if (opts.parent) view.setParent(opts.parent).setMode(gp.DocsViewMode.LIST);
+    else if (opts.mimeTypes) view.setMimeTypes(opts.mimeTypes);
     picker = new gp.PickerBuilder()
       .addView(view)
       .enableFeature(gp.Feature.MULTISELECT_ENABLED)
@@ -110,7 +114,7 @@ async function showPicker(opts: PickerOptions): Promise<NonNullable<PickerRespon
     toast('Choosing files in Google Drive', {
       id: HELP_TOAST,
       duration: Infinity,
-      description: `Stuck on “Sign in” or an error? ${pickerTroubleHint()}`,
+      description: isBrave() ? pickerTroubleHint() : `Stuck on “Sign in” or an error? ${pickerTroubleHint()}`,
       action: { label: 'Close picker', onClick: () => finish([]) },
     });
   });
@@ -124,7 +128,7 @@ async function showPicker(opts: PickerOptions): Promise<NonNullable<PickerRespon
 export async function pickAgentReplies(folder?: string): Promise<{ id: string; name: string }[]> {
   const picked = await showPicker({
     title: 'Pick replies from AI agents',
-    mimeTypes: 'text/plain,text/x-tex,application/x-tex,text/markdown,application/vnd.google-apps.document,application/octet-stream',
+    mimeTypes: folder ? undefined : 'text/plain,text/x-tex,application/x-tex,text/markdown,application/vnd.google-apps.document,application/octet-stream',
     parent: folder,
   });
   return picked.map((d) => ({ id: d.id, name: d.name }));

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { Group, Separator, useDefaultLayout, usePanelRef } from 'react-resizable-panels';
 import { CollapsiblePanel, layoutStorage } from '@/components/CollapsiblePanel';
 import { useAgentsDialog } from '@/features/agents/agents';
+import { AgentsButton } from '@/features/agents/AgentsButton';
 import {
   ArrowLeft,
   ChevronDown,
@@ -703,6 +704,7 @@ export function EditorPage() {
         )}
         <div className="flex-1" />
         <SyncIndicator compact={!wide} />
+        {!phone && <AgentsButton beforeOpen={flush} />}
         {wide ? (
           <>
             <Button variant="outline" onClick={newVariant} data-testid="new-variant">
@@ -863,9 +865,9 @@ export function EditorPage() {
             <MenuItem onSelect={() => navigate(`/compare?left=${doc.id}${parent ? `&right=${parent.id}` : ''}`)}>
               <GitCompare className="size-4" /> Compare side by side…
             </MenuItem>
-            {agentsEnabled && (
+            {agentsEnabled && phone && (
               <MenuItem onSelect={async () => (await flush(), openAgents(true))}>
-                <Bot className="size-4" /> Replies from AI agents…
+                <Bot className="size-4" /> AI updates…
               </MenuItem>
             )}
             <MenuSeparator />

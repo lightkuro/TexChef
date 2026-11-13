@@ -14,7 +14,8 @@ export type CommitKind =
   | 'merge' // pull from parent (2 parents)
   | 'push-up' // block pushed from a child variant into this doc
   | 'restore' // restored an older version
-  | 'import'; // uploaded / imported
+  | 'import' // uploaded / imported
+  | 'agent'; // edits from an AI agent, accepted in review
 
 export interface Commit {
   id: string;

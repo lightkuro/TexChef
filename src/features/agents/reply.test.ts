@@ -19,6 +19,15 @@ describe('agent replies', () => {
     expect(r.files).toEqual({ 'main.tex': 'A', 'parts/b.tex': 'B' });
   });
 
+  it('reads proposed actions: rename, move to a folder, a new variant; a reply may carry no text', () => {
+    const move = parseReply('% texchef-reply doc=abc rename="Resume, Acme" folder="Applications/Acme" note="Filed"\n');
+    expect(move).toMatchObject({ doc: 'abc', rename: 'Resume, Acme', folder: 'Applications/Acme', note: 'Filed' });
+    expect(move.files).toEqual({});
+    const variant = parseReply('% texchef-reply doc=new name="Letter" folder="Drafts" variant-of=m1\nBody');
+    expect(variant).toMatchObject({ doc: 'new', name: 'Letter', folder: 'Drafts', variantOf: 'm1' });
+    expect(variant.files).toEqual({ '': 'Body' });
+  });
+
   it('without a header, the whole text is the main file', () => {
     expect(parseReply('\\section{X}')).toEqual({ files: { '': '\\section{X}' } });
   });

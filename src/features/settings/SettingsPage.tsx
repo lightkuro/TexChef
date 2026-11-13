@@ -227,7 +227,7 @@ export function SettingsPage() {
           )}
           {agentsEnabled && (
             <p className="text-xs text-muted">
-              Open replies from <b>Import → Replies from AI agents</b> on the home page, or the editor’s ⌄ menu.{' '}
+              An <b>AI updates</b> button appears on the home page and in the editor; it shows how many replies are waiting.{' '}
               <Link to="/help/agents" className="text-accent underline">
                 How it works
               </Link>

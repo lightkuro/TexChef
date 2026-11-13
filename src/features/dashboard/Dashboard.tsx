@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
 import { useAgentsDialog } from '@/features/agents/agents';
+import { AgentsButton } from '@/features/agents/AgentsButton';
 import { createDocumentFromProject, planImport, type ImportPlan } from '@/features/importexport/io';
 import { RestoreDialog } from '@/features/workspace/RestoreDialog';
 import type { RestorePlan } from '@/features/workspace/backup';
@@ -301,11 +302,12 @@ export function Dashboard() {
           },
         ]
       : []),
-    ...(agentsEnabled
+    // Phones only (their Import, Export and view toggles share one menu); larger screens have the AI updates button.
+    ...(agentsEnabled && phone
       ? [
           {
             key: 'agents',
-            label: 'Replies from AI agents…',
+            label: 'AI updates…',
             hint: 'experimental',
             icon: <Bot className="size-4" />,
             separatorBefore: true,
@@ -420,6 +422,7 @@ export function Dashboard() {
           data-testid="upload-folder-input"
           onChange={(e) => e.target.files && importFiles(e.target.files).then(() => (e.target.value = ''))}
         />
+        {!phone && <AgentsButton label={labels} />}
         {!phone && (
           <ActionDropdown
             align="start"

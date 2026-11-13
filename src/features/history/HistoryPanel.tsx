@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { GitBranch, GitCompare, GitMerge, History, RotateCcw, Save, Download, ArrowUpFromLine, Sparkles, FileInput } from 'lucide-react';
+import { GitBranch, GitCompare, GitMerge, History, RotateCcw, Save, Download, ArrowUpFromLine, Sparkles, FileInput, Bot } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useDocCommits } from '@/app/repo';
 import type { Commit, DocMeta } from '@/core/model';
 import { Button, Input, Tip, Badge } from '@/components/ui';
-import { timeAgo } from '@/lib/utils';
+import { cn, timeAgo } from '@/lib/utils';
 import { downloadProjectZip } from '@/features/importexport/io';
 import { editStats, versionNumbers, type EditStats } from './versionStats';
 
@@ -49,6 +49,8 @@ export function kindIcon(kind: Commit['kind']) {
       return <FileInput className="size-3.5 text-info" />;
     case 'create':
       return <Sparkles className="size-3.5 text-accent" />;
+    case 'agent':
+      return <Bot className="size-3.5 text-accent" />;
     default:
       return <Save className="size-3.5 text-fg" />;
   }
@@ -88,7 +90,24 @@ export function HistoryPanel({ doc, dirty }: { doc: DocMeta; dirty: boolean }) {
       </div>
       <ol className="min-h-0 flex-1 overflow-auto py-1">
         {visible.map((c) => (
-          <li key={c.id} className="group px-2 py-1.5 hover:bg-subtle">
+          <li key={c.id} className={cn('group px-2 hover:bg-subtle', c.kind === 'auto' ? 'py-0.5' : 'py-1.5')} data-kind={c.kind}>
+            {c.kind === 'auto' ? (
+              // Autosaves: one small line each, so they don't crowd out the versions you saved.
+              <div className="flex items-center gap-2 text-[11px] text-muted" title={new Date(c.createdAt).toLocaleString()}>
+                <span className="flex w-3.5 justify-center">
+                  <span className="size-1.5 rounded-full bg-muted/60" />
+                </span>
+                <span className="shrink-0 font-mono tabular-nums" data-testid="version-number">
+                  v{numbers.get(c.id)}
+                </span>
+                <span className="truncate">Autosave · {timeAgo(c.createdAt)}</span>
+                {c.id === doc.head && (
+                  <Badge tone="accent" className="px-1.5 py-0 text-[10px]">
+                    current
+                  </Badge>
+                )}
+              </div>
+            ) : (
             <div className="flex items-start gap-2">
               <span className="mt-0.5">{kindIcon(c.kind)}</span>
               <div className="min-w-0 flex-1">
@@ -111,6 +130,7 @@ export function HistoryPanel({ doc, dirty }: { doc: DocMeta; dirty: boolean }) {
                 </div>
               </div>
             </div>
+            )}
             <div className="mt-1 hidden gap-0.5 pl-5 group-hover:flex">
               <Tip content="Compare this version with the current text">
                 <Button size="icon-sm" variant="ghost" aria-label="Compare" onClick={() => navigate(`/compare?left=${doc.id}@${c.id}&right=${doc.id}`)}>

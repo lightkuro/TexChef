@@ -1134,8 +1134,8 @@ TexChef/
             edited file, starting with a <C>% texchef-reply</C> line that names the document and the version it read.
           </li>
           <li>
-            In TexChef, open <b>Import → Replies from AI agents</b> on the home page (or the editor’s <b>⌄</b> menu). Pick the reply in Google
-            Drive, or paste it if the assistant gave it to you in the chat.
+            In TexChef, press <b>AI updates</b> (on the home page and in the editor; on phones it is in the <b>⋯</b> and <b>⌄</b> menus). It
+            shows how many replies are waiting. Pick the reply in Google Drive, or paste it if the assistant gave it to you in the chat.
           </li>
           <li>
             Review it side by side: your document on the left, with the agent’s edits on the right. Edits you made after the agent read the file
@@ -1143,6 +1143,22 @@ TexChef/
             Handled replies move to <b>Done</b>.
           </li>
         </OL>
+        <H2>What an assistant can propose</H2>
+        <UL>
+          <li>
+            <b>Edit</b> a document: one file or several.
+          </li>
+          <li>
+            <b>Create</b> a document, in a folder if it names one, and linked as a <b>variant</b> of one of yours if it asks for that.
+          </li>
+          <li>
+            <b>Rename</b> a document or <b>move</b> it to a folder. These show under <b>Also proposed</b> in the review, each with a tick box.
+          </li>
+          <li>It cannot delete or archive anything, and nothing happens until you accept.</li>
+        </UL>
+        <P>
+          Versions made this way are marked with a small robot in <b>History</b> and in the <b>Versions</b> view.
+        </P>
         <H2>Why you pick replies</H2>
         <P>
           TexChef asks Google only for the narrow <C>drive.file</C> permission: it can see the files it made and the files you pick, nothing else
@@ -1153,6 +1169,11 @@ TexChef/
           “The API developer key is invalid” means the picker’s API key doesn’t allow this site. Whoever runs this copy of TexChef fixes it in the
           Google Cloud console: allow both the site’s address and <C>https://docs.google.com/*</C> under the key’s website restrictions, and allow
           the Google Picker API and Google Drive API. Until then, <b>Paste a reply</b> works without the picker.
+        </P>
+        <P>
+          In Brave, and in Safari with cross-site tracking protection on, the picker first shows <b>Sign in</b>: click it and the picker opens
+          in a small window of its own. That is Google’s way around blocked cookies. To have it open in the page instead, allow cookies for
+          this site (in Brave: the lion icon in the address bar).
         </P>
         <H2>Turning it off</H2>
         <P>

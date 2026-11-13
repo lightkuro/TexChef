@@ -7,10 +7,12 @@ import { merge3 } from '@/core/merge';
  * Google Drive and writes a new plain-text file that starts with a header line:
  *
  *   % texchef-reply doc=<document id> base=<version id> file=main.tex note="Tailored for Acme"
- *   % texchef-reply doc=new name="Cover letter, Acme" note="…"
+ *   % texchef-reply doc=<document id> rename="Resume, Acme" folder="Applications/Acme"
+ *   % texchef-reply doc=new name="Cover letter, Acme" folder="Applications/Acme" variant-of=<document id>
  *
- * The rest of the file is the whole edited file. Several files are separated by
- * `% texchef-file: <path>` lines. Nothing is applied until the person reviews it.
+ * The rest of the file is the whole edited file (it may be left out when only renaming or moving). Several files
+ * are separated by `% texchef-file: <path>` lines. Nothing is applied until the person reviews it, and each
+ * proposed action can be unticked there. Agents cannot delete or archive anything.
  */
 export interface AgentReply {
   /** A document id, 'new' for a new document, or undefined when the header is missing. */
@@ -18,6 +20,12 @@ export interface AgentReply {
   base?: string;
   name?: string;
   note?: string;
+  /** A new name for an existing document. */
+  rename?: string;
+  /** The folder to move the document to, or to create a new one in ("A/B"). */
+  folder?: string;
+  /** For a new document: make it a linked variant of this document. */
+  variantOf?: string;
   /** path → full text. A path of '' means "the document's main file". */
   files: Record<string, string>;
 }
@@ -27,7 +35,7 @@ const FILE = /^%+\s*texchef-file:\s*(.+?)\s*$/i;
 
 function attrs(s: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const m of s.matchAll(/(\w+)=(?:"((?:[^"\\]|\\.)*)"|“([^”]*)”|(\S+))/g)) out[m[1].toLowerCase()] = (m[2] ?? m[3] ?? m[4]).replace(/\\"/g, '"');
+  for (const m of s.matchAll(/([\w-]+)=(?:"((?:[^"\\]|\\.)*)"|“([^”]*)”|(\S+))/g)) out[m[1].toLowerCase()] = (m[2] ?? m[3] ?? m[4]).replace(/\\"/g, '"');
   return out;
 }
 
@@ -59,7 +67,7 @@ export function parseReply(raw: string): AgentReply {
     buf.push(line);
   }
   flush();
-  return { doc: a.doc, base: a.base, name: a.name, note: a.note, files };
+  return { doc: a.doc, base: a.base, name: a.name, note: a.note, rename: a.rename, folder: a.folder, variantOf: a['variant-of'] ?? a.variantof, files };
 }
 
 export interface ReplyFilePlan {

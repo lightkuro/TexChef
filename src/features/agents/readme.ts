@@ -20,8 +20,9 @@ export function buildAgentsReadme(items: ReadmeDoc[], all: DocMeta[]): string {
       const parent = doc.parent ? `variant of “${name(doc.parent.docId) ?? doc.parent.docId}”` : '';
       const kids = all.filter((d) => d.parent?.docId === doc.id && !d.deleted).map((d) => `“${d.name}”`);
       const family = [parent, kids.length ? `variants: ${kids.join(', ')}` : ''].filter(Boolean).join('; ');
-      return `| ${doc.name} | \`${doc.id}\` | \`${base}\` | TexChef/${folder}/ | ${doc.mainFile} | ${files.length} | ${family || '–'} |`;
+      return `| ${doc.name} | \`${doc.id}\` | \`${base}\` | TexChef/${folder}/ | ${doc.mainFile} | ${files.length} | ${doc.folder || '–'} | ${family || '–'} |`;
     });
+  const folders = [...new Set(all.filter((d) => !d.deleted && d.folder).map((d) => d.folder!))].sort();
   return `# Read me first (for AI agents)
 
 This folder exists because the owner of this Google Drive turned on **AI agents (experimental)** in TexChef
@@ -33,9 +34,11 @@ this because the owner connected you to their Drive. Follow these rules exactly.
 Each document has a readable copy in its own folder inside \`TexChef/\`: its LaTeX files and a PDF of the last
 compile. The copy shows the saved version listed as **base** below.
 
-| Document | id | base | Folder | Main file | Files | Family |
-| --- | --- | --- | --- | --- | --- | --- |
-${rows.join('\n') || '| (no documents yet) | | | | | | |'}
+| Document | id | base | Readable copy | Main file | Files | In folder | Family |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+${rows.join('\n') || '| (no documents yet) | | | | | | | |'}
+
+"In folder" is the document's folder inside TexChef (not in Drive).${folders.length ? ` Folders in use: ${folders.map((f) => `\`${f}\``).join(', ')}.` : ''}
 
 Never change or delete anything in \`TexChef/\` outside this \`${AGENTS_FOLDER}\` folder. \`TexChef/.texchef/\`
 holds the history: don't touch it.
@@ -57,6 +60,11 @@ TexChef can't apply edits you make anywhere else. Write each answer as **one new
 - To change several files of one document, leave out \`file=\` and start each file with a line
   \`% texchef-file: <path>\`, followed by that file's complete text.
 - To propose a **new document**, use \`doc=new name="<new document name>"\` instead of \`doc=\` and \`base=\`.
+  Add \`variant-of=<id>\` to link it to an existing document as a variant (it can then take that document's later
+  changes); with \`variant-of\` you may leave the text out to start from a copy. Add \`folder="<folder>"\` to file it.
+- To **rename** a document add \`rename="<new name>"\`; to **move** it add \`folder="<folder>"\` (sub-folders as
+  \`A/B\`). A reply may do only that: the header line alone, with no text after it.
+- You cannot delete or archive documents, and nothing you write takes effect until the owner accepts it.
 - Keep every comment line that starts with \`%% @block\` or \`%% @end\`: TexChef uses them to build tailored
   versions of a document.
 - Keep the document compiling with pdfLaTeX unless it already uses another engine.
