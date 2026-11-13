@@ -29,7 +29,7 @@ const lineAt = (changed: boolean): Line => ({
   vis: <>In our survey, {changed ? '75' : '60'}% of residents want more.</>,
 });
 
-const LINES: Line[] = [
+export const LINES: Line[] = [
   { tex: '\\documentclass{article}', kind: 'pre' },
   { tex: '\\usepackage{amsmath}', kind: 'pre' },
   { tex: '\\title{Why Cities Plant Trees}', kind: 'pre' },
@@ -67,7 +67,7 @@ const RAW_H = 22;
 const VIS_H: Record<Kind, number> = { pre: 0, blank: 0, begin: 0, end: 0, cmd: 26, h: 36, p: 22, ls: 18, le: 18, item: 22, eq: 30 };
 
 /** LaTeX with its commands in the accent color. */
-function Tex({ text }: { text: string }) {
+export function Tex({ text }: { text: string }) {
   const parts = text.split(/(\\[a-zA-Z]+|\\.|[{}])/g);
   return (
     <>
@@ -405,7 +405,7 @@ function PdfPane({ typed, t1, compact, changed, flash }: { typed: number; t1: nu
 }
 
 /** A small line drawing of a tree, as a TikZ figure might print it. */
-function TreeFigure() {
+export function TreeFigure() {
   return (
     <svg width="132" height="108" viewBox="0 0 132 108" fill="none" stroke="#1a1a1a" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {/* canopy: overlapping rounds */}
@@ -423,13 +423,13 @@ function TreeFigure() {
 
 // ---------------------------------------------------------------- 4: versions on the map
 
-const VARIANTS = [
+export const VARIANTS = [
   { name: 'Frontend', tags: ['frontend'], color: '#1f7aa8', lines: 7 },
   { name: 'Backend', tags: ['backend'], color: '#c2185b', lines: 9 },
   { name: 'Data', tags: ['data', 'ml'], color: '#d9661f', lines: 6 },
 ];
 
-function MiniPage({ lines, width }: { lines: number; width: number }) {
+export function MiniPage({ lines, width }: { lines: number; width: number }) {
   const ws = [86, 72, 94, 60, 88, 78, 92, 66, 84, 70, 90, 58, 80, 74];
   return (
     <div className="mx-auto flex flex-col gap-[3px] bg-white px-3 pt-3 pb-2" style={{ width }}>
@@ -552,7 +552,7 @@ function Pointer({ x, y, pressed }: { x: number; y: number; pressed?: boolean })
   );
 }
 
-function Card({ x, y, w, on, color, thumbH, lifted, children }: { x: number; y: number; w: number; on: number; color: string; thumbH: number; lifted?: boolean; children: ReactNode }) {
+export function Card({ x, y, w, on, color, thumbH, lifted, children }: { x: number; y: number; w: number; on: number; color: string; thumbH: number; lifted?: boolean; children: ReactNode }) {
   if (on <= 0.001) return null;
   return (
     <div
@@ -568,7 +568,7 @@ function Card({ x, y, w, on, color, thumbH, lifted, children }: { x: number; y: 
   );
 }
 
-function Footer({ icon, name, chips }: { icon: ReactNode; name: string; chips: ReactNode }) {
+export function Footer({ icon, name, chips }: { icon: ReactNode; name: string; chips: ReactNode }) {
   return (
     <div className="border-t border-line px-2.5 py-2">
       <div className="flex items-center gap-1.5 truncate text-[13.5px] font-semibold">
@@ -580,7 +580,7 @@ function Footer({ icon, name, chips }: { icon: ReactNode; name: string; chips: R
   );
 }
 
-function Chip({ tone, children }: { tone?: 'ok' | 'warn'; children: ReactNode }) {
+export function Chip({ tone, children }: { tone?: 'ok' | 'warn'; children: ReactNode }) {
   return (
     <span
       className={cn(
@@ -596,7 +596,7 @@ function Chip({ tone, children }: { tone?: 'ok' | 'warn'; children: ReactNode })
 // ---------------------------------------------------------------- 5: compare side by side
 
 type RowKind = 'same' | 'left' | 'changed';
-const ROWS: { l: string; r: string; k: RowKind }[] = [
+export const ROWS: { l: string; r: string; k: RowKind }[] = [
   { l: '\\section{Experience}', r: '\\section{Experience}', k: 'same' },
   { l: '\\rcEntry{Northwind Analytics}', r: '\\rcEntry{Northwind Analytics}', k: 'same' },
   { l: '\\rcItem{Streaming ingestion in Go}', r: '', k: 'left' },
@@ -607,7 +607,7 @@ const ROWS: { l: string; r: string; k: RowKind }[] = [
   { l: '\\rcProject{Forecast}{Python}', r: '', k: 'left' },
 ];
 /** The row whose block gets copied across. */
-const COPY_ROW = 3;
+export const COPY_ROW = 3;
 
 function CompareScene({ t, compact }: { t: number; compact: boolean }) {
   const W = compact ? DEMO_SIZE.compact.w : DEMO_SIZE.wide.w;
@@ -817,7 +817,7 @@ function DeviceScene({ t, compact, body }: { t: number; compact: boolean; body: 
   );
 }
 
-function Tile({ x, y, w, on, strong, children }: { x: number; y: number; w: number; on: number; strong?: boolean; children: ReactNode }) {
+export function Tile({ x, y, w, on, strong, children }: { x: number; y: number; w: number; on: number; strong?: boolean; children: ReactNode }) {
   if (on <= 0.001) return null;
   return (
     <div

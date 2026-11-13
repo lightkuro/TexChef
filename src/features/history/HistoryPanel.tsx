@@ -33,6 +33,30 @@ function useEditStats(commits: Commit[]): Map<string, EditStats> {
   return statsCache;
 }
 
+/** What each kind of version is, in a couple of words. */
+export function kindLabel(kind: Commit['kind']): string {
+  switch (kind) {
+    case 'merge':
+      return 'Took updates';
+    case 'branch':
+      return 'Variant started';
+    case 'push-up':
+      return 'Block sent up from a variant';
+    case 'restore':
+      return 'Restored an older version';
+    case 'auto':
+      return 'Autosave';
+    case 'import':
+      return 'Imported';
+    case 'create':
+      return 'Document created';
+    case 'agent':
+      return 'Edits from an AI agent';
+    default:
+      return 'Saved version';
+  }
+}
+
 export function kindIcon(kind: Commit['kind']) {
   switch (kind) {
     case 'merge':

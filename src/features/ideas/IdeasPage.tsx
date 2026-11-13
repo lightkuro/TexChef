@@ -10,6 +10,8 @@ import { NewDocDialog } from '@/features/dashboard/NewDocDialog';
 import { APP_VERSION } from '@/app/changelog';
 import { cn } from '@/lib/utils';
 import { DEMO_SIZE, DemoWindow } from './DemoWindow';
+import { CLEAN_STORY } from './CleanDemo';
+import { CleanStory } from './CleanStory';
 
 /** What the story says at each scene, and how long the scene's animation plays (seconds). */
 const STORY: { short: string; title: string; text: string; secs: number }[] = [
@@ -55,6 +57,9 @@ export interface CoverProps {
  */
 export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, navExtra, testId = 'ideas-page', look = 'default', switcher }: CoverProps) {
   const clean = look === 'clean';
+  // The clean look tells the story in five scenes (no Visual scene).
+  const scenes = clean ? CLEAN_STORY : STORY;
+  const n = scenes.length;
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const story = useRef<HTMLElement>(null);
@@ -102,7 +107,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
     const box = scroller.current;
     if (!s || !box) return 0;
     const topY = s.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
-    return topY + (s.offsetHeight - box.clientHeight) * ((i + 0.5) / N);
+    return topY + (s.offsetHeight - box.clientHeight) * ((i + 0.5) / n);
   };
   const scrollTo = (y: number) => (lenis ? lenis.scrollTo(y, { duration: clean ? 0.4 : 1.2, force: true }) : scroller.current?.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' }));
 
@@ -127,7 +132,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
       if (Date.now() < until && target >= 0) return target;
       const y = box.scrollTop;
       let best = 0;
-      STORY.forEach((_, i) => Math.abs(sceneY(i) - y) < Math.abs(sceneY(best) - y) && (best = i));
+      scenes.forEach((_, i) => Math.abs(sceneY(i) - y) < Math.abs(sceneY(best) - y) && (best = i));
       return best;
     };
     const onStart = (e: TouchEvent) => {
@@ -135,7 +140,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
       startY = e.touches[0].clientY;
       startX = e.touches[0].clientX;
       const y = box.scrollTop;
-      inStory = y >= sceneY(0) - vh * 0.3 && y <= sceneY(N - 1) + vh * 0.3;
+      inStory = y >= sceneY(0) - vh * 0.3 && y <= sceneY(n - 1) + vh * 0.3;
     };
     const onMove = (e: TouchEvent) => {
       if (!inStory) return;
@@ -151,7 +156,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
       if (next < 0) {
         target = -1;
         scrollTo(0);
-      } else if (next >= N) {
+      } else if (next >= n) {
         target = -1;
         scrollTo(storyEnd() + vh * 0.6);
       } else {
@@ -177,7 +182,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
       if (now - lastWheel > 200) movedThisGesture = false;
       lastWheel = now;
       const y = box.scrollTop;
-      const inside = y >= sceneY(0) - vh * 0.3 && y <= sceneY(N - 1) + vh * 0.3;
+      const inside = y >= sceneY(0) - vh * 0.3 && y <= sceneY(n - 1) + vh * 0.3;
       if (!inside && !movedThisGesture) return;
       // Keep Lenis (listening on the scroll box) from scrolling as well.
       e.preventDefault();
@@ -209,10 +214,10 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
       if (busy) return;
       clearTimeout(timer);
       timer = setTimeout(() => {
-        const ys = STORY.map((_, i) => sceneY(i));
+        const ys = scenes.map((_, i) => sceneY(i));
         const y = lenis.scroll;
         const margin = vh * 0.45;
-        if (y < ys[0] - margin || y > ys[N - 1] + margin) return;
+        if (y < ys[0] - margin || y > ys[n - 1] + margin) return;
         const target = ys.reduce((best, c) => (Math.abs(c - y) < Math.abs(best - y) ? c : best));
         if (Math.abs(target - y) < 4) return;
         busy = true;
@@ -239,7 +244,8 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
   const [pastHero, setPastHero] = useState(false);
   const { scrollY } = useScroll({ container: scroller });
   useMotionValueEvent(scrollY, 'change', (y) => setPastHero(y > vh * 0.3));
-  const floating = pastHero && !heroInView && !endInView;
+  // The clean look's page keeps Start writing in its top bar, so nothing needs to float over the window.
+  const floating = pastHero && !heroInView && !endInView && !(clean && mode === 'page');
 
   return (
     <div ref={scroller} className="relative h-full overflow-x-clip overflow-y-auto bg-bg" data-testid={testId} data-mode={mode} data-look={look}>
@@ -251,11 +257,15 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
         ) : (
           <Hero ctaRef={heroCta} onStart={start} uploadActions={uploadActions} onTour={() => scrollTo(sceneY(0))} reduce={reduce} compactTop={mode !== 'page'} scroller={scroller} />
         )}
-        <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} clean={clean} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} />
+        {clean ? (
+          <CleanStory storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} bottomRoom={switcher} onStep={(i) => scrollTo(sceneY(i))} />
+        ) : (
+          <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} />
+        )}
         {clean ? <FeatureList /> : <Bento />}
         {clean ? <CleanCta ctaRef={endCta} onStart={start} /> : <Cta ctaRef={endCta} onStart={start} />}
         {mode === 'page' && (
-          <footer className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-6 text-xs text-muted', clean ? 'mx-auto max-w-[90rem] sm:px-6' : 'justify-center')}>
+          <footer className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-6 text-xs text-muted', clean ? 'mx-auto max-w-[90rem] sm:px-6 lg:px-12' : 'justify-center')}>
             <Link to="/help/whats-new" className="hover:text-fg" data-testid="link-version">
               TexChef v{APP_VERSION.replace(/\.0$/, '')}
             </Link>
@@ -331,7 +341,7 @@ function IdeasSwitcher({ current }: { current: string }) {
 function Nav({ onStart, extra, clean }: { onStart: () => void; extra?: ReactNode; clean?: boolean }) {
   return (
     <div className={cn('sticky top-0 z-30 border-b', clean ? 'border-line bg-bg' : 'border-line/60 bg-bg/80 backdrop-blur-md')}>
-      <div className={cn('mx-auto flex h-14 items-center gap-3 px-4 sm:px-6', clean ? 'max-w-[90rem]' : 'max-w-6xl')}>
+      <div className={cn('mx-auto flex h-14 items-center gap-3 px-4 sm:px-6', clean ? 'max-w-[90rem] lg:px-12' : 'max-w-6xl')}>
         <Link to="/" className="flex items-center gap-2 font-semibold">
           <Logo size={26} /> TexChef
         </Link>
@@ -471,7 +481,7 @@ function CleanHero({
   compactTop: boolean;
 }) {
   return (
-    <section className={cn('mx-auto max-w-[90rem] px-4 pb-8 sm:px-6 sm:pb-6', compactTop ? 'pt-12 sm:pt-16' : 'pt-14 sm:pt-24')}>
+    <section className={cn('mx-auto max-w-[90rem] px-4 pb-8 sm:px-6 sm:pb-6 lg:px-12', compactTop ? 'pt-12 sm:pt-16' : 'pt-14 sm:pt-24')}>
       <h1 className="max-w-3xl text-[2.3rem] leading-[1.05] font-semibold tracking-tight sm:text-6xl">
         Edit with LaTeX easily, <span className="text-accent">all in the browser.</span>
       </h1>
@@ -501,12 +511,9 @@ function Story({
   vh,
   nav,
   reduce,
-  clean,
   floatRoom,
   onStep,
 }: {
-  /** The clean look: the window doesn't tilt in, and the scene is left-aligned. */
-  clean?: boolean;
   /** Where the floating Start writing button needs room below the window: only tablets, or every stacked layout. */
   floatRoom: 'tablet' | 'stacked';
   storyRef: RefObject<HTMLElement | null>;
@@ -518,8 +525,8 @@ function Story({
 }) {
   const { scrollYProgress } = useScroll({ container: scroller, target: storyRef, offset: ['start start', 'end end'] });
   const { scrollYProgress: entry } = useScroll({ container: scroller, target: storyRef, offset: ['start end', 'start start'] });
-  const tilt = useTransform(entry, [0, 1], [clean ? 0 : 22, 0]);
-  const scale = useTransform(entry, [0, 1], [clean ? 1 : 0.88, 1]);
+  const tilt = useTransform(entry, [0, 1], [22, 0]);
+  const scale = useTransform(entry, [0, 1], [0.88, 1]);
   const textIn = useTransform(entry, [0.55, 1], [0, 1]);
   const [step, setStep] = useState(0);
   const [arrived, setArrived] = useState(false);
@@ -567,13 +574,13 @@ function Story({
       const s = compact ? DEMO_SIZE.compact : DEMO_SIZE.wide;
       const stacked = window.innerWidth < 1024;
       const sc = Math.min(1.2, el.clientWidth / s.w, (stacked ? el.clientHeight : stageMax) / s.h);
-      setFit({ compact, scale: sc, left: clean && !stacked ? 0 : (el.clientWidth - s.w * sc) / 2, stacked });
+      setFit({ compact, scale: sc, left: (el.clientWidth - s.w * sc) / 2, stacked });
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [stageMax, clean]);
+  }, [stageMax]);
   const size = fit.compact ? DEMO_SIZE.compact : DEMO_SIZE.wide;
   const scene = (key: string, node: ReactNode, className?: string) => (
     <AnimatePresence mode="wait" initial={false}>
@@ -594,9 +601,8 @@ function Story({
     <section
       ref={storyRef}
       // Pulled up under the hero, so the window already peeks in at the bottom of the first screen.
-      // (The clean look's hero is shorter, so the window peeks in without the pull.)
       className="pointer-events-none relative"
-      style={{ height: pinned + N * vh * 0.8, marginTop: clean ? 0 : -vh * 0.2 }}
+      style={{ height: pinned + N * vh * 0.8, marginTop: -vh * 0.2 }}
       data-testid="ideas-story"
       data-step={step}
     >
@@ -610,7 +616,7 @@ function Story({
       >
         {/* Large screens: the scenes on a vertical roller, and Start writing under it */}
         <motion.div style={{ opacity: textIn }} className="hidden flex-col items-start gap-8 lg:flex">
-          <Roller step={step} onStep={onStep} quick={clean} onReplay={t >= 1 && !reduce ? () => setReplays((n) => n + 1) : undefined} />
+          <Roller step={step} onStep={onStep} onReplay={t >= 1 && !reduce ? () => setReplays((n) => n + 1) : undefined} />
         </motion.div>
         {/* The scene: title, window, description */}
         <div className="flex min-h-0 w-full flex-1 flex-col gap-3 lg:h-full lg:justify-center lg:gap-5">
@@ -618,7 +624,7 @@ function Story({
             <div data-testid="ideas-step-text">
               {scene(
                 'title',
-                <h2 className={cn('text-[1.45rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl lg:text-[2.1rem]', !clean && 'lg:text-center')}>
+                <h2 className={cn('text-[1.45rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl lg:text-center lg:text-[2.1rem]')}>
                   <span className="mr-2 align-middle font-mono text-sm font-normal text-muted lg:hidden">
                     {step + 1}/{N}
                   </span>
@@ -637,7 +643,7 @@ function Story({
             </div>
           </div>
           <motion.div style={{ opacity: textIn }} className="hidden min-h-[3.5rem] shrink-0 lg:block">
-            {scene('text-lg', <p className={cn('max-w-2xl text-lg text-pretty text-muted', !clean && 'mx-auto text-center')}>{STORY[step].text}</p>)}
+            {scene('text-lg', <p className="mx-auto max-w-2xl text-center text-lg text-pretty text-muted">{STORY[step].text}</p>)}
           </motion.div>
         </div>
         <div className="hidden lg:block" aria-hidden="true" />
@@ -648,7 +654,7 @@ function Story({
 
 /** The scenes on a vertical roller: the current one large in the middle, the others turning away above and below. */
 /** `onReplay` is set once the current scene has finished: a small icon beside its name plays it again. */
-function Roller({ step, onStep, onReplay, quick }: { step: number; onStep: (i: number) => void; onReplay?: () => void; quick?: boolean }) {
+function Roller({ step, onStep, onReplay }: { step: number; onStep: (i: number) => void; onReplay?: () => void }) {
   const ITEM = 56;
   return (
     <nav aria-label="Scenes" className="relative h-[19rem] w-full [mask-image:linear-gradient(to_bottom,transparent,black_22%,black_78%,transparent)]" style={{ perspective: 600 }}>
@@ -659,7 +665,7 @@ function Roller({ step, onStep, onReplay, quick }: { step: number; onStep: (i: n
           return (
             <li
               key={s.short}
-              className={cn('absolute inset-x-0 transition-all ease-[cubic-bezier(.22,1,.36,1)]', quick ? 'duration-300' : 'duration-500')}
+              className="absolute inset-x-0 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"
               style={{
                 transform: `translateY(${d * ITEM - ITEM / 2}px) rotateX(${-d * 18}deg) scale(${1 - far * 0.12})`,
                 transformOrigin: 'left center',
@@ -886,7 +892,7 @@ function PhoneArt() {
 /** The clean look's version of the grid above: the same features as a numbered, ruled list. */
 function FeatureList() {
   return (
-    <section className="mx-auto max-w-[90rem] px-4 py-20 sm:px-6 sm:py-28">
+    <section className="mx-auto max-w-[90rem] px-4 py-20 sm:px-6 sm:py-28 lg:px-12">
       <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Everything a LaTeX document needs</h2>
       <ol className="mt-10 grid border-t border-fg sm:grid-cols-2 sm:gap-x-12 lg:grid-cols-3">
         {BENTO.map((b, i) => (
@@ -936,7 +942,7 @@ function Cta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null>; on
 /** The clean look's closing section: a rule, a line and the two buttons, with nothing moving. */
 function CleanCta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null>; onStart: () => void }) {
   return (
-    <section className="mx-auto max-w-[90rem] px-4 pb-20 sm:px-6 sm:pb-28">
+    <section className="mx-auto max-w-[90rem] px-4 pb-20 sm:px-6 sm:pb-28 lg:px-12">
       <div ref={ctaRef} className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8 border-t border-fg pt-10">
         <div>
           <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">Start writing. It’s free.</h2>

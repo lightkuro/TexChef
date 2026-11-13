@@ -604,6 +604,17 @@ await step('versions view: links between documents go around the versions in bet
   await page.mouse.move(5, 500);
   await page.waitForTimeout(800);
   assert.deepEqual((await throughVersions()).out, [], 'with autosaves shown');
+  // Pointing at a version says what it is; an autosave too.
+  await page.locator('.react-flow__node-commit:not(:has([data-autosave]))').first().hover();
+  const tip = page.getByTestId('commit-hover');
+  await tip.waitFor();
+  assert.match(await tip.innerText(), /v\d+/, 'the version number');
+  assert.match(await tip.innerText(), /\d+ files?/, 'and how many files it holds');
+  await page.screenshot({ path: `${OUT}07d-versions-hover.png` });
+  await dots().first().hover();
+  await page.waitForFunction(() => /Autosave/.test(document.querySelector('[data-testid=commit-hover]')?.textContent ?? ''));
+  await page.mouse.move(5, 500);
+  await tip.waitFor({ state: 'detached' });
   await page.screenshot({ path: `${OUT}07c-versions-links.png` });
   await page.getByLabel('Show autosaves').uncheck();
   // The right-angled line style, too.
@@ -631,7 +642,9 @@ const sceneY = (i) =>
     const s = document.querySelector('[data-testid=ideas-story]');
     const box = s.closest('[data-mode]');
     const top = s.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
-    return top + (s.offsetHeight - box.clientHeight) * ((i + 0.5) / 6);
+    // Six scenes on the current page; the cleaned-up one has five, shown as tabs.
+    const n = document.querySelectorAll('[data-testid=ideas-frame] [role=tab]').length || 6;
+    return top + (s.offsetHeight - box.clientHeight) * ((i + 0.5) / n);
   }, i);
 const storyTop = () => page.evaluate(() => document.querySelector('[data-testid=ideas-story]').closest('[data-mode]').scrollTop);
 
@@ -737,8 +750,25 @@ await step('landing page ideas: static typeset and product-first pages, and the 
   await page.locator('[data-testid=ideas-page][data-look=clean]').waitFor();
   assert.ok(await page.getByTestId('ideas-start').isVisible());
   assert.equal(await page.getByTestId('ideas-start').evaluate((el) => getComputedStyle(el).opacity), '1', 'no entrance animation on Start writing');
+  // The scenes are tabs on the window: five of them, with no Visual scene.
+  assert.deepEqual(await page.getByTestId('ideas-frame').getByRole('tab').allInnerTexts(), ['Write', 'Edit', 'Versions', 'Compare', 'Private']);
   await page.getByTestId('ideas-step-1').click();
   await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '1');
+  assert.equal(await page.getByTestId('ideas-count').innerText(), '2 / 5');
+  assert.match(await page.getByTestId('ideas-step-text').innerText(), /Click the PDF/, 'the text changes with the scene, at once');
+  // A scene plays once, in under two seconds, then rests on its last frame with a button to play it again.
+  await page.getByTestId('ideas-replay').waitFor({ timeout: 2200 });
+  await page.waitForTimeout(2500);
+  assert.equal(await page.getByTestId('ideas-story').getAttribute('data-step'), '1', 'and nothing moves on by itself');
+  await page.getByTestId('ideas-replay').click();
+  await page.getByTestId('ideas-replay').waitFor({ state: 'detached' });
+  await page.getByTestId('ideas-replay').waitFor({ timeout: 2200 });
+  // Back on a scene that has played: its last frame, straight away.
+  await page.getByTestId('ideas-step-0').click();
+  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '0');
+  await page.getByTestId('ideas-step-1').click();
+  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '1');
+  assert.ok(await page.getByTestId('ideas-replay').isVisible(), 'a scene that has played is not played again');
   await page.waitForTimeout(700);
   await page.mouse.move(700, 500);
   for (let k = 0; k < 30; k++) {

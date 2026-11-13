@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { usePrefs } from '@/app/prefs';
 import { keepMeasured } from './keepMeasured';
@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 import { repo, useAllCommits } from '@/app/repo';
 import type { Commit, DocMeta } from '@/core/model';
 import { docColor, timeAgo } from '@/lib/utils';
-import { kindIcon } from '@/features/history/HistoryPanel';
+import { kindIcon, kindLabel } from '@/features/history/HistoryPanel';
+import { versionNumbers } from '@/features/history/versionStats';
 import { Button, Badge } from '@/components/ui';
 
 const LANE_H = 64;
@@ -23,7 +24,7 @@ const DOT = 10;
 const DOT_COL = 22;
 
 type LaneData = { doc: DocMeta; color: string };
-type CommitData = { commit: Commit; color: string; head: boolean; diverged: boolean; dot: boolean };
+type CommitData = { commit: Commit; color: string; head: boolean; diverged: boolean; dot: boolean; number?: string };
 
 const LaneNode = memo(function LaneNode({ data }: NodeProps<Node<LaneData>>) {
   return (
@@ -55,7 +56,7 @@ const CommitNode = memo(function CommitNode({ data, selected }: NodeProps<Node<C
           background: color,
           boxShadow: selected ? `0 0 0 4px color-mix(in oklab, ${color} 35%, transparent)` : head ? `0 0 0 3px color-mix(in oklab, ${color} 22%, transparent)` : undefined,
         }}
-        title={`Autosave\n${new Date(commit.createdAt).toLocaleString()}`}
+        aria-label={`Autosave, ${new Date(commit.createdAt).toLocaleString()}`}
         data-autosave
       >
         {handles}
@@ -69,7 +70,7 @@ const CommitNode = memo(function CommitNode({ data, selected }: NodeProps<Node<C
         boxShadow: selected ? `0 0 0 4px color-mix(in oklab, ${color} 35%, transparent)` : head ? `0 0 0 3px color-mix(in oklab, ${color} 22%, transparent)` : undefined,
         borderStyle: diverged ? 'dashed' : 'solid',
       }}
-      title={`${commit.message}\n${new Date(commit.createdAt).toLocaleString()}`}
+      aria-label={`${commit.message}, ${new Date(commit.createdAt).toLocaleString()}`}
     >
       {kindIcon(commit.kind)}
       {handles}
@@ -171,6 +172,11 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
     const divergedSet = new Set(docs.flatMap((d) => d.divergedHeads ?? []));
     const docById = new Map(docs.map((d) => [d.id, d]));
     const all = (commits ?? []).filter((c) => laneIndex.has(c.docId));
+    // Version numbers count within each document, as in its history list.
+    const numbers = new Map<string, string>();
+    const perDoc = new Map<string, Commit[]>();
+    for (const c of all) perDoc.set(c.docId, [...(perDoc.get(c.docId) ?? []), c]);
+    perDoc.forEach((list) => versionNumbers(list).forEach((n, id) => numbers.set(id, n)));
     // An autosave stays visible when it is a head, or a branch/merge point for another document.
     const referencedAcross = new Set<string>();
     all.forEach((c) => c.parents.forEach((p) => byId.get(p)?.docId !== c.docId && referencedAcross.add(p)));
@@ -200,7 +206,7 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
         id: c.id,
         type: 'commit',
         position: { x: xOf.get(c.id)!, y: laneIndex.get(c.docId)! * LANE_H + 6 + (isDot(c) ? (NODE - DOT) / 2 : 0) },
-        data: { commit: c, color: docColor(doc.id, doc.color), head: heads.has(c.id), diverged: divergedSet.has(c.id), dot: isDot(c) },
+        data: { commit: c, color: docColor(doc.id, doc.color), head: heads.has(c.id), diverged: divergedSet.has(c.id), dot: isDot(c), number: numbers.get(c.id) },
         draggable: false,
       });
     }
@@ -264,8 +270,13 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
 
   const selDoc = selected ? docs.find((d) => d.id === selected.docId) : undefined;
 
+  // Pointing at a version shows what it is, without the wait of the browser's own tooltip.
+  const box = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ data: CommitData; x: number; y: number; below: boolean } | null>(null);
+  const hoverDoc = hover ? docs.find((d) => d.id === hover.data.commit.docId) : undefined;
+
   return (
-    <div className="relative h-full">
+    <div ref={box} className="relative h-full">
       <ReactFlow
         nodes={rfNodes}
         edges={rfEdges}
@@ -277,13 +288,61 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
         fitViewOptions={{ padding: 0.15, maxZoom: 1.2 }}
         minZoom={0.2}
         nodesConnectable={false}
-        onNodeClick={(_, n) => n.type === 'commit' && setSelected((n.data as CommitData).commit)}
+        onNodeClick={(_, n) => {
+          if (n.type !== 'commit') return;
+          setHover(null);
+          setSelected((n.data as CommitData).commit);
+        }}
         onPaneClick={() => setSelected(null)}
+        onNodeMouseEnter={(e, n) => {
+          const el = (e.target as Element).closest('.react-flow__node');
+          if (n.type !== 'commit' || !el || !box.current) return;
+          const r = el.getBoundingClientRect();
+          const b = box.current.getBoundingClientRect();
+          const x = Math.min(Math.max(r.left + r.width / 2 - b.left, 132), Math.max(132, b.width - 132));
+          // Above the version, unless there is no room there.
+          const below = r.top - b.top < 120;
+          setHover({ data: n.data as CommitData, x, y: below ? r.bottom - b.top + 8 : r.top - b.top - 8, below });
+        }}
+        onNodeMouseLeave={() => setHover(null)}
+        onMoveStart={() => setHover(null)}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={COL_W} size={1} color="var(--border)" />
         <Controls showInteractive={false} />
       </ReactFlow>
+      {hover && hoverDoc && (
+        <div
+          role="tooltip"
+          className="pointer-events-none absolute z-10 w-64 rounded-lg border border-line bg-panel px-3 py-2 text-xs shadow-lg"
+          style={{ left: hover.x, top: hover.y, transform: `translate(-50%, ${hover.below ? '0' : '-100%'})` }}
+          data-testid="commit-hover"
+        >
+          <div className="flex items-center gap-1.5 text-muted">
+            {kindIcon(hover.data.commit.kind)}
+            {hover.data.number && <span className="font-mono tabular-nums">v{hover.data.number}</span>}
+            <span>{kindLabel(hover.data.commit.kind)}</span>
+            {hover.data.head && (
+              <Badge tone="accent" className="ml-auto px-1.5 py-0 text-[10px]">
+                current
+              </Badge>
+            )}
+          </div>
+          {hover.data.commit.kind !== 'auto' && <div className="mt-1 line-clamp-2 text-[13px] font-medium break-words text-fg">{hover.data.commit.message}</div>}
+          <div className="mt-1 flex items-center gap-1.5 text-muted">
+            <span className="size-2 shrink-0 rounded-full" style={{ background: hover.data.color }} />
+            <span className="truncate">{hoverDoc.name}</span>
+          </div>
+          <div className="mt-0.5 text-muted">
+            {timeAgo(hover.data.commit.createdAt)} · {new Date(hover.data.commit.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+          </div>
+          <div className="mt-0.5 text-muted">
+            {Object.keys(hover.data.commit.tree).length === 1 ? '1 file' : `${Object.keys(hover.data.commit.tree).length} files`}
+            {hover.data.diverged && ' · from another device, not merged yet'}
+            {' · click for actions'}
+          </div>
+        </div>
+      )}
       {selected && selDoc && (
         <div className="absolute top-3 right-3 w-80 max-w-[calc(100%-1.5rem)] rounded-xl border border-line bg-panel p-3 shadow-xl" data-testid="commit-panel">
           <div className="flex items-start gap-2">
