@@ -389,6 +389,23 @@ for (const size of SIZES) {
     });
   }
 
+  await step('landing page ideas fit', async () => {
+    for (const name of ['typeset', 'split']) {
+      await page.goto(`${BASE}/ideas/${name}`);
+      await page.locator('h1').waitFor();
+      await assertFits(`ideas/${name}`);
+      await shot(`ideas-${name}`);
+    }
+    await page.goto(`${BASE}/ideas/clean`);
+    await page.locator('[data-testid=ideas-page][data-look=clean]').waitFor();
+    await assertFits('ideas/clean');
+    await shot('ideas-clean');
+    await page.getByTestId('ideas-start').click();
+    await page.getByRole('dialog').waitFor();
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+  });
+
   assert.deepEqual(errors, [], `page errors at ${size.name}`);
   await context.close();
 }

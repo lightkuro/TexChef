@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en" data-page="typeset" class="no-js">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>TexChef: edit with LaTeX easily, all in the browser</title>
+    <meta name="description" content="TexChef is a LaTeX editor that runs in your browser: compile, preview and edit right on the PDF, and keep tailored versions of one master document." />
+    <!-- A design study: the home page is at / -->
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script>
+      // The theme chosen in the app (or here), before anything paints.
+      try {
+        var t = sessionStorage.getItem('ideas-theme') || localStorage.getItem('rc-theme');
+        if (t === 'dark' || t === 'light') document.documentElement.classList.add(t);
+      } catch (e) {}
+      document.documentElement.classList.remove('no-js');
+    </script>
+    <link rel="preload" href="./fonts/texchef-modern-500-roman.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="./ideas.css" />
+  </head>
+  <body>
+    <header class="head wrap">
+      <a class="brand" href="/"><svg viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="26" fill="var(--accent)" /><g fill="var(--paper)"><circle cx="39" cy="49" r="16" /><circle cx="60" cy="39" r="19" /><circle cx="81" cy="49" r="16" /><rect x="34" y="47" width="52" height="33" /><rect x="31" y="83" width="58" height="13" rx="4" /></g><path d="M50 53 L70 77" stroke="var(--accent)" stroke-width="8.5" stroke-linecap="round" /></svg>TexChef</a>
+      <nav>
+        <a href="/help/getting-started">Guide</a>
+        <a class="btn btn-sm" href="/?new=1" data-testid="ideas-static-nav-start">Start writing</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="title-block wrap grid">
+        <div class="title-main">
+          <h1>Edit with <span class="latex">L<sup>a</sup>T<sub>e</sub>X</span> easily, <br class="wide-only" />all in the browser.</h1>
+          <p class="abstract">
+            <b>Abstract.</b> TexChef is a <span class="latex">L<sup>a</sup>T<sub>e</sub>X</span> editor that runs entirely in your browser tab. Compile, preview and edit right on the PDF. Split
+            a master document into tailored versions. Everything is processed on your device, with optional Google Drive backup.
+          </p>
+          <div class="actions">
+            <a class="btn" href="/?new=1" data-testid="ideas-static-start">Start writing <span aria-hidden="true">→</span></a>
+            <a class="link" href="/help/getting-started">Read the guide</a>
+          </div>
+          <p class="fine">No account. Nothing to install.</p>
+        </div>
+        <nav class="contents" aria-label="Contents">
+          <h2>Contents</h2>
+          <ol>
+              <li><a href="#write"><span class="n">1</span><span>Write</span><span class="dots"></span><span class="ref">Listing 1</span></a></li>
+              <li><a href="#edit"><span class="n">2</span><span>Edit on the PDF</span><span class="dots"></span><span class="ref">Fig. 2</span></a></li>
+              <li><a href="#visual"><span class="n">3</span><span>Visual mode</span><span class="dots"></span><span class="ref">Fig. 3</span></a></li>
+              <li><a href="#versions"><span class="n">4</span><span>Versions</span><span class="dots"></span><span class="ref">Fig. 4</span></a></li>
+              <li><a href="#compare"><span class="n">5</span><span>Compare</span><span class="dots"></span><span class="ref">Fig. 5</span></a></li>
+              <li><a href="#private"><span class="n">6</span><span>Private</span><span class="dots"></span><span class="ref">Table 1</span></a></li>
+          </ol>
+        </nav>
+      </section>
+
+      <figure class="wrap shot">
+        <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-editor-dark-800.webp 800w, /landing/ideas-editor-dark.webp 1600w" sizes="(min-width: 1200px) 1104px, 92vw" />
+            <img src="/landing/ideas-editor-light-800.webp" srcset="/landing/ideas-editor-light-800.webp 800w, /landing/ideas-editor-light.webp 1600w" sizes="(min-width: 1200px) 1104px, 92vw" width="1600" height="1000" alt="The TexChef editor: LaTeX source on the left, the compiled PDF of an essay on the right." fetchpriority="high" decoding="async" />
+          </picture>
+        <figcaption><b>Figure 1.</b> The editor: source on the left, the PDF on the right. Every picture on this page is the real app.</figcaption>
+      </figure>
+
+      <section class="sec first-sec wrap grid" id="write">
+        <div class="sec-text">
+          <h2><span class="num">1</span>Type <span class="latex">L<sup>a</sup>T<sub>e</sub>X</span>. Watch the PDF.</h2>
+          <p>A full TeX Live runs right in your browser. The PDF follows a moment after you stop typing: nothing to install, nothing uploaded.</p>
+          <p class="note"><sup>1</sup>TeX Live 2026, compiled to WebAssembly. pdfLaTeX, XeLaTeX and LuaLaTeX, with BibTeX.</p>
+        </div>
+        <div class="sec-fig">
+          <div class="listing">
+            <pre aria-label="LaTeX source"><code><span class="ln">1</span><span class="cmd">\section</span>{A simple estimate}
+<span class="ln">2</span>If a city plants $n$ trees and
+<span class="ln">3</span>each one saves $s$ dollars of
+<span class="ln">4</span>energy a year, the saving is
+<span class="ln">5</span><span class="cmd">\begin</span>{equation}
+<span class="ln">6</span>  S = n <span class="cmd">\cdot</span> s ,
+<span class="ln">7</span><span class="cmd">\end</span>{equation}
+<span class="ln">8</span>before <span class="cmd">\emph</span>{health} benefits.</code></pre>
+            <div class="typeset-out" aria-label="What it typesets to">
+              <h3><span>3</span>A simple estimate</h3>
+              <p>If a city plants <i>n</i> trees and each one saves <i>s</i> dollars of energy a year, the saving is</p>
+              <p class="eq"><i>S</i>&nbsp;=&nbsp;<i>n</i>&nbsp;·&nbsp;<i>s</i>&#8202;, <span>(1)</span></p>
+              <p>before <i>health</i> benefits.</p>
+            </div>
+          </div>
+          <p class="caption"><b>Listing 1.</b> What you type, and what it typesets to.</p>
+        </div>
+      </section>
+
+      <section class="sec wrap grid" id="edit">
+        <div class="sec-text">
+          <h2><span class="num">2</span>Click the PDF. Type the change.</h2>
+          <p>No hunting for the right line. Click a sentence, change a number, press Enter: TexChef edits the source for you.</p>
+          <p class="note"><sup>2</sup>TexChef finds the LaTeX behind the words, rewrites only what changed, and escapes special characters.</p>
+        </div>
+        <figure data-focus="right" class="sec-fig shot">
+          <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-pdf-edit-dark-800.webp 800w, /landing/ideas-pdf-edit-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-pdf-edit-light-800.webp" srcset="/landing/ideas-pdf-edit-light-800.webp 800w, /landing/ideas-pdf-edit-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="The PDF with an edit box open on a sentence, the words “two to four” selected." loading="lazy" decoding="async" />
+          </picture>
+          <figcaption><b>Figure 2.</b> Editing a sentence on the PDF. The source on the left follows.</figcaption>
+        </figure>
+      </section>
+
+      <section class="sec wrap grid" id="visual">
+        <div class="sec-text">
+          <h2><span class="num">3</span>Write without the backslashes.</h2>
+          <p>Headings, bold text and lists show formatted as you write, with buttons for the rest. Same LaTeX underneath: switch back any time.</p>
+          <p class="note"><sup>3</sup>Visual mode is display only. Switching modes never changes the file.</p>
+        </div>
+        <figure data-focus="left" class="sec-fig shot">
+          <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-visual-dark-800.webp 800w, /landing/ideas-visual-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-visual-light-800.webp" srcset="/landing/ideas-visual-light-800.webp 800w, /landing/ideas-visual-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="The editor in Visual mode: headings and a bulleted list shown formatted, the PDF beside it." loading="lazy" decoding="async" />
+          </picture>
+          <figcaption><b>Figure 3.</b> The same essay in Visual mode.</figcaption>
+        </figure>
+      </section>
+
+      <section class="sec wrap grid" id="versions">
+        <div class="sec-text">
+          <h2><span class="num">4</span>One master. Many tailored versions.</h2>
+          <p>Make a version per job, or per journal, and arrange them on the map. Fix something once and every version can take the fix, keeping its own edits.</p>
+          <p class="note"><sup>4</sup>You mark the pieces of a document with comment lines; each version picks the pieces it keeps.</p>
+        </div>
+        <figure data-focus="center" class="sec-fig shot">
+          <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-map-dark-800.webp 800w, /landing/ideas-map-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-map-light-800.webp" srcset="/landing/ideas-map-light-800.webp 800w, /landing/ideas-map-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="955" alt="The map: a master resume linked to three tailored versions, each showing one update waiting." loading="lazy" decoding="async" />
+          </picture>
+          <figcaption><b>Figure 4.</b> A master and three versions. Each shows one update waiting from the master.</figcaption>
+        </figure>
+      </section>
+
+      <section class="sec wrap grid" id="compare">
+        <div class="sec-text">
+          <h2><span class="num">5</span>Two documents, side by side.</h2>
+          <p>Any two documents or versions next to each other, with the differences marked. Copy a line or a whole block across in one click.</p>
+          <p class="note"><sup>5</sup>Works on any two documents, or any two saved versions of one.</p>
+        </div>
+        <figure data-focus="left" class="sec-fig shot">
+          <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-compare-dark-800.webp 800w, /landing/ideas-compare-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-compare-light-800.webp" srcset="/landing/ideas-compare-light-800.webp 800w, /landing/ideas-compare-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="Two documents side by side with changed lines highlighted and a list of blocks that differ." loading="lazy" decoding="async" />
+          </picture>
+          <figcaption><b>Figure 5.</b> The master beside one of its versions.</figcaption>
+        </figure>
+      </section>
+
+      <section class="sec wrap grid" id="private">
+        <div class="sec-text">
+          <h2><span class="num">6</span>Yours, on your device.</h2>
+          <p>Documents and every version live in your browser. Connect Google Drive if you want a backup and your other devices.</p>
+          <p class="note"><sup>6</sup>Drive access is limited to the files TexChef creates and the files you pick.</p>
+        </div>
+        <div class="sec-fig">
+          <p class="caption table-caption"><b>Table 1.</b> Where your work lives.</p>
+          <table class="booktabs">
+            <thead>
+              <tr><th scope="col">What</th><th scope="col">Where</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Documents and every version</th><td>Your browser, on this device</td></tr>
+              <tr><th scope="row">Compiling</th><td>Your browser tab</td></tr>
+              <tr><th scope="row">Backup and other devices</th><td>Your own Google Drive, if you connect it</td></tr>
+              <tr><th scope="row">A TexChef server</th><td>There isn’t one</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="end wrap grid">
+        <h2>Start with a blank article, a template, or your own .tex files.</h2>
+        <div class="actions">
+          <a class="btn" href="/?new=1" data-testid="ideas-static-end-start">Start writing <span aria-hidden="true">→</span></a>
+          <a class="link" href="/help/getting-started">Read the guide</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot colophon wrap">
+      <i>Headings set in Computer Modern, the typeface of TeX.</i>
+      <ul><li><a href="/help/getting-started">Guide</a></li><li><a href="/terms">Terms</a></li><li><a href="/privacy">Privacy</a></li><li><a href="https://kurolight.dev">made by kurolight.dev</a></li></ul>
+    </footer>
+
+    <nav class="ideas-switch" aria-label="Landing page ideas" data-testid="ideas-switch">
+      <span>Ideas</span><a href="/ideas">Current</a><a href="/ideas/clean">Cleaned up</a><a href="/ideas/typeset" aria-current="page">Typeset</a><a href="/ideas/split">Product-first</a><button type="button" data-theme-toggle aria-label="Switch between light and dark">Light / dark</button>
+    </nav>
+    <script type="module" src="./ideas.ts"></script>
+  </body>
+</html>

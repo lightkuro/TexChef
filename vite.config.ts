@@ -49,8 +49,29 @@ function texAssets(): Plugin {
   };
 }
 
+/** The static landing page alternatives: plain HTML pages built next to the app (see ideas/). */
+const IDEAS_PAGES = ['typeset', 'split'];
+
+/**
+ * In production the host serves /ideas/typeset from ideas/typeset.html. `vite dev` and `vite preview`
+ * would hand that address to the app instead, so point it at the file.
+ */
+function ideasPages(): Plugin {
+  const rewrite: Connect.NextHandleFunction = (req, _res, next) => {
+    const [path, query] = (req.url ?? '').split('?');
+    const m = /^\/ideas\/([a-z]+)\/?$/.exec(path);
+    if (m && IDEAS_PAGES.includes(m[1])) req.url = `/ideas/${m[1]}.html${query ? `?${query}` : ''}`;
+    next();
+  };
+  return {
+    name: 'texchef-ideas-pages',
+    configureServer: (server) => void server.middlewares.use(rewrite),
+    configurePreviewServer: (server) => void server.middlewares.use(rewrite),
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss(), texAssets()],
+  plugins: [react(), tailwindcss(), texAssets(), ideasPages()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
@@ -61,6 +82,12 @@ export default defineConfig({
   build: {
     target: 'es2022',
     chunkSizeWarningLimit: 2500,
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        ...Object.fromEntries(IDEAS_PAGES.map((p) => [`ideas-${p}`, fileURLToPath(new URL(`./ideas/${p}.html`, import.meta.url))])),
+      },
+    },
   },
   test: {
     include: ['src/**/*.test.ts'],

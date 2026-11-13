@@ -40,13 +40,21 @@ export interface CoverProps {
   /** More controls for the top bar (the home page adds Drive sync and themes). */
   navExtra?: ReactNode;
   testId?: string;
+  /**
+   * 'clean' is a design study (/ideas/clean): the same page left-aligned, with no gradients, glass or
+   * entrance animations, and with scene changes kept under 400 ms.
+   */
+  look?: 'default' | 'clean';
+  /** Show the links between the landing page ideas (the /ideas pages only). */
+  switcher?: boolean;
 }
 
 /**
  * The landing page as a story: a pinned TexChef window plays one scene per screen of scrolling. Scrolling picks the
  * scene; each scene then plays at its own pace, so a fast flick doesn't rush it and a slow reader needn't scroll it out.
  */
-export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, navExtra, testId = 'ideas-page' }: CoverProps) {
+export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, navExtra, testId = 'ideas-page', look = 'default', switcher }: CoverProps) {
+  const clean = look === 'clean';
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const story = useRef<HTMLElement>(null);
@@ -96,7 +104,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
     const topY = s.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
     return topY + (s.offsetHeight - box.clientHeight) * ((i + 0.5) / N);
   };
-  const scrollTo = (y: number) => (lenis ? lenis.scrollTo(y, { duration: 1.2, force: true }) : scroller.current?.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' }));
+  const scrollTo = (y: number) => (lenis ? lenis.scrollTo(y, { duration: clean ? 0.4 : 1.2, force: true }) : scroller.current?.scrollTo({ top: y, behavior: reduce ? 'auto' : 'smooth' }));
 
   // Inside the story, one gesture moves exactly one scene: a swipe on touch screens (the browser's own momentum would
   // carry a flick across two or three), and, where the page snaps, one wheel or trackpad gesture (however long its
@@ -139,7 +147,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
     const go = (dir: 1 | -1) => {
       const i = current();
       const next = i + dir;
-      until = Date.now() + 900;
+      until = Date.now() + (clean ? 500 : 900);
       if (next < 0) {
         target = -1;
         scrollTo(0);
@@ -190,7 +198,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
     };
     // sceneY and scrollTo read the DOM and Lenis when called.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vh, lenis, snap]);
+  }, [vh, lenis, snap, clean]);
 
   // Gentle snapping: once scrolling stops inside the story, ease onto the nearest scene.
   useEffect(() => {
@@ -208,9 +216,9 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
         const target = ys.reduce((best, c) => (Math.abs(c - y) < Math.abs(best - y) ? c : best));
         if (Math.abs(target - y) < 4) return;
         busy = true;
-        const release = setTimeout(() => (busy = false), 1100);
+        const release = setTimeout(() => (busy = false), clean ? 600 : 1100);
         lenis.scrollTo(target, {
-          duration: 0.7,
+          duration: clean ? 0.35 : 0.7,
           onComplete: () => {
             clearTimeout(release);
             busy = false;
@@ -224,7 +232,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
     };
     // sceneY reads the DOM each time, so it needn't be a dependency.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snap, lenis, vh]);
+  }, [snap, lenis, vh, clean]);
 
   const heroInView = useInView(heroCta, { root: scroller });
   const endInView = useInView(endCta, { root: scroller, margin: '0px 0px -10% 0px' });
@@ -234,16 +242,20 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
   const floating = pastHero && !heroInView && !endInView;
 
   return (
-    <div ref={scroller} className="relative h-full overflow-x-clip overflow-y-auto bg-bg" data-testid={testId} data-mode={mode}>
+    <div ref={scroller} className="relative h-full overflow-x-clip overflow-y-auto bg-bg" data-testid={testId} data-mode={mode} data-look={look}>
       <style>{KEYFRAMES}</style>
       <div ref={content}>
-        {mode === 'page' && <Nav onStart={start} extra={navExtra} />}
-        <Hero ctaRef={heroCta} onStart={start} uploadActions={uploadActions} onTour={() => scrollTo(sceneY(0))} reduce={reduce} compactTop={mode !== 'page'} scroller={scroller} />
-        <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} />
-        <Bento />
-        <Cta ctaRef={endCta} onStart={start} />
+        {mode === 'page' && <Nav onStart={start} extra={navExtra} clean={clean} />}
+        {clean ? (
+          <CleanHero ctaRef={heroCta} onStart={start} uploadActions={uploadActions} onTour={() => scrollTo(sceneY(0))} compactTop={mode !== 'page'} />
+        ) : (
+          <Hero ctaRef={heroCta} onStart={start} uploadActions={uploadActions} onTour={() => scrollTo(sceneY(0))} reduce={reduce} compactTop={mode !== 'page'} scroller={scroller} />
+        )}
+        <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} clean={clean} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} />
+        {clean ? <FeatureList /> : <Bento />}
+        {clean ? <CleanCta ctaRef={endCta} onStart={start} /> : <Cta ctaRef={endCta} onStart={start} />}
         {mode === 'page' && (
-          <footer className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-line px-4 py-6 text-xs text-muted">
+          <footer className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-6 text-xs text-muted', clean ? 'mx-auto max-w-[90rem] sm:px-6' : 'justify-center')}>
             <Link to="/help/whats-new" className="hover:text-fg" data-testid="link-version">
               TexChef v{APP_VERSION.replace(/\.0$/, '')}
             </Link>
@@ -261,7 +273,7 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: clean ? 0.2 : 0.25 }}
             // Phones already have Start writing in the top bar.
             className={cn('fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] left-1/2 z-40 -translate-x-1/2', mode === 'page' && 'max-sm:hidden')}
           >
@@ -269,9 +281,13 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
             <button
               onClick={start}
               className={cn(
-                'group flex h-12 min-w-[17rem] items-center justify-center gap-2 rounded-full px-10 text-[15px] font-medium text-fg',
-                'border border-white/60 bg-white/35 shadow-[0_8px_32px_rgba(0,0,0,0.10),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-xl backdrop-saturate-150',
-                'transition hover:bg-white/55 dark:border-white/15 dark:bg-white/10 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12)] dark:hover:bg-white/15',
+                'group flex h-12 min-w-[17rem] items-center justify-center gap-2 px-10 text-[15px] font-medium text-fg',
+                clean
+                  ? 'rounded-lg border border-line bg-panel shadow-sm transition-colors duration-150 hover:bg-subtle'
+                  : [
+                      'rounded-full border border-white/60 bg-white/35 shadow-[0_8px_32px_rgba(0,0,0,0.10),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-xl backdrop-saturate-150',
+                      'transition hover:bg-white/55 dark:border-white/15 dark:bg-white/10 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12)] dark:hover:bg-white/15',
+                    ],
               )}
               data-testid="ideas-float-start"
             >
@@ -281,16 +297,41 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
         )}
       </AnimatePresence>
       {!onNew && <NewDocDialog open={newOpen} onOpenChange={setNewOpen} />}
+      {switcher && <IdeasSwitcher current={clean ? '/ideas/clean' : '/ideas'} />}
     </div>
+  );
+}
+
+/** Links between the landing page ideas. Plain links: the typeset and product-first pages are static files, not app routes. */
+function IdeasSwitcher({ current }: { current: string }) {
+  const items = [
+    ['/ideas', 'Current'],
+    ['/ideas/clean', 'Cleaned up'],
+    ['/ideas/typeset', 'Typeset'],
+    ['/ideas/split', 'Product-first'],
+  ];
+  return (
+    <nav
+      aria-label="Landing page ideas"
+      className="fixed right-3 bottom-3 z-50 flex max-w-[calc(100vw-1.5rem)] items-center overflow-x-auto rounded-md border border-line bg-panel font-mono text-xs whitespace-nowrap max-sm:left-3"
+      data-testid="ideas-switch"
+    >
+      <span className="px-2.5 py-2.5 text-muted">Ideas</span>
+      {items.map(([href, label]) => (
+        <a key={href} href={href} aria-current={href === current ? 'page' : undefined} className={cn('border-l border-line px-2.5 py-2.5', href === current ? 'bg-fg text-bg' : 'hover:bg-subtle')}>
+          {label}
+        </a>
+      ))}
+    </nav>
   );
 }
 
 // ---------------------------------------------------------------- top bar and hero
 
-function Nav({ onStart, extra }: { onStart: () => void; extra?: ReactNode }) {
+function Nav({ onStart, extra, clean }: { onStart: () => void; extra?: ReactNode; clean?: boolean }) {
   return (
-    <div className="sticky top-0 z-30 border-b border-line/60 bg-bg/80 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
+    <div className={cn('sticky top-0 z-30 border-b', clean ? 'border-line bg-bg' : 'border-line/60 bg-bg/80 backdrop-blur-md')}>
+      <div className={cn('mx-auto flex h-14 items-center gap-3 px-4 sm:px-6', clean ? 'max-w-[90rem]' : 'max-w-6xl')}>
         <Link to="/" className="flex items-center gap-2 font-semibold">
           <Logo size={26} /> TexChef
         </Link>
@@ -307,11 +348,14 @@ function Nav({ onStart, extra }: { onStart: () => void; extra?: ReactNode }) {
   );
 }
 
-function StartButton({ onStart, uploadActions }: { onStart: () => void; uploadActions?: MenuAction[] }) {
+function StartButton({ onStart, uploadActions, plain }: { onStart: () => void; uploadActions?: MenuAction[]; plain?: boolean }) {
+  // `plain` (the clean look): no coloured shadow, squarer corners, a quick colour change on hover.
+  const r = plain ? ['rounded-l-lg', 'rounded-lg', 'rounded-r-lg'] : ['rounded-l-xl', 'rounded-xl', 'rounded-r-xl'];
+  const tone = plain ? 'transition-colors duration-150' : 'shadow-lg shadow-accent/20';
   const main = (
     <button
       onClick={onStart}
-      className={cn('group flex h-12 items-center gap-2 bg-accent px-6 font-medium text-accent-fg shadow-lg shadow-accent/20 hover:bg-accent-hover', uploadActions ? 'rounded-l-xl' : 'rounded-xl')}
+      className={cn('group flex h-12 items-center gap-2 bg-accent px-6 font-medium text-accent-fg hover:bg-accent-hover', tone, uploadActions ? r[0] : r[1])}
       data-testid="ideas-start"
     >
       Start writing <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
@@ -326,7 +370,7 @@ function StartButton({ onStart, uploadActions }: { onStart: () => void; uploadAc
         label="Or upload"
         actions={uploadActions}
         trigger={
-          <button className="flex h-12 items-center rounded-r-xl border-l border-accent-fg/25 bg-accent px-3 text-accent-fg shadow-lg shadow-accent/20 hover:bg-accent-hover" aria-label="Upload files or a folder instead" data-testid="landing-upload">
+          <button className={cn('flex h-12 items-center border-l border-accent-fg/25 bg-accent px-3 text-accent-fg hover:bg-accent-hover', tone, r[2])} aria-label="Upload files or a folder instead" data-testid="landing-upload">
             <ChevronDown className="size-4" />
           </button>
         }
@@ -412,6 +456,43 @@ function Hero({
   );
 }
 
+/** The clean look's hero: left-aligned on the story's grid, everything visible at once, nothing animated. */
+function CleanHero({
+  ctaRef,
+  onStart,
+  uploadActions,
+  onTour,
+  compactTop,
+}: {
+  ctaRef: RefObject<HTMLDivElement | null>;
+  onStart: () => void;
+  uploadActions?: MenuAction[];
+  onTour: () => void;
+  compactTop: boolean;
+}) {
+  return (
+    <section className={cn('mx-auto max-w-[90rem] px-4 pb-8 sm:px-6 sm:pb-6', compactTop ? 'pt-12 sm:pt-16' : 'pt-14 sm:pt-24')}>
+      <h1 className="max-w-3xl text-[2.3rem] leading-[1.05] font-semibold tracking-tight sm:text-6xl">
+        Edit with LaTeX easily, <span className="text-accent">all in the browser.</span>
+      </h1>
+      <ul className="mt-7 flex flex-col gap-2 text-base text-muted sm:text-lg" aria-label="What TexChef does">
+        {PITCH.map(({ icon: Icon, text }) => (
+          <li key={text} className="flex items-center gap-2.5">
+            <Icon className="size-[18px] shrink-0 text-accent" aria-hidden="true" />
+            {text}
+          </li>
+        ))}
+      </ul>
+      <div ref={ctaRef} className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-4">
+        <StartButton onStart={onStart} uploadActions={uploadActions} plain />
+        <button onClick={onTour} className="flex items-center gap-1.5 text-sm font-medium text-muted transition-colors duration-150 hover:text-fg" data-testid="ideas-tour">
+          See how it works <ChevronDown className="size-4 text-accent" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------- the story: a pinned window, one scene per screen
 
 function Story({
@@ -420,9 +501,12 @@ function Story({
   vh,
   nav,
   reduce,
+  clean,
   floatRoom,
   onStep,
 }: {
+  /** The clean look: the window doesn't tilt in, and the scene is left-aligned. */
+  clean?: boolean;
   /** Where the floating Start writing button needs room below the window: only tablets, or every stacked layout. */
   floatRoom: 'tablet' | 'stacked';
   storyRef: RefObject<HTMLElement | null>;
@@ -434,8 +518,8 @@ function Story({
 }) {
   const { scrollYProgress } = useScroll({ container: scroller, target: storyRef, offset: ['start start', 'end end'] });
   const { scrollYProgress: entry } = useScroll({ container: scroller, target: storyRef, offset: ['start end', 'start start'] });
-  const tilt = useTransform(entry, [0, 1], [22, 0]);
-  const scale = useTransform(entry, [0, 1], [0.88, 1]);
+  const tilt = useTransform(entry, [0, 1], [clean ? 0 : 22, 0]);
+  const scale = useTransform(entry, [0, 1], [clean ? 1 : 0.88, 1]);
   const textIn = useTransform(entry, [0.55, 1], [0, 1]);
   const [step, setStep] = useState(0);
   const [arrived, setArrived] = useState(false);
@@ -483,13 +567,13 @@ function Story({
       const s = compact ? DEMO_SIZE.compact : DEMO_SIZE.wide;
       const stacked = window.innerWidth < 1024;
       const sc = Math.min(1.2, el.clientWidth / s.w, (stacked ? el.clientHeight : stageMax) / s.h);
-      setFit({ compact, scale: sc, left: (el.clientWidth - s.w * sc) / 2, stacked });
+      setFit({ compact, scale: sc, left: clean && !stacked ? 0 : (el.clientWidth - s.w * sc) / 2, stacked });
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [stageMax]);
+  }, [stageMax, clean]);
   const size = fit.compact ? DEMO_SIZE.compact : DEMO_SIZE.wide;
   const scene = (key: string, node: ReactNode, className?: string) => (
     <AnimatePresence mode="wait" initial={false}>
@@ -510,8 +594,9 @@ function Story({
     <section
       ref={storyRef}
       // Pulled up under the hero, so the window already peeks in at the bottom of the first screen.
+      // (The clean look's hero is shorter, so the window peeks in without the pull.)
       className="pointer-events-none relative"
-      style={{ height: pinned + N * vh * 0.8, marginTop: -vh * 0.2 }}
+      style={{ height: pinned + N * vh * 0.8, marginTop: clean ? 0 : -vh * 0.2 }}
       data-testid="ideas-story"
       data-step={step}
     >
@@ -525,7 +610,7 @@ function Story({
       >
         {/* Large screens: the scenes on a vertical roller, and Start writing under it */}
         <motion.div style={{ opacity: textIn }} className="hidden flex-col items-start gap-8 lg:flex">
-          <Roller step={step} onStep={onStep} onReplay={t >= 1 && !reduce ? () => setReplays((n) => n + 1) : undefined} />
+          <Roller step={step} onStep={onStep} quick={clean} onReplay={t >= 1 && !reduce ? () => setReplays((n) => n + 1) : undefined} />
         </motion.div>
         {/* The scene: title, window, description */}
         <div className="flex min-h-0 w-full flex-1 flex-col gap-3 lg:h-full lg:justify-center lg:gap-5">
@@ -533,7 +618,7 @@ function Story({
             <div data-testid="ideas-step-text">
               {scene(
                 'title',
-                <h2 className="text-[1.45rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl lg:text-center lg:text-[2.1rem]">
+                <h2 className={cn('text-[1.45rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl lg:text-[2.1rem]', !clean && 'lg:text-center')}>
                   <span className="mr-2 align-middle font-mono text-sm font-normal text-muted lg:hidden">
                     {step + 1}/{N}
                   </span>
@@ -552,7 +637,7 @@ function Story({
             </div>
           </div>
           <motion.div style={{ opacity: textIn }} className="hidden min-h-[3.5rem] shrink-0 lg:block">
-            {scene('text-lg', <p className="mx-auto max-w-2xl text-center text-lg text-pretty text-muted">{STORY[step].text}</p>)}
+            {scene('text-lg', <p className={cn('max-w-2xl text-lg text-pretty text-muted', !clean && 'mx-auto text-center')}>{STORY[step].text}</p>)}
           </motion.div>
         </div>
         <div className="hidden lg:block" aria-hidden="true" />
@@ -563,7 +648,7 @@ function Story({
 
 /** The scenes on a vertical roller: the current one large in the middle, the others turning away above and below. */
 /** `onReplay` is set once the current scene has finished: a small icon beside its name plays it again. */
-function Roller({ step, onStep, onReplay }: { step: number; onStep: (i: number) => void; onReplay?: () => void }) {
+function Roller({ step, onStep, onReplay, quick }: { step: number; onStep: (i: number) => void; onReplay?: () => void; quick?: boolean }) {
   const ITEM = 56;
   return (
     <nav aria-label="Scenes" className="relative h-[19rem] w-full [mask-image:linear-gradient(to_bottom,transparent,black_22%,black_78%,transparent)]" style={{ perspective: 600 }}>
@@ -574,7 +659,7 @@ function Roller({ step, onStep, onReplay }: { step: number; onStep: (i: number) 
           return (
             <li
               key={s.short}
-              className="absolute inset-x-0 transition-all duration-500 ease-[cubic-bezier(.22,1,.36,1)]"
+              className={cn('absolute inset-x-0 transition-all ease-[cubic-bezier(.22,1,.36,1)]', quick ? 'duration-300' : 'duration-500')}
               style={{
                 transform: `translateY(${d * ITEM - ITEM / 2}px) rotateX(${-d * 18}deg) scale(${1 - far * 0.12})`,
                 transformOrigin: 'left center',
@@ -798,6 +883,27 @@ function PhoneArt() {
   );
 }
 
+/** The clean look's version of the grid above: the same features as a numbered, ruled list. */
+function FeatureList() {
+  return (
+    <section className="mx-auto max-w-[90rem] px-4 py-20 sm:px-6 sm:py-28">
+      <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Everything a LaTeX document needs</h2>
+      {/* (An inline colour: index.css sets every border's colour outside Tailwind's layers, which beats border-* classes.) */}
+      <ol className="mt-10 grid border-t sm:grid-cols-2 sm:gap-x-12 lg:grid-cols-3" style={{ borderTopColor: 'var(--fg)' }}>
+        {BENTO.map((b, i) => (
+          <li key={b.title} className="flex gap-4 border-b border-line py-5">
+            <span className="pt-0.5 font-mono text-sm text-muted">{String(i + 1).padStart(2, '0')}</span>
+            <div>
+              <h3 className="font-semibold">{b.title}</h3>
+              <p className="mt-1 text-sm text-pretty text-muted">{b.text}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------- the end
 
 function Cta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null>; onStart: () => void }) {
@@ -824,6 +930,28 @@ function Cta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null>; on
           </div>
         </div>
       </motion.div>
+    </section>
+  );
+}
+
+/** The clean look's closing section: a rule, a line and the two buttons, with nothing moving. */
+function CleanCta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null>; onStart: () => void }) {
+  return (
+    <section className="mx-auto max-w-[90rem] px-4 pb-20 sm:px-6 sm:pb-28">
+      <div ref={ctaRef} className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8 border-t pt-10" style={{ borderTopColor: 'var(--fg)' }}>
+        <div>
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-5xl">Start writing. It’s free.</h2>
+          <p className="mt-4 max-w-md text-pretty text-muted">A blank article, a master resume or a cover letter: pick one and the PDF is ready in seconds.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button onClick={onStart} className="flex h-11 items-center gap-2 rounded-lg bg-accent px-6 font-medium text-accent-fg transition-colors duration-150 hover:bg-accent-hover" data-testid="ideas-end-start">
+            New document <ArrowRight className="size-4" />
+          </button>
+          <Link to="/help/getting-started" className="flex h-11 items-center gap-2 rounded-lg border border-line px-6 font-medium transition-colors duration-150 hover:bg-subtle">
+            <BookOpen className="size-4" /> TexChef Guide
+          </Link>
+        </div>
+      </div>
     </section>
   );
 }

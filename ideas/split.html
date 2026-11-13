@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en" data-page="split" class="no-js">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>TexChef: edit with LaTeX easily, all in the browser</title>
+    <meta name="description" content="TexChef is a LaTeX editor that runs in your browser: compile, preview and edit right on the PDF, and keep tailored versions of one master document." />
+    <!-- A design study: the home page is at / -->
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <script>
+      // The theme chosen in the app (or here), before anything paints.
+      try {
+        var t = sessionStorage.getItem('ideas-theme') || localStorage.getItem('rc-theme');
+        if (t === 'dark' || t === 'light') document.documentElement.classList.add(t);
+      } catch (e) {}
+      document.documentElement.classList.remove('no-js');
+    </script>
+    <link rel="stylesheet" href="./ideas.css" />
+  </head>
+  <body>
+    <header class="head wrap">
+      <a class="brand" href="/"><svg viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="26" fill="var(--accent)" /><g fill="var(--paper)"><circle cx="39" cy="49" r="16" /><circle cx="60" cy="39" r="19" /><circle cx="81" cy="49" r="16" /><rect x="34" y="47" width="52" height="33" /><rect x="31" y="83" width="58" height="13" rx="4" /></g><path d="M50 53 L70 77" stroke="var(--accent)" stroke-width="8.5" stroke-linecap="round" /></svg>TexChef</a>
+      <nav>
+        <a href="/help/getting-started">Guide</a>
+        <a class="btn btn-sm" href="/?new=1" data-testid="ideas-static-nav-start">Start writing</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="split-hero wrap grid">
+        <div class="split-copy">
+          <h1>Edit with LaTeX easily, <em>all in the browser.</em></h1>
+          <p class="lede">Compile, preview and edit right on the PDF. Keep tailored versions of one master document.</p>
+          <div class="actions">
+            <a class="btn" href="/?new=1" data-testid="ideas-static-start">Start writing <span aria-hidden="true">→</span></a>
+            <a class="link" href="/help/getting-started">Read the guide</a>
+          </div>
+          <p class="fine">No account. Nothing to install.</p>
+        </div>
+        <figure class="split-shot">
+          <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-editor-dark-800.webp 800w, /landing/ideas-editor-dark.webp 1600w" sizes="(min-width: 900px) 70vw, 92vw" />
+            <img src="/landing/ideas-editor-light-800.webp" srcset="/landing/ideas-editor-light-800.webp 800w, /landing/ideas-editor-light.webp 1600w" sizes="(min-width: 900px) 70vw, 92vw" width="1600" height="1000" alt="The TexChef editor: LaTeX source on the left, the compiled PDF of an essay on the right." fetchpriority="high" decoding="async" />
+          </picture>
+        </figure>
+      </section>
+
+      <div class="wrap">
+        <dl class="facts">
+          <div><dt>Engine</dt><dd>TeX Live 2026, in WebAssembly</dd></div>
+          <div><dt>Compilers</dt><dd>pdfLaTeX · XeLaTeX · LuaLaTeX</dd></div>
+          <div><dt>Storage</dt><dd>Your browser, optional Google Drive</dd></div>
+          <div><dt>Account</dt><dd>None needed</dd></div>
+        </dl>
+      </div>
+
+      <section class="feat wrap grid" id="features">
+        <h2>What it does</h2>
+        <ol class="feat-list" data-testid="ideas-feat-list">
+          <li class="feat-row is-active" tabindex="0" data-row>
+            <span class="n">01</span>
+            <div>
+              <h3>Type LaTeX. Watch the PDF.</h3>
+              <p>A full TeX Live runs in your browser. The PDF follows a moment after you stop typing.</p>
+            </div>
+            <figure data-focus="left" class="shot">
+              <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-editor-dark-800.webp 800w, /landing/ideas-editor-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-editor-light-800.webp" srcset="/landing/ideas-editor-light-800.webp 800w, /landing/ideas-editor-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="The editor: LaTeX source on the left, the compiled PDF on the right." loading="lazy" decoding="async" />
+          </picture>
+            </figure>
+          </li>
+          <li class="feat-row" tabindex="0" data-row>
+            <span class="n">02</span>
+            <div>
+              <h3>Click the PDF. Type the change.</h3>
+              <p>Click a sentence, change a number, press Enter. TexChef edits the source for you.</p>
+            </div>
+            <figure data-focus="right" class="shot">
+              <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-pdf-edit-dark-800.webp 800w, /landing/ideas-pdf-edit-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-pdf-edit-light-800.webp" srcset="/landing/ideas-pdf-edit-light-800.webp 800w, /landing/ideas-pdf-edit-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="The PDF with an edit box open on a sentence." loading="lazy" decoding="async" />
+          </picture>
+            </figure>
+          </li>
+          <li class="feat-row" tabindex="0" data-row>
+            <span class="n">03</span>
+            <div>
+              <h3>Write without the backslashes.</h3>
+              <p>Headings, bold text and lists show formatted as you write. Same LaTeX underneath.</p>
+            </div>
+            <figure data-focus="left" class="shot">
+              <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-visual-dark-800.webp 800w, /landing/ideas-visual-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-visual-light-800.webp" srcset="/landing/ideas-visual-light-800.webp 800w, /landing/ideas-visual-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="The editor in Visual mode, with headings and a list shown formatted." loading="lazy" decoding="async" />
+          </picture>
+            </figure>
+          </li>
+          <li class="feat-row" tabindex="0" data-row>
+            <span class="n">04</span>
+            <div>
+              <h3>One master. Many tailored versions.</h3>
+              <p>Make a version per job or journal. Fix something once and every version can take the fix.</p>
+            </div>
+            <figure data-focus="center" class="shot">
+              <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-map-dark-800.webp 800w, /landing/ideas-map-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-map-light-800.webp" srcset="/landing/ideas-map-light-800.webp 800w, /landing/ideas-map-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="955" alt="The map: a master resume linked to three tailored versions." loading="lazy" decoding="async" />
+          </picture>
+            </figure>
+          </li>
+          <li class="feat-row" tabindex="0" data-row>
+            <span class="n">05</span>
+            <div>
+              <h3>Two documents, side by side.</h3>
+              <p>Any two documents or versions, with the differences marked. Copy a line or a block across.</p>
+            </div>
+            <figure data-focus="left" class="shot">
+              <picture>
+            <source data-dark media="(prefers-color-scheme: dark)" srcset="/landing/ideas-compare-dark-800.webp 800w, /landing/ideas-compare-dark.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" />
+            <img src="/landing/ideas-compare-light-800.webp" srcset="/landing/ideas-compare-light-800.webp 800w, /landing/ideas-compare-light.webp 1600w" sizes="(min-width: 900px) 56vw, 92vw" width="1600" height="1000" alt="Two documents side by side with changed lines highlighted." loading="lazy" decoding="async" />
+          </picture>
+            </figure>
+          </li>
+          <li class="feat-row" data-row-plain>
+            <span class="n">06</span>
+            <div>
+              <h3>Yours, on your device.</h3>
+              <p>Documents and every version live in your browser. Connect Google Drive for a backup and your other devices.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="cta wrap grid">
+        <h2>Start with a blank article, a template, or your own .tex files.</h2>
+        <div class="actions">
+          <a class="btn" href="/?new=1" data-testid="ideas-static-end-start">Start writing <span aria-hidden="true">→</span></a>
+          <a class="link" href="/help/getting-started">Read the guide</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot wrap">
+      <span>TexChef</span>
+      <ul><li><a href="/help/getting-started">Guide</a></li><li><a href="/terms">Terms</a></li><li><a href="/privacy">Privacy</a></li><li><a href="https://kurolight.dev">made by kurolight.dev</a></li></ul>
+    </footer>
+
+    <nav class="ideas-switch" aria-label="Landing page ideas" data-testid="ideas-switch">
+      <span>Ideas</span><a href="/ideas">Current</a><a href="/ideas/clean">Cleaned up</a><a href="/ideas/typeset">Typeset</a><a href="/ideas/split" aria-current="page">Product-first</a><button type="button" data-theme-toggle aria-label="Switch between light and dark">Light / dark</button>
+    </nav>
+    <script type="module" src="./ideas.ts"></script>
+  </body>
+</html>

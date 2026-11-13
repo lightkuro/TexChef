@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
   Plus,
   Upload,
@@ -91,6 +91,15 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
 export function Dashboard() {
   const docs = useDocs();
   const [newOpen, setNewOpen] = useState(false);
+  // "/?new=1" (the Start writing link on static landing pages) opens the New document dialog.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (!params.has('new')) return;
+    setNewOpen(true);
+    const next = new URLSearchParams(params);
+    next.delete('new');
+    setParams(next, { replace: true });
+  }, [params, setParams]);
   const [query, setQuery] = useState('');
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);

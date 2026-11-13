@@ -592,6 +592,64 @@ await step('/ideas: one scene per screen, each playing at its own pace; one gest
   await page.getByTestId('dashboard').waitFor();
 });
 
+await step('landing page ideas: static typeset and product-first pages, and the cleaned-up story', async () => {
+  // The two static pages carry their headline and Start writing in the HTML itself (no app shell).
+  for (const name of ['typeset', 'split']) {
+    const html = await (await fetch(`${BASE}/ideas/${name}`)).text();
+    assert.match(html, /<h1>Edit with/, `${name}: headline is in the HTML`);
+    assert.match(html, /Start writing/, `${name}: Start writing is in the HTML`);
+    assert.doesNotMatch(html, /id="root"/, `${name}: not the app shell`);
+  }
+  // They work with JavaScript off, too.
+  const plain = await browser.newContext({ viewport: { width: 1440, height: 900 }, javaScriptEnabled: false });
+  const pp = await plain.newPage();
+  for (const name of ['typeset', 'split']) {
+    await pp.goto(`${BASE}/ideas/${name}`);
+    await pp.locator('h1').waitFor();
+    assert.ok(await pp.getByTestId('ideas-static-start').isVisible());
+    assert.ok(await pp.locator('main img').first().isVisible());
+  }
+  await plain.close();
+  // Start writing opens New document on the home page, and the address is tidied.
+  await page.goto(`${BASE}/ideas/typeset`);
+  await page.locator('h1').waitFor();
+  await page.screenshot({ path: `${OUT}14b-ideas-typeset.png` });
+  await page.getByTestId('ideas-static-start').click();
+  await page.getByTestId('create-doc').waitFor();
+  await page.waitForFunction(() => !location.search.includes('new'));
+  await page.keyboard.press('Escape');
+  // Product-first: pointing at a feature row swaps the picture beside the list.
+  await page.goto(`${BASE}/ideas/split`);
+  const rows = page.locator('[data-row]');
+  await rows.first().scrollIntoViewIfNeeded();
+  const opacity = (i) => rows.nth(i).locator('figure').evaluate((f) => Number(getComputedStyle(f).opacity));
+  assert.equal(await opacity(0), 1);
+  await rows.nth(3).hover();
+  await page.waitForTimeout(350);
+  assert.equal(await opacity(3), 1, 'the hovered row shows its picture');
+  assert.equal(await opacity(0), 0, 'and the first row’s is gone, within 350 ms');
+  await page.screenshot({ path: `${OUT}14c-ideas-split.png` });
+  // The switcher leads to the cleaned-up story, where everything is on screen at once and scene changes are short.
+  await page.getByTestId('ideas-switch').getByRole('link', { name: 'Cleaned up' }).click();
+  await page.locator('[data-testid=ideas-page][data-look=clean]').waitFor();
+  assert.ok(await page.getByTestId('ideas-start').isVisible());
+  assert.equal(await page.getByTestId('ideas-start').evaluate((el) => getComputedStyle(el).opacity), '1', 'no entrance animation on Start writing');
+  await page.getByTestId('ideas-step-1').click();
+  await page.waitForFunction(() => document.querySelector('[data-testid=ideas-story]').dataset.step === '1');
+  await page.waitForTimeout(700);
+  await page.mouse.move(700, 500);
+  for (let k = 0; k < 30; k++) {
+    await page.mouse.wheel(0, 40);
+    await page.waitForTimeout(30);
+  }
+  await page.waitForTimeout(700);
+  assert.equal(await page.getByTestId('ideas-story').getAttribute('data-step'), '2', 'one gesture, one scene');
+  assert.ok(Math.abs((await storyTop()) - (await sceneY(2))) < 12, 'and it has landed within 0.7 s of the gesture ending');
+  await page.screenshot({ path: `${OUT}14d-ideas-clean.png` });
+  await page.goto(BASE);
+  await page.getByTestId('dashboard').waitFor();
+});
+
 await step('/ideas on a touch phone: one swipe moves one scene', async () => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   const p = await ctx.newPage();
