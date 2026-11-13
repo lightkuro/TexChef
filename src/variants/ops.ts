@@ -208,6 +208,7 @@ export async function applyPull(
   await repo.updateDoc(variantId, {
     parent: { docId: variant.parent.docId, baseCommitId: parentHead },
     recipe: nextRecipe ? { ...nextRecipe, known: projectBlockIds(parentFiles) } : undefined,
+    linkedAt: Date.now(),
   });
 }
 
@@ -331,3 +332,5 @@ export async function saveWorkAsVariant(repo: Repo, docId: string, name: string)
   await repo.commitWork(docId, '', 'save');
   return variant;
 }
+
+export * from './links';

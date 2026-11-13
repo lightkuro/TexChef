@@ -1,5 +1,5 @@
 import { memo, useEffect } from 'react';
-import { Handle, Position, useUpdateNodeInternals, type NodeProps, type Node } from '@xyflow/react';
+import { Handle, Position, useConnection, useUpdateNodeInternals, type NodeProps, type Node } from '@xyflow/react';
 import { GitBranch, GitPullRequestArrow, AlertTriangle, FileText, Crown, CloudDownload } from 'lucide-react';
 import type { DocMeta, PreviewRecord } from '@/core/model';
 import { Badge } from '@/components/ui';
@@ -28,21 +28,39 @@ export const DocCard = memo(function DocCard({ id, data, selected }: NodeProps<D
   const color = docColor(doc.id, doc.color);
   // Connection points move (left/right ↔ top/bottom) and the card changes height: re-measure them.
   const updateInternals = useUpdateNodeInternals();
-  useEffect(() => updateInternals(id), [id, vertical, fullPage, snap, updateInternals]);
+  // While a line is being dragged from another card, the whole of this card is a place to drop it.
+  const linking = useConnection((c) => c.inProgress && c.fromNode.id !== id);
+  useEffect(() => updateInternals(id), [id, vertical, fullPage, snap, linking, updateInternals]);
+  // A click on a connection point is not a click on the card (which would open the document).
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
   return (
     <DocActionsMenu doc={doc} asContextMenu>
+      {/* The connection points sit on this outer box, so the card's rounded clipping doesn't cut them in half. */}
+      <div className="group relative" style={{ width: CARD_W }}>
+        <span className="contents" onClick={stop} onDoubleClick={stop}>
+          <Handle type="target" position={vertical ? Position.Top : Position.Left} className="!size-2 !border-0 !bg-line" isConnectableStart={false} />
+          {linking && (
+            <Handle
+              id="drop"
+              type="target"
+              position={vertical ? Position.Top : Position.Left}
+              isConnectableStart={false}
+              className="!inset-0 !z-10 !h-full !w-full !transform-none !rounded-xl !border-0 !bg-accent/0 [&.valid]:!bg-accent/10 [&.valid]:ring-2 [&.valid]:ring-accent"
+              data-testid={`link-drop-${doc.name}`}
+            />
+          )}
+        </span>
       <div
         className={cn(
-          'group flex flex-col overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow hover:shadow-md',
+          'flex flex-col overflow-hidden rounded-xl border bg-panel shadow-sm transition-shadow group-hover:shadow-md',
           doc.archived && 'opacity-60',
           selected ? 'border-accent ring-2 ring-accent/30' : 'border-line',
           doc.color && !selected && 'border-2',
         )}
-        style={{ width: CARD_W, minHeight: snap ? cardHeight(fullPage) : undefined, borderColor: doc.color && !selected ? doc.color : undefined }}
+        style={{ minHeight: snap ? cardHeight(fullPage) : undefined, borderColor: doc.color && !selected ? doc.color : undefined }}
         data-testid={`doc-node-${doc.name}`}
         data-root={isRoot || undefined}
       >
-        <Handle type="target" position={vertical ? Position.Top : Position.Left} className="!size-2 !border-0 !bg-line" />
         <div className={cn('shrink-0', isRoot ? 'h-2' : 'h-1.5')} style={{ background: color }} />
         <div className={cn('relative overflow-hidden border-b border-line bg-subtle', snap ? (fullPage ? 'min-h-[300px] flex-1' : 'min-h-[118px] flex-1') : fullPage ? 'h-[300px]' : 'h-[118px]')}>
           {preview?.thumbnail ? (
@@ -103,7 +121,15 @@ export const DocCard = memo(function DocCard({ id, data, selected }: NodeProps<D
             <span className="ml-auto text-[11px] text-muted">{timeAgo(doc.updatedAt)}</span>
           </div>
         </div>
-        <Handle type="source" position={vertical ? Position.Bottom : Position.Right} className="!size-2 !border-0 !bg-line" />
+      </div>
+        <span className="contents" onClick={stop} onDoubleClick={stop} title="Drag to another document to make it a variant of this one">
+          <Handle
+            type="source"
+            position={vertical ? Position.Bottom : Position.Right}
+            className="!size-2 !border-0 !bg-line transition-[width,height,background-color] group-hover:!size-3.5 group-hover:!border-2 group-hover:!border-solid group-hover:!border-panel group-hover:!bg-accent"
+            data-testid={`link-handle-${doc.name}`}
+          />
+        </span>
       </div>
     </DocActionsMenu>
   );

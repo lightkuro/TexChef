@@ -27,6 +27,8 @@ export interface Commit {
   kind: CommitKind;
   createdAt: number;
   author?: string;
+  /** For a 'restore' version: the older version whose files it brought back. */
+  restoredFrom?: string;
   /** 0 = not yet uploaded to the sync provider. Local-only field (not synced). */
   synced?: 0 | 1;
 }
@@ -58,6 +60,11 @@ export interface DocMeta {
   engine: Engine;
   parent?: DocParentLink;
   recipe?: Recipe;
+  /**
+   * When the link to an original (`parent`, `recipe`) last changed. A link can change without a new
+   * version (linking, unlinking, swapping), so sync needs this to tell which device's link is newer.
+   */
+  linkedAt?: number;
   tags: string[];
   color?: string;
   /** Folder on the home page, as a path ("Applications/2026"); none when undefined. */

@@ -11,6 +11,7 @@ import { Dashboard } from '@/features/dashboard/Dashboard';
 const EditorPage = lazy(() => import('@/features/editor/EditorPage').then((m) => ({ default: m.EditorPage })));
 const VariantBuilder = lazy(() => import('@/features/variants/VariantBuilder').then((m) => ({ default: m.VariantBuilder })));
 const PullPage = lazy(() => import('@/features/variants/PullPage').then((m) => ({ default: m.PullPage })));
+const PushPage = lazy(() => import('@/features/variants/PushPage').then((m) => ({ default: m.PushPage })));
 const ComparePage = lazy(() => import('@/features/compare/ComparePage').then((m) => ({ default: m.ComparePage })));
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const PrivacyPage = lazy(() => import('@/legal/PrivacyPage').then((m) => ({ default: m.PrivacyPage })));
@@ -163,6 +164,7 @@ const router = createBrowserRouter([
           { index: true, element: <Keyed page={EditorPage} /> },
           { path: 'new-variant', element: <Keyed page={VariantBuilder} /> },
           { path: 'pull', element: <Keyed page={PullPage} /> },
+          { path: 'push', element: <Keyed page={PushPage} /> },
         ],
       },
       { path: '/compare', element: <ComparePage /> },

@@ -14,7 +14,9 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { ArrowDownFromLine, ArrowRightFromLine, Grid3x3, Menu as MenuIcon, RectangleVertical, RotateCcw, Scan, Spline } from 'lucide-react';
-import { repo, usePreviews } from '@/app/repo';
+import { repo, useDocs, usePreviews } from '@/app/repo';
+import { canLink } from '@/variants/ops';
+import { linkDocs } from '@/features/variants/linkActions';
 import type { DocMeta } from '@/core/model';
 import { DocCard, type DocNodeType } from './DocCard';
 import { DocEdge, type DocEdgeType } from './DocEdge';
@@ -199,6 +201,8 @@ const folderNodeId = (path: string) => `folder:${path}`;
 /** Document map: master → variants → sub-variants, with subfolders as folder cards or folders as frames. */
 export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onMoveToFolder, onMoveFolder, folderWrap, onApi }: FamilyGraphProps) {
   const previews = usePreviews();
+  // Every document (not only those on screen): needed to tell whether a new link would go round in a circle.
+  const allDocs = useDocs();
   const navigate = useNavigate();
   const angled = usePrefs((s) => s.mapLines) === 'angled';
   const direction = usePrefs((s) => s.mapDirection);
@@ -378,7 +382,17 @@ export function FamilyGraph({ view, mode, scopeDocs, scopeKey, onOpenFolder, onM
       fitView
       fitViewOptions={FIT}
       minZoom={0.15}
-      nodesConnectable={false}
+      // Drag a line from a card's connection point to another card: the second becomes a variant of the first.
+      nodesConnectable
+      connectOnClick={false}
+      connectionRadius={36}
+      connectionLineStyle={{ stroke: 'var(--accent)', strokeWidth: 2, strokeDasharray: '6 4' }}
+      isValidConnection={(c) => !!allDocs && !!c.source && !!c.target && canLink(allDocs, c.target, c.source).ok}
+      onConnect={(c) => {
+        const original = allDocs?.find((d) => d.id === c.source);
+        const variant = allDocs?.find((d) => d.id === c.target);
+        if (original && variant) void linkDocs(variant, original);
+      }}
       nodesDraggable={!grouped}
       snapToGrid={snap}
       snapGrid={[cell.w, cell.h]}

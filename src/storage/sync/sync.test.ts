@@ -4,7 +4,7 @@ import { Repo, fileText } from '@/core/repo';
 import { MemoryProvider } from '@/storage/providers/memory';
 import { SyncEngine, mergeDivergedHead, type PullMode } from './engine';
 import type { Pack } from './types';
-import { createVariant } from '@/variants/ops';
+import { createVariant, linkAsVariant, unlinkVariant } from '@/variants/ops';
 import { emptyRecipe } from '@/core/model';
 
 let n = 0;
@@ -316,5 +316,28 @@ describe('sync engine', () => {
     expect(await B.repo.docCommits(doc.id)).toHaveLength(14);
     expect(await text(B, doc.id)).toBe('x12');
     expect(await text(B, other.id)).toBe('o');
+  });
+
+  it('a link changed without a new version reaches the other device, and the later change wins', async () => {
+    const remote = new MemoryProvider();
+    const A = device(remote);
+    const B = device(remote);
+    const one = await A.repo.createDoc({ name: 'One', files: { 'main.tex': { kind: 'text', text: 'one' } } });
+    const two = await A.repo.createDoc({ name: 'Two', files: { 'main.tex': { kind: 'text', text: 'two' } } });
+    await A.engine.sync();
+    await B.engine.sync();
+    await linkAsVariant(A.repo, two.id, one.id);
+    await A.engine.sync();
+    await B.engine.sync();
+    expect((await B.repo.getDoc(two.id))!.parent?.docId).toBe(one.id);
+    // B unlinks; A's copy follows, and the index settles (no rewriting back and forth).
+    await unlinkVariant(B.repo, two.id);
+    await B.engine.sync();
+    await A.engine.sync();
+    expect((await A.repo.getDoc(two.id))!.parent).toBeUndefined();
+    const writes = remote.writes;
+    await B.engine.sync();
+    await A.engine.sync();
+    expect(remote.writes).toBe(writes);
   });
 });

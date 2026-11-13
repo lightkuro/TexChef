@@ -29,6 +29,11 @@ describe('agent replies', () => {
     const variant = parseReply('% texchef-reply doc=new name="Letter" folder="Drafts" variant-of=m1\nBody');
     expect(variant).toMatchObject({ doc: 'new', name: 'Letter', folder: 'Drafts', variantOf: 'm1' });
     expect(variant.files).toEqual({ '': 'Body' });
+    expect(variant.unlink).toBeUndefined();
+    // For a document that already exists: link it as a variant of another, or unlink it.
+    expect(parseReply('% texchef-reply doc=abc variant-of=m1')).toMatchObject({ doc: 'abc', variantOf: 'm1', files: {} });
+    expect(parseReply('% texchef-reply doc=abc unlink=yes').unlink).toBe(true);
+    expect(parseReply('% texchef-reply doc=abc unlink=no').unlink).toBeUndefined();
   });
 
   it('without a header, the whole text is the main file', () => {

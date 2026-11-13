@@ -641,6 +641,129 @@ await step('versions view: links between documents go around the versions in bet
   await page.waitForTimeout(300);
 });
 
+// ---------------------------------------------------------------- linking and sending changes (begin)
+await step('link an existing document as a variant (menu, then a line on the map), undo, send changes to the original, swap, unlink', async () => {
+  const [a, b] = await page.evaluate(async () => {
+    const { repo } = window.rc;
+    const text = '\\documentclass{article}\n\\begin{document}\nOne.\n\nTwo.\n\nThree.\n\nFour.\n\\end{document}\n';
+    const a = await repo.createDoc({ name: 'Link original', files: { 'main.tex': { kind: 'text', text } } });
+    const b = await repo.createDoc({ name: 'Link copy', files: { 'main.tex': { kind: 'text', text } } });
+    return [a.id, b.id];
+  });
+  const parentOf = (id) => page.evaluate(async (id) => (await window.rc.repo.getDoc(id)).parent?.docId ?? null, id);
+  const edit = (id, from, to) =>
+    page.evaluate(async ([id, from, to]) => window.rc.repo.writeWorkText(id, 'main.tex', (await window.rc.repo.getWork(id)).files['main.tex'].text.replace(from, to)), [id, from, to]);
+  const edge = (from, to) => page.locator(`[data-testid="rf__edge-${from}->${to}"]`);
+  const menu = async (name) => page.getByTestId(`doc-node-${name}`).click({ button: 'right' });
+  await page.goto(BASE);
+  await page.getByTestId('doc-node-Link copy').waitFor();
+  assert.equal(await edge(a, b).count(), 0);
+
+  // From the menu: only documents that can be its original are offered.
+  await menu('Link copy');
+  await page.getByTestId('doc-link').waitFor();
+  assert.equal(await page.getByTestId('doc-unlink').count(), 0, 'nothing to unlink yet');
+  assert.equal(await page.getByTestId('doc-push').count(), 0, 'and no original to send changes to');
+  await page.getByTestId('doc-link').click();
+  await page.getByTestId('link-dialog').waitFor();
+  assert.equal(await page.getByTestId(`link-pick-${b}`).count(), 0, 'a document is not offered as its own original');
+  await page.getByTestId('link-search').fill('link orig');
+  assert.equal(await page.getByTestId('link-dialog').getByRole('option').count(), 1, 'the search narrows the list');
+  await page.getByTestId(`link-pick-${a}`).click();
+  await page.screenshot({ path: `${OUT}07e-link-dialog.png` });
+  await page.getByTestId('link-confirm').click();
+  await page.getByTestId('link-dialog').waitFor({ state: 'detached' });
+  await edge(a, b).waitFor({ state: 'attached' });
+  assert.equal(await parentOf(b), a);
+  assert.equal(new URL(page.url()).pathname, '/', 'linking does not open the document');
+  assert.ok((await workText(b)).includes('Two.') && !(await workText(b)).includes('<<<<'), 'no text changed');
+  // The other way round would go in a circle: the original is not offered its own variant.
+  await menu('Link original');
+  await page.getByTestId('doc-link').click();
+  await page.getByTestId('link-dialog').waitFor();
+  assert.equal(await page.getByTestId(`link-pick-${b}`).count(), 0, 'no loops');
+  await page.keyboard.press('Escape');
+  await page.getByTestId('link-dialog').waitFor({ state: 'detached' });
+
+  // Undo, from the toast.
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await edge(a, b).waitFor({ state: 'detached' });
+  assert.equal(await parentOf(b), null);
+
+  // Link again by dragging a line from the original's connection point onto the other card.
+  await page.getByTestId('doc-node-Link original').hover();
+  const from = await page.getByTestId('link-handle-Link original').boundingBox();
+  const to = await page.getByTestId('doc-node-Link copy').boundingBox();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 });
+  await page.getByTestId('link-drop-Link copy').waitFor({ state: 'attached' });
+  await page.screenshot({ path: `${OUT}07f-link-drag.png` });
+  await page.mouse.up();
+  await edge(a, b).waitFor({ state: 'attached' });
+  assert.equal(await parentOf(b), a);
+  assert.equal(new URL(page.url()).pathname, '/', 'dropping the line does not open the document');
+
+  // Send a change to the original, through the review.
+  await edit(b, 'Two.', 'Two, from the copy.');
+  await menu('Link copy');
+  await page.getByTestId('doc-push').click();
+  await page.getByTestId('push-page').waitFor();
+  await page.getByTestId('push-page').getByText('No conflicts').waitFor();
+  await page.getByText('Two, from the copy.').first().waitFor();
+  assert.ok(!(await workText(a)).includes('from the copy'), 'nothing is sent before Send changes');
+  await page.screenshot({ path: `${OUT}07g-push-review.png` });
+  await page.getByTestId('finish-push').click();
+  await page.waitForURL(`**/doc/${b}`);
+  assert.ok((await workText(a)).includes('Two, from the copy.'));
+  const sent = await page.evaluate(
+    async ([a, b]) => {
+      const { repo } = window.rc;
+      const o = await repo.getDoc(a);
+      const v = await repo.getDoc(b);
+      const head = await repo.getCommit(o.head);
+      return { kind: head.kind, message: head.message, parents: head.parents.length, behind: await repo.commitsBehindParent(v), base: v.parent.baseCommitId === o.head };
+    },
+    [a, b],
+  );
+  assert.deepEqual(sent, { kind: 'push-up', message: 'Changes from “Link copy”', parents: 2, behind: 0, base: true });
+
+  // Both changed the same line: the choice is made before anything is sent.
+  await edit(a, 'Four.', 'Four, says the original.');
+  await page.evaluate((a) => window.rc.repo.commitWork(a, 'Original edit', 'save'), a);
+  await edit(b, 'Four.', 'Four, says the copy.');
+  await page.goto(`${BASE}/doc/${b}/push`);
+  await page.getByTestId('push-page').getByText('1 conflict to resolve').waitFor();
+  assert.ok(await page.getByTestId('finish-push').isDisabled(), 'conflicts first');
+  await page.getByTestId('push-use-mine-0').click();
+  await page.getByTestId('push-page').getByText('No conflicts').waitFor();
+  await page.getByTestId('finish-push').click();
+  await page.waitForURL(`**/doc/${b}`);
+  assert.ok((await workText(a)).includes('Four, says the copy.') && !(await workText(a)).includes('<<<<'));
+
+  // Make the variant the original (the two swap), undo, then unlink.
+  await page.goto(BASE);
+  await page.getByTestId('doc-node-Link copy').waitFor();
+  await menu('Link copy');
+  await page.getByTestId('doc-make-original').click();
+  await edge(b, a).waitFor({ state: 'attached' });
+  assert.equal(await parentOf(a), b);
+  assert.equal(await parentOf(b), null);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await edge(a, b).waitFor({ state: 'attached' });
+  assert.equal(await parentOf(b), a);
+  await menu('Link copy');
+  await page.getByTestId('doc-unlink').click();
+  await edge(a, b).waitFor({ state: 'detached' });
+  assert.equal(await parentOf(b), null);
+  assert.ok((await workText(b)).includes('Two, from the copy.'), 'unlinking keeps the text');
+  await page.evaluate(async (ids) => {
+    for (const id of ids) await window.rc.repo.deleteDoc(id);
+  }, [b, a]);
+  await page.waitForTimeout(300);
+});
+// ---------------------------------------------------------------- linking and sending changes (end)
+
 const sceneY = (i) =>
   page.evaluate((i) => {
     const s = document.querySelector('[data-testid=ideas-story]');
@@ -1162,6 +1285,27 @@ await step('AI agents (experimental): off by default; on, a pasted reply is revi
     return { name: d.name, folder: d.folder };
   }, letter);
   assert.deepEqual(after2, { name: 'Agent letter, sent', folder: 'Agent drafts' });
+  // ---- agents: linking proposals (begin) ----
+  // An assistant can also propose unlinking a variant, or linking a document as a variant: tick boxes, like the rest.
+  const linkedTo = (id) => page.evaluate(async (id) => (await window.rc.repo.getDoc(id)).parent?.docId ?? null, id);
+  await openPaste(`% texchef-reply doc=${letter} unlink=yes note="Stands on its own now"`);
+  await page.getByTestId('agent-action-unlink').waitFor();
+  assert.equal(await linkedTo(letter), m, 'still linked before approval');
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${letter}`);
+  assert.equal(await linkedTo(letter), null);
+  await openPaste(`% texchef-reply doc=${letter} variant-of=${m} note="Keep it in step with the master"`);
+  await page.getByTestId('agent-action-link').waitFor();
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${letter}`);
+  assert.equal(await linkedTo(letter), m);
+  // A link that would go round in a circle is shown as not possible, and there is nothing to accept.
+  await openPaste(`% texchef-reply doc=${m} variant-of=${letter}`);
+  await page.getByTestId('agent-action-refused').getByText('Can’t be done').waitFor();
+  assert.equal(await page.getByTestId('agent-action-link').count(), 0);
+  assert.ok(await page.getByTestId('agent-reply-accept').isDisabled());
+  assert.equal(await linkedTo(m), null);
+  // ---- agents: linking proposals (end) ----
   // Archiving is a proposal too: nothing happens until it is accepted here.
   await openPaste(`% texchef-reply doc=${letter} archive=yes note="No longer needed"`);
   await page.getByTestId('agent-action-archive').waitFor();

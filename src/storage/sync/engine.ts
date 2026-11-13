@@ -1,8 +1,18 @@
-import type { Repo } from '@/core/repo';
-import type { Commit, DocMeta, Hash } from '@/core/model';
-import { fromBase64, newId, toBase64 } from '@/core/hash';
-import { mergeFileMaps } from '@/variants/ops';
-import { COMPACT_THRESHOLD, DOC_COMPACT_THRESHOLD, INLINE_BLOB_LIMIT, PACK_INLINE_LIMIT, type HeadRef, type Pack, type PackRef, type RemoteIndex, type SyncProvider } from './types';
+import type { Repo } from "@/core/repo";
+import type { Commit, DocMeta, Hash } from "@/core/model";
+import { fromBase64, newId, toBase64 } from "@/core/hash";
+import { mergeFileMaps } from "@/variants/ops";
+import {
+  COMPACT_THRESHOLD,
+  DOC_COMPACT_THRESHOLD,
+  INLINE_BLOB_LIMIT,
+  PACK_INLINE_LIMIT,
+  type HeadRef,
+  type Pack,
+  type PackRef,
+  type RemoteIndex,
+  type SyncProvider,
+} from "./types";
 
 export interface SyncReport {
   pulledPacks: number;
@@ -20,7 +30,7 @@ export interface SyncReport {
  * - 'needed': each document's current version; older versions when something asks for them;
  * - 'saver': only the list of documents; a document's current version comes down when it is opened.
  */
-export type PullMode = 'all' | 'needed' | 'saver';
+export type PullMode = "all" | "needed" | "saver";
 
 /** Fields that never leave the device. */
 function forRemote(doc: DocMeta): DocMeta {
@@ -41,7 +51,7 @@ function forRemote(doc: DocMeta): DocMeta {
  * of the app hold several documents at once; they are read whole the first time history is needed.
  */
 export class SyncEngine {
-  mode: PullMode = 'all';
+  mode: PullMode = "all";
   private lastIndex: { version: string; index: RemoteIndex } | null = null;
   private heads: Map<string, HeadRef> | null = null;
 
@@ -60,15 +70,24 @@ export class SyncEngine {
 
   /** Documents whose whole history this device keeps up with (every document in 'all' mode). */
   private async followed(): Promise<Set<string>> {
-    return new Set((await this.db.getMeta<string[]>(this.key('follow'))) ?? []);
+    return new Set((await this.db.getMeta<string[]>(this.key("follow"))) ?? []);
   }
 
   private async appliedPacks(): Promise<Set<string>> {
-    return new Set((await this.db.getMeta<string[]>(this.key('appliedPacks'))) ?? []);
+    return new Set(
+      (await this.db.getMeta<string[]>(this.key("appliedPacks"))) ?? [],
+    );
   }
 
   async sync(): Promise<SyncReport> {
-    const report: SyncReport = { pulledPacks: 0, pushedCommits: 0, pushedDocs: [], updatedDocs: [], diverged: [], compacted: false };
+    const report: SyncReport = {
+      pulledPacks: 0,
+      pushedCommits: 0,
+      pushedDocs: [],
+      updatedDocs: [],
+      diverged: [],
+      compacted: false,
+    };
     for (let attempt = 0; attempt < 4; attempt++) {
       const applied = await this.appliedPacks();
       const follow = await this.followed();
@@ -89,16 +108,31 @@ export class SyncEngine {
         report.pushedCommits += p.commits;
         if (p.docId) report.pushedDocs.push(p.docId);
       }
-      await this.db.setMeta(this.key('appliedPacks'), [...applied]);
-      if (pushed.length) remotePacks = [...remotePacks, ...pushed.map((p) => ({ id: p.id, ref: p.ref, docId: p.docId }))];
+      await this.db.setMeta(this.key("appliedPacks"), [...applied]);
+      if (pushed.length)
+        remotePacks = [
+          ...remotePacks,
+          ...pushed.map((p) => ({ id: p.id, ref: p.ref, docId: p.docId })),
+        ];
 
       const snap = await this.readIndex();
       await this.fetchHeads(snap.index, report);
       const merged = await this.mergeIndex(snap.index, report);
-      const nextDocs = merged.map(forRemote).sort((a, b) => a.id.localeCompare(b.id));
-      const remoteSorted = snap.index ? [...snap.index.docs].sort((a, b) => a.id.localeCompare(b.id)) : null;
-      if (!remoteSorted || JSON.stringify(remoteSorted) !== JSON.stringify(nextDocs)) {
-        const index: RemoteIndex = { format: 1, updatedAt: Date.now(), docs: nextDocs };
+      const nextDocs = merged
+        .map(forRemote)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      const remoteSorted = snap.index
+        ? [...snap.index.docs].sort((a, b) => a.id.localeCompare(b.id))
+        : null;
+      if (
+        !remoteSorted ||
+        JSON.stringify(remoteSorted) !== JSON.stringify(nextDocs)
+      ) {
+        const index: RemoteIndex = {
+          format: 1,
+          updatedAt: Date.now(),
+          docs: nextDocs,
+        };
         const v = await this.provider.writeIndex(index, snap.version);
         if (v === null) {
           this.lastIndex = null;
@@ -106,63 +140,95 @@ export class SyncEngine {
         }
         this.lastIndex = { version: v, index };
       }
-      await this.writeHeads(merged);
+      // Head files are a convenience for light devices: a failure there must not fail the sync.
+      await this.writeHeads(merged).catch((e) =>
+        console.warn("Could not write current-version files", e),
+      );
       report.compacted = await this.compactIfNeeded(remotePacks);
-      await this.db.setMeta(this.key('lastSync'), Date.now());
+      await this.db.setMeta(this.key("lastSync"), Date.now());
       return report;
     }
-    throw new Error('Sync kept conflicting with another device; try again in a moment.');
+    throw new Error(
+      "Sync kept conflicting with another device; try again in a moment.",
+    );
   }
 
   /** Whether a sync brings this pack down on its own (history asked for later comes through `followDoc`). */
   private wants(p: PackRef, follow: Set<string>): boolean {
-    if (this.mode === 'all') return true;
+    if (this.mode === "all") return true;
     // A pack from an earlier version of the app may hold any document: read it once some history is followed.
     return p.docId ? follow.has(p.docId) : follow.size > 0;
   }
 
   /** The index, without downloading it again when the storage says it has not changed. */
-  private async readIndex(): Promise<{ index: RemoteIndex | null; version: string | null }> {
+  private async readIndex(): Promise<{
+    index: RemoteIndex | null;
+    version: string | null;
+  }> {
     const snap = await this.provider.readIndex(this.lastIndex?.version);
-    if (snap.unchanged && this.lastIndex) return { index: this.lastIndex.index, version: this.lastIndex.version };
-    this.lastIndex = snap.index && snap.version ? { version: snap.version, index: snap.index } : null;
+    if (snap.unchanged && this.lastIndex)
+      return { index: this.lastIndex.index, version: this.lastIndex.version };
+    this.lastIndex =
+      snap.index && snap.version
+        ? { version: snap.version, index: snap.index }
+        : null;
     return { index: snap.index, version: snap.version };
   }
 
   private async applyPack(pack: Pack) {
-    await this.db.transaction('rw', this.db.commits, this.db.blobs, async () => {
-      for (const [hash, b64] of Object.entries(pack.blobs)) {
-        if (!(await this.db.blobs.get(hash))) {
-          const data = fromBase64(b64);
-          await this.db.blobs.put({ hash, data, size: data.byteLength, synced: 1 });
-        } else {
-          await this.db.blobs.update(hash, { synced: 1 });
+    await this.db.transaction(
+      "rw",
+      this.db.commits,
+      this.db.blobs,
+      async () => {
+        for (const [hash, b64] of Object.entries(pack.blobs)) {
+          if (!(await this.db.blobs.get(hash))) {
+            const data = fromBase64(b64);
+            await this.db.blobs.put({
+              hash,
+              data,
+              size: data.byteLength,
+              synced: 1,
+            });
+          } else {
+            await this.db.blobs.update(hash, { synced: 1 });
+          }
         }
-      }
-      for (const c of pack.commits) {
-        const existing = await this.db.commits.get(c.id);
-        if (!existing) await this.db.commits.put({ ...c, synced: 1 });
-        else if (existing.synced !== 1) await this.db.commits.update(c.id, { synced: 1 });
-      }
-    });
+        for (const c of pack.commits) {
+          const existing = await this.db.commits.get(c.id);
+          if (!existing) await this.db.commits.put({ ...c, synced: 1 });
+          else if (existing.synced !== 1)
+            await this.db.commits.update(c.id, { synced: 1 });
+        }
+      },
+    );
   }
 
   /** One pack per document with unsynced versions. */
-  private async pushPacks(): Promise<{ id: string; ref: string; docId: string; commits: number }[]> {
-    const unsynced = await this.db.commits.where('synced').equals(0).toArray();
+  private async pushPacks(): Promise<
+    { id: string; ref: string; docId: string; commits: number }[]
+  > {
+    const unsynced = await this.db.commits.where("synced").equals(0).toArray();
     if (unsynced.length === 0) return [];
     const byDoc = new Map<string, Commit[]>();
-    for (const c of unsynced) byDoc.set(c.docId, [...(byDoc.get(c.docId) ?? []), c]);
-    const out: { id: string; ref: string; docId: string; commits: number }[] = [];
+    for (const c of unsynced)
+      byDoc.set(c.docId, [...(byDoc.get(c.docId) ?? []), c]);
+    const out: { id: string; ref: string; docId: string; commits: number }[] =
+      [];
     for (const [docId, commits] of byDoc) {
       // What this document's earlier packs already carry, as far as this device knows: a file shared with
       // another document (a class file, a logo) goes into this document's pack too, so its history reads on its own.
       const known = new Set<Hash>();
-      for (const c of await this.db.commits.where('docId').equals(docId).toArray()) {
+      for (const c of await this.db.commits
+        .where("docId")
+        .equals(docId)
+        .toArray()) {
         if (c.synced === 1) Object.values(c.tree).forEach((h) => known.add(h));
       }
       const hashes = new Set<Hash>();
-      commits.forEach((c) => Object.values(c.tree).forEach((h) => hashes.add(h)));
+      commits.forEach((c) =>
+        Object.values(c.tree).forEach((h) => hashes.add(h)),
+      );
       const inline: Record<Hash, string> = {};
       const sent: Hash[] = [];
       for (const h of hashes) {
@@ -171,7 +237,8 @@ export class SyncEngine {
         if (blob.synced === 1 && known.has(h)) continue;
         if (blob.size <= PACK_INLINE_LIMIT) inline[h] = toBase64(blob.data);
         // Bigger files are stored one by one, and fetched only by devices that need them.
-        else if (blob.synced !== 1 || blob.size <= INLINE_BLOB_LIMIT) await this.provider.writeBlob(h, blob.data);
+        else if (blob.synced !== 1 || blob.size <= INLINE_BLOB_LIMIT)
+          await this.provider.writeBlob(h, blob.data);
         if (blob.synced !== 1) sent.push(h);
       }
       const pack: Pack = {
@@ -182,17 +249,29 @@ export class SyncEngine {
         blobs: inline,
       };
       const ref = await this.provider.writePack(pack);
-      await this.db.transaction('rw', this.db.commits, this.db.blobs, async () => {
-        for (const c of commits) await this.db.commits.update(c.id, { synced: 1 });
-        for (const h of sent) await this.db.blobs.update(h, { synced: 1 });
+      await this.db.transaction(
+        "rw",
+        this.db.commits,
+        this.db.blobs,
+        async () => {
+          for (const c of commits)
+            await this.db.commits.update(c.id, { synced: 1 });
+          for (const h of sent) await this.db.blobs.update(h, { synced: 1 });
+        },
+      );
+      out.push({
+        id: pack.id,
+        ref: ref ?? pack.id,
+        docId,
+        commits: commits.length,
       });
-      out.push({ id: pack.id, ref: ref ?? pack.id, docId, commits: commits.length });
     }
     // A document edited here is one whose history this device keeps up with: that is what lets it tell
     // "the other device is ahead" from "both changed it".
     const follow = await this.followed();
     const fresh = out.map((p) => p.docId).filter((id) => !follow.has(id));
-    if (fresh.length) await this.db.setMeta(this.key('follow'), [...follow, ...fresh]);
+    if (fresh.length)
+      await this.db.setMeta(this.key("follow"), [...follow, ...fresh]);
     return out;
   }
 
@@ -200,12 +279,12 @@ export class SyncEngine {
 
   /** In 'needed' mode, bring down the current version of every document that moved (or is new here). */
   private async fetchHeads(remote: RemoteIndex | null, report: SyncReport) {
-    if (this.mode === 'all' || !remote) return;
+    if (this.mode === "all" || !remote) return;
     for (const r of remote.docs) {
       if (!r.head || r.deleted || (await this.db.commits.get(r.head))) continue;
       const l = await this.db.docs.get(r.id);
       // Data saver: only documents already on this device are kept current.
-      if (this.mode === 'saver' && (!l || l.remoteOnly)) continue;
+      if (this.mode === "saver" && (!l || l.remoteOnly)) continue;
       if (await this.fetchHead(r.id, r.head)) report.pulledPacks++;
     }
   }
@@ -216,22 +295,36 @@ export class SyncEngine {
    */
   async fetchHead(docId: string, head: string): Promise<boolean> {
     if (await this.db.commits.get(head)) return true;
-    if (this.provider.listHeads && this.provider.readHead) {
-      for (const fresh of [false, true]) {
-        if (fresh || !this.heads) this.heads = await this.provider.listHeads();
-        const entry = this.heads.get(docId);
-        // The head file is written after the index, so it may lag a moment behind: look once more, then use the packs.
-        if (!entry || (entry.head && entry.head !== head)) continue;
-        const pack = await this.provider.readHead(entry.ref).catch(() => undefined);
-        if (pack?.commits.some((c) => c.id === head)) {
-          await this.applyPack(pack);
-          const written = (await this.db.getMeta<Record<string, string>>(this.key('headsWritten'))) ?? {};
-          await this.db.setMeta(this.key('headsWritten'), { ...written, [docId]: head });
-          break;
+    if (this.provider.listHeads && this.provider.readHead)
+      try {
+        for (const fresh of [false, true]) {
+          if (fresh || !this.heads)
+            this.heads = await this.provider.listHeads();
+          const entry = this.heads.get(docId);
+          // The head file is written after the index, so it may lag a moment behind: look once more, then use the packs.
+          if (!entry || (entry.head && entry.head !== head)) continue;
+          const pack = await this.provider
+            .readHead(entry.ref)
+            .catch(() => undefined);
+          if (pack?.commits.some((c) => c.id === head)) {
+            await this.applyPack(pack);
+            const written =
+              (await this.db.getMeta<Record<string, string>>(
+                this.key("headsWritten"),
+              )) ?? {};
+            await this.db.setMeta(this.key("headsWritten"), {
+              ...written,
+              [docId]: head,
+            });
+            break;
+          }
         }
+      } catch (e) {
+        // The packs still have it.
+        console.warn("Could not read the current-version file", e);
       }
-    }
-    if (!(await this.db.commits.get(head))) await this.loadPacks((p) => !p.docId || p.docId === docId);
+    if (!(await this.db.commits.get(head)))
+      await this.loadPacks((p) => !p.docId || p.docId === docId);
     const ok = !!(await this.db.commits.get(head));
     if (ok) {
       const doc = await this.db.docs.get(docId);
@@ -243,11 +336,15 @@ export class SyncEngine {
   /** Write the head file of each document whose current version this device holds and has not written yet. */
   private async writeHeads(docs: DocMeta[]) {
     if (!this.provider.writeHead) return;
-    const written = (await this.db.getMeta<Record<string, string>>(this.key('headsWritten'))) ?? {};
+    const written =
+      (await this.db.getMeta<Record<string, string>>(
+        this.key("headsWritten"),
+      )) ?? {};
     let changed = false;
     let listed = false;
     for (const d of docs) {
-      if (!d.head || d.deleted || d.remoteOnly || written[d.id] === d.head) continue;
+      if (!d.head || d.deleted || d.remoteOnly || written[d.id] === d.head)
+        continue;
       const commit = await this.db.commits.get(d.head);
       if (!commit || commit.synced !== 1) continue;
       // Another device may have written it already.
@@ -267,18 +364,31 @@ export class SyncEngine {
         // Not on this device (a big file never opened here): it is stored on its own already.
         if (!blob) continue;
         if (blob.size <= PACK_INLINE_LIMIT) blobs[h] = toBase64(blob.data);
-        else if (blob.size <= INLINE_BLOB_LIMIT) await this.provider.writeBlob(h, blob.data).catch(() => (complete = false));
+        else if (blob.size <= INLINE_BLOB_LIMIT)
+          await this.provider
+            .writeBlob(h, blob.data)
+            .catch(() => (complete = false));
       }
       if (!complete) continue;
       const { synced: _s, ...c } = commit;
       void _s;
       try {
-        const ref = await this.provider.writeHead(d.id, { format: 1, id: `head~${d.id}`, createdAt: Date.now(), commits: [c], blobs }, this.heads?.get(d.id)?.ref);
+        const ref = await this.provider.writeHead(
+          d.id,
+          {
+            format: 1,
+            id: `head~${d.id}`,
+            createdAt: Date.now(),
+            commits: [c],
+            blobs,
+          },
+          this.heads?.get(d.id)?.ref,
+        );
         this.heads?.set(d.id, { ref, head: d.head });
         written[d.id] = d.head;
         changed = true;
       } catch (e) {
-        console.warn('Could not write the current version file', e);
+        console.warn("Could not write the current version file", e);
       }
     }
     for (const id of Object.keys(written)) {
@@ -287,7 +397,7 @@ export class SyncEngine {
         changed = true;
       }
     }
-    if (changed) await this.db.setMeta(this.key('headsWritten'), written);
+    if (changed) await this.db.setMeta(this.key("headsWritten"), written);
   }
 
   // ---------- history on demand ----------
@@ -302,7 +412,7 @@ export class SyncEngine {
       applied.add(p.id);
       n++;
     }
-    if (n) await this.db.setMeta(this.key('appliedPacks'), [...applied]);
+    if (n) await this.db.setMeta(this.key("appliedPacks"), [...applied]);
     return n;
   }
 
@@ -310,7 +420,8 @@ export class SyncEngine {
   async followDocs(docIds: string[]): Promise<number> {
     const follow = await this.followed();
     const fresh = docIds.filter((id) => !follow.has(id));
-    if (fresh.length) await this.db.setMeta(this.key('follow'), [...follow, ...fresh]);
+    if (fresh.length)
+      await this.db.setMeta(this.key("follow"), [...follow, ...fresh]);
     const ids = new Set(docIds);
     return this.loadPacks((p) => !p.docId || ids.has(p.docId));
   }
@@ -323,9 +434,14 @@ export class SyncEngine {
   // ---------- the index ----------
 
   /** Merge the remote index into local docs; returns the merged local view. */
-  private async mergeIndex(remote: RemoteIndex | null, report: SyncReport): Promise<DocMeta[]> {
+  private async mergeIndex(
+    remote: RemoteIndex | null,
+    report: SyncReport,
+  ): Promise<DocMeta[]> {
     const remoteDocs = new Map((remote?.docs ?? []).map((d) => [d.id, d]));
-    const localDocs = new Map((await this.db.docs.toArray()).map((d) => [d.id, d]));
+    const localDocs = new Map(
+      (await this.db.docs.toArray()).map((d) => [d.id, d]),
+    );
     const ids = new Set([...remoteDocs.keys(), ...localDocs.keys()]);
     for (const id of ids) {
       const r = remoteDocs.get(id);
@@ -334,7 +450,11 @@ export class SyncEngine {
         if (r && !l) {
           const here = !r.head || !!(await this.db.commits.get(r.head));
           // Data saver: list the document now; its contents come when it is opened.
-          const doc: DocMeta | null = here ? { ...r } : this.mode === 'saver' && !r.deleted ? { ...r, remoteOnly: true } : null;
+          const doc: DocMeta | null = here
+            ? { ...r }
+            : this.mode === "saver" && !r.deleted
+              ? { ...r, remoteOnly: true }
+              : null;
           if (doc) {
             await this.db.docs.put(doc);
             localDocs.set(id, doc);
@@ -352,10 +472,19 @@ export class SyncEngine {
     return [...localDocs.values()];
   }
 
-  private async mergeDoc(l: DocMeta, r: DocMeta, report: SyncReport): Promise<DocMeta> {
+  private async mergeDoc(
+    l: DocMeta,
+    r: DocMeta,
+    report: SyncReport,
+  ): Promise<DocMeta> {
     const newer = r.updatedAt > l.updatedAt ? r : l;
+    // A link (which document this is a variant of) can change without a new version: the side that changed it last wins.
+    const linked = (r.linkedAt ?? 0) > (l.linkedAt ?? 0) ? r : l;
     let out: DocMeta = {
       ...l,
+      parent: linked.parent,
+      recipe: linked.recipe,
+      linkedAt: linked.linkedAt,
       name: newer.name,
       engine: newer.engine,
       mainFile: newer.mainFile,
@@ -368,24 +497,52 @@ export class SyncEngine {
     };
     if (out.deleted || l.head === r.head || !r.head) return out;
     // Listed but not on this device (data saver): nothing here to keep, so just follow the storage.
-    if (l.remoteOnly) return { ...out, head: r.head, parent: r.parent, recipe: r.recipe };
+    if (l.remoteOnly)
+      return {
+        ...out,
+        head: r.head,
+        parent: r.parent,
+        recipe: r.recipe,
+        linkedAt: r.linkedAt,
+      };
     if (!(await this.db.commits.get(r.head))) return out; // not visible yet
     let ahead = !l.head || (await this.repo.isAncestor(l.head, r.head));
-    if (!ahead && !(await this.repo.isAncestor(r.head, l.head!)) && this.mode !== 'all') {
+    if (
+      !ahead &&
+      !(await this.repo.isAncestor(r.head, l.head!)) &&
+      this.mode !== "all"
+    ) {
       // Neither follows from the other as far as this device can see, and it may not hold the versions in between.
       // A document never changed here is simply behind. One that was changed here needs its real history to tell
       // "the other device is ahead" from "both changed it".
       if (await this.untouched(l)) ahead = true;
-      else if ((await this.followDocs([l.id])) > 0) ahead = await this.repo.isAncestor(l.head!, r.head);
+      else if ((await this.followDocs([l.id])) > 0)
+        ahead = await this.repo.isAncestor(l.head!, r.head);
     }
     if (ahead) {
       // Remote is ahead. Keep unsaved local edits by committing them first (which makes heads diverge).
       const work = await this.db.work.get(l.id);
       if (work?.dirty && l.head) {
-        const c = await this.repo.commitWork(l.id, 'Autosave before sync', 'auto');
-        if (c) return this.mergeDoc({ ...(await this.db.docs.get(l.id))!, ...out, head: c.id }, r, report);
+        const c = await this.repo.commitWork(
+          l.id,
+          "Autosave before sync",
+          "auto",
+        );
+        if (c)
+          return this.mergeDoc(
+            { ...(await this.db.docs.get(l.id))!, ...out, head: c.id },
+            r,
+            report,
+          );
       }
-      out = { ...out, head: r.head, parent: r.parent, recipe: r.recipe };
+      // The newer version brings its link along, unless the link was changed here since.
+      out = {
+        ...out,
+        head: r.head,
+        ...((r.linkedAt ?? 0) >= (l.linkedAt ?? 0)
+          ? { parent: r.parent, recipe: r.recipe, linkedAt: r.linkedAt }
+          : {}),
+      };
       await this.db.work.delete(l.id); // re-created from the new head on next open
       report.updatedDocs.push(l.id);
       return out;
@@ -407,7 +564,7 @@ export class SyncEngine {
     if (!l.head) return true;
     if ((await this.followed()).has(l.id)) return false;
     if ((await this.db.work.get(l.id))?.dirty) return false;
-    const own = await this.db.commits.where('docId').equals(l.id).toArray();
+    const own = await this.db.commits.where("docId").equals(l.id).toArray();
     return own.every((c) => c.synced === 1);
   }
 
@@ -422,17 +579,25 @@ export class SyncEngine {
     const follow = await this.followed();
     const mine = remotePacks.filter((p) => applied.has(p.id));
     const byDoc = new Map<string, PackRef[]>();
-    for (const p of mine) if (p.docId) byDoc.set(p.docId, [...(byDoc.get(p.docId) ?? []), p]);
+    for (const p of mine)
+      if (p.docId) byDoc.set(p.docId, [...(byDoc.get(p.docId) ?? []), p]);
     const mixed = mine.filter((p) => !p.docId);
-    const everything = this.mode === 'all' && mine.length === remotePacks.length;
-    const extras = mixed.length + [...byDoc.values()].reduce((n, list) => n + list.length - 1, 0);
+    const everything =
+      this.mode === "all" && mine.length === remotePacks.length;
+    const extras =
+      mixed.length +
+      [...byDoc.values()].reduce((n, list) => n + list.length - 1, 0);
     if (everything && mixed.length > 0 && extras > COMPACT_THRESHOLD) {
       await this.compact();
       return true;
     }
     let did = false;
     for (const [docId, refs] of byDoc) {
-      if (refs.length <= DOC_COMPACT_THRESHOLD || !(everything || follow.has(docId))) continue;
+      if (
+        refs.length <= DOC_COMPACT_THRESHOLD ||
+        !(everything || follow.has(docId))
+      )
+        continue;
       did = (await this.compactDoc(docId, refs)) || did;
     }
     return did;
@@ -440,7 +605,9 @@ export class SyncEngine {
 
   /** One pack holding every synced version of a document this device has, with the small files they use. */
   private async docPack(docId: string): Promise<Pack | null> {
-    const commits = (await this.db.commits.where('docId').equals(docId).toArray()).filter((c) => c.synced === 1);
+    const commits = (
+      await this.db.commits.where("docId").equals(docId).toArray()
+    ).filter((c) => c.synced === 1);
     if (commits.length === 0) return null;
     const blobs: Record<Hash, string> = {};
     const hashes = new Set<Hash>();
@@ -448,9 +615,16 @@ export class SyncEngine {
     for (const h of hashes) {
       const blob = await this.db.blobs.get(h);
       // Files up to the old inline limit may exist nowhere but inside packs: they must be carried along.
-      if (blob && blob.size <= INLINE_BLOB_LIMIT) blobs[h] = toBase64(blob.data);
+      if (blob && blob.size <= INLINE_BLOB_LIMIT)
+        blobs[h] = toBase64(blob.data);
     }
-    return { format: 1, id: `${docId}~${newId()}`, createdAt: Date.now(), commits: commits.map(({ synced: _s, ...c }) => (void _s, c)), blobs };
+    return {
+      format: 1,
+      id: `${docId}~${newId()}`,
+      createdAt: Date.now(),
+      commits: commits.map(({ synced: _s, ...c }) => (void _s, c)),
+      blobs,
+    };
   }
 
   private async compactDoc(docId: string, refs: PackRef[]): Promise<boolean> {
@@ -461,7 +635,7 @@ export class SyncEngine {
     const applied = await this.appliedPacks();
     refs.forEach((p) => applied.delete(p.id));
     applied.add(pack.id);
-    await this.db.setMeta(this.key('appliedPacks'), [...applied]);
+    await this.db.setMeta(this.key("appliedPacks"), [...applied]);
     return true;
   }
 
@@ -488,7 +662,7 @@ export class SyncEngine {
     await this.provider.deletePacks(packs.map((p) => p.ref));
     const applied = await this.appliedPacks();
     packs.forEach((p) => applied.delete(p.id));
-    await this.db.setMeta(this.key('appliedPacks'), [...applied, ...written]);
+    await this.db.setMeta(this.key("appliedPacks"), [...applied, ...written]);
   }
 }
 
@@ -500,25 +674,45 @@ function forLocal(doc: DocMeta): DocMeta {
 }
 
 /** Merge a head that diverged on another device into the local head (3-way, conflicts left as markers). */
-export async function mergeDivergedHead(repo: Repo, docId: string, otherHead: string): Promise<{ conflicts: number }> {
+export async function mergeDivergedHead(
+  repo: Repo,
+  docId: string,
+  otherHead: string,
+): Promise<{ conflicts: number }> {
   const doc = await repo.getDoc(docId);
-  if (!doc?.head) throw new Error('Document not found');
-  await repo.commitWork(docId, 'Autosave before combining', 'auto');
+  if (!doc?.head) throw new Error("Document not found");
+  await repo.commitWork(docId, "Autosave before combining", "auto");
   const head = (await repo.getDoc(docId))!.head!;
   const base = await repo.mergeBase(head, otherHead);
   const ours = await repo.readCommitFiles(head);
   const theirs = await repo.readCommitFiles(otherHead);
   const baseFiles = base ? await repo.readCommitFiles(base) : {};
-  const m = mergeFileMaps(ours, baseFiles, theirs, { ours: 'this device', theirs: 'other device' });
+  const m = mergeFileMaps(ours, baseFiles, theirs, {
+    ours: "this device",
+    theirs: "other device",
+  });
   await repo.setWorkFiles(docId, m.files);
-  await repo.commitWork(docId, 'Combined changes from another device', 'merge', [otherHead]);
+  await repo.commitWork(
+    docId,
+    "Combined changes from another device",
+    "merge",
+    [otherHead],
+  );
   const fresh = (await repo.getDoc(docId))!;
-  await repo.updateDoc(docId, { divergedHeads: (fresh.divergedHeads ?? []).filter((h) => h !== otherHead) });
+  await repo.updateDoc(docId, {
+    divergedHeads: (fresh.divergedHeads ?? []).filter((h) => h !== otherHead),
+  });
   return { conflicts: m.conflictFiles.reduce((n, f) => n + f.conflicts, 0) };
 }
 
-export async function discardDivergedHead(repo: Repo, docId: string, otherHead: string) {
+export async function discardDivergedHead(
+  repo: Repo,
+  docId: string,
+  otherHead: string,
+) {
   const doc = await repo.getDoc(docId);
   if (!doc) return;
-  await repo.updateDoc(docId, { divergedHeads: (doc.divergedHeads ?? []).filter((h) => h !== otherHead) });
+  await repo.updateDoc(docId, {
+    divergedHeads: (doc.divergedHeads ?? []).filter((h) => h !== otherHead),
+  });
 }

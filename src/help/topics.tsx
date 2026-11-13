@@ -406,6 +406,31 @@ export const TOPICS: Topic[] = [
           <b>Duplicate</b> (document menu) makes a full copy that is still linked to the original but keeps <i>everything</i>: when you get updates,
           all of the original’s changes come in, with nothing filtered out.
         </P>
+        <H2>Linking documents that already exist</H2>
+        <P>
+          Two documents don’t have to start as original and variant. From a document’s <b>⋯</b> menu (or a right-click on its card):
+        </P>
+        <UL>
+          <li>
+            <b>Link as variant of…</b> picks the document it should take updates from. On the map you can also drag a line from the small dot on
+            one card’s edge to another card: the second becomes a variant of the first.
+          </li>
+          <li>
+            <b>Unlink from original</b> makes a variant a document of its own again.
+          </li>
+          <li>
+            <b>Make this the original</b> swaps a variant with its original: the variant becomes the one the other takes updates from.
+          </li>
+        </UL>
+        <P>
+          None of these change the text of either document; they only change who gets updates from whom, and each shows an <b>Undo</b> button
+          right after. A document has one original, and TexChef refuses a link that would go round in a circle (a document can’t become a variant
+          of one of its own variants).
+        </P>
+        <Note kind="info">
+          Which changes count as updates after linking? If one document was made from the other, only what changed since they last agreed. If
+          they have nothing in common, changes made to the original from that moment on.
+        </Note>
       </>
     ),
   },
@@ -549,7 +574,8 @@ export const TOPICS: Topic[] = [
         </UL>
         <Note kind="tip">
           Not sure? Use <b>Compare</b> first to see the original and the variant side by side, or apply the updates and look at the result: every
-          update is a version in History, so you can always restore the variant as it was before.
+          update is a version in History, so you can always restore the variant as it was before. Restoring a version from before an update
+          also puts that update back on offer, so you can take it again later.
         </Note>
         <H3>Combining edits from two devices</H3>
         <P>
@@ -594,6 +620,17 @@ export const TOPICS: Topic[] = [
           When you <HelpLink to="edit-on-pdf">edit on the PDF</HelpLink> in a variant, tick <b>Also change it in “…”</b> to make the same change in
           the original. This changes only that text, not the whole block.
         </P>
+        <H2>Everything at once</H2>
+        <P>
+          <b>Send changes to original</b> (a variant’s <b>⋯</b> menu, or the <b>⌄</b> menu in the editor) is <HelpLink to="updates">Get updates</HelpLink>{' '}
+          the other way round. It shows the original as it is and as it would become, with the same conflict choices where both documents changed
+          the same lines. Nothing changes until you press <b>Send changes</b>; the result is saved in the original as a new version, so restoring
+          the version before it takes it back.
+        </P>
+        <Note kind="info">
+          This is for variants that keep everything (duplicates, and documents you linked yourself). A variant made by picking tags or blocks holds
+          only part of the original, so sending it back whole would remove the rest: copy single blocks instead.
+        </Note>
         <P>
           You can copy blocks between <i>any</i> two documents from the <HelpLink to="compare">Compare</HelpLink> view.
         </P>
@@ -876,7 +913,7 @@ export const TOPICS: Topic[] = [
         <P>
           Give a document a color with <b>Color…</b> in its menu (or click the colored dot next to its name in the editor). The color is used for the
           card border, the list, the lines on the map and its lane in the Versions view. Old variants you no longer need can be <b>archived</b>:
-          they disappear from the map and list until you click <b>Show archived</b>.
+          they leave the map and the list and wait under <b>Archive</b> in the folders panel (turn it on in the panel’s menu).
         </P>
       </>
     ),
@@ -1154,6 +1191,10 @@ TexChef/
           <li>
             <b>Rename</b> a document, <b>move</b> it to a folder, or move it to the <b>archive</b>. These show under <b>Also proposed</b> in
             the review, each with a tick box.
+          </li>
+          <li>
+            <b>Link</b> one of your documents as a variant of another, or <b>unlink</b> a variant. No text changes, and the same rules apply as when
+            you do it yourself.
           </li>
           <li>It cannot delete anything, and nothing happens until you accept.</li>
         </UL>
