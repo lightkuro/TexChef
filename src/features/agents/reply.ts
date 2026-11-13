@@ -12,6 +12,9 @@ import { merge3 } from '@/core/merge';
  *   % texchef-reply doc=<document id> archive=yes
  *   % texchef-reply doc=<document id> variant-of=<document id>      (link an existing document as a variant)
  *   % texchef-reply doc=<document id> unlink=yes                    (make a variant a document of its own)
+ *   % texchef-reply doc=<document id> make-original=yes             (swap a variant with its original)
+ *   % texchef-reply doc=<variant id> base=<version> merged=<original's version id>   (text that already includes the original's changes)
+ *   % texchef-reply doc=<variant id> then=get-updates | then=send-changes           (open TexChef's own merge review afterwards)
  *
  * The rest of the file is the whole edited file (it may be left out when only renaming or moving). Several files
  * are separated by `% texchef-file: <path>` lines. Nothing is applied until the person reviews it, and each
@@ -32,6 +35,15 @@ export interface AgentReply {
   variantOf?: string;
   /** For an existing variant: unlink it from its original. */
   unlink?: boolean;
+  /** For an existing variant: swap it with its original. */
+  makeOriginal?: boolean;
+  /**
+   * For a variant: the proposed text already includes its original's changes up to this version of the original
+   * (the agent did the merging). Accepting counts those changes as taken.
+   */
+  merged?: string;
+  /** For a variant: after accepting, open TexChef's review for getting updates from, or sending changes to, its original. */
+  then?: 'get-updates' | 'send-changes';
   /** Move the document to the archive (true) or bring it back (false). */
   archive?: boolean;
   /** path → full text. A path of '' means "the document's main file". */
@@ -85,6 +97,9 @@ export function parseReply(raw: string): AgentReply {
     folder: a.folder,
     variantOf: a['variant-of'] ?? a.variantof,
     unlink: flag(a.unlink) || undefined,
+    makeOriginal: flag(a['make-original'] ?? a.makeoriginal) || undefined,
+    merged: a.merged,
+    then: a.then === 'get-updates' || a.then === 'send-changes' ? a.then : undefined,
     archive: flag(a.archive),
     files,
   };

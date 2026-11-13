@@ -615,8 +615,16 @@ await step('versions view: links between documents go around the versions in bet
   assert.match(await tip.innerText(), /v\d+/, 'the version number');
   assert.match(await tip.innerText(), /\d+ files?/, 'and how many files it holds');
   await page.screenshot({ path: `${OUT}07d-versions-hover.png` });
-  await dots().first().hover();
-  await page.waitForFunction(() => /Autosave/.test(document.querySelector('[data-testid=commit-hover]')?.textContent ?? ''));
+  // (The dot is small and the map may still be settling: point at it again if the first try misses.)
+  for (let attempt = 0; ; attempt++) {
+    await page.mouse.move(5, 500);
+    await dots().first().hover();
+    const shown = await page
+      .waitForFunction(() => /Autosave/.test(document.querySelector('[data-testid=commit-hover]')?.textContent ?? ''), null, { timeout: 4000 })
+      .then(() => true, () => false);
+    if (shown) break;
+    assert.ok(attempt < 4, 'pointing at an autosave’s dot shows its card');
+  }
   await page.mouse.move(5, 500);
   await tip.waitFor({ state: 'detached' });
   await page.screenshot({ path: `${OUT}07c-versions-links.png` });
@@ -1305,6 +1313,29 @@ await step('AI agents (experimental): off by default; on, a pasted reply is revi
   assert.equal(await page.getByTestId('agent-action-link').count(), 0);
   assert.ok(await page.getByTestId('agent-reply-accept').isDisabled());
   assert.equal(await linkedTo(m), null);
+  // Merging: an assistant can ask for TexChef's own review to be opened, say it did the merge itself, or propose a swap.
+  await openPaste(`% texchef-reply doc=${letter} then=get-updates note="The master moved on"`);
+  await page.getByTestId('agent-action-then').waitFor();
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${letter}/pull`);
+  const mHead = await page.evaluate(async (id) => (await window.rc.repo.getDoc(id)).head, m);
+  await openPaste(`% texchef-reply doc=${letter} merged=${mHead}`);
+  await page.getByTestId('agent-action-merged').waitFor();
+  await openPaste(`% texchef-reply doc=${letter} merged=NOT-A-VERSION`);
+  await page.getByTestId('agent-action-refused').getByText('Can’t be done').waitFor();
+  assert.equal(await page.getByTestId('agent-action-merged').count(), 0);
+  await openPaste(`% texchef-reply doc=${letter} make-original=yes`);
+  await page.getByTestId('agent-action-make-original').waitFor();
+  assert.equal(await linkedTo(letter), m, 'nothing swapped before approval');
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${letter}`);
+  assert.equal(await linkedTo(m), letter);
+  assert.equal(await linkedTo(letter), null);
+  await openPaste(`% texchef-reply doc=${m} make-original=yes`);
+  await page.getByTestId('agent-action-make-original').waitFor();
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${m}`);
+  assert.equal(await linkedTo(letter), m);
   // ---- agents: linking proposals (end) ----
   // Archiving is a proposal too: nothing happens until it is accepted here.
   await openPaste(`% texchef-reply doc=${letter} archive=yes note="No longer needed"`);

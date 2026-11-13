@@ -67,6 +67,14 @@ TexChef can't apply edits you make anywhere else. Write each answer as **one new
 - To **link** an existing document as a variant of another (it then takes that document's later changes), add
   \`variant-of=<id>\` to a reply for it; \`unlink=yes\` makes a variant a document of its own again. Neither
   changes any text. A document has one original, and it can't become a variant of one of its own variants.
+- \`make-original=yes\` on a variant swaps it with its original (the old original becomes its variant).
+- **Merging.** A variant can be behind its original (the Family column shows which is which). Two ways to help:
+  - Do the merge yourself: read both, write the variant's complete text with the original's changes worked in, and
+    add \`merged=<the original's base value from the table>\` to the reply for the variant. Once accepted, TexChef
+    counts the original's changes up to that version as taken.
+  - Or ask TexChef to do it: \`then=get-updates\` (the variant takes its original's changes) or
+    \`then=send-changes\` (the variant's changes go to its original) opens TexChef's own review, where the owner
+    settles any conflicts. This needs no text.
 - To propose moving a document to the **archive** (it is kept, only hidden), add \`archive=yes\`; \`archive=no\`
   brings one back.
 - You cannot delete documents, and nothing you write takes effect until the owner accepts it in TexChef.

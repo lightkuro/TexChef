@@ -58,10 +58,15 @@ export function AgentRepliesDialog() {
   const pick = async () => {
     try {
       const folder = await driveProvider()?.findAgentsFolder();
+      // This window steps aside while Google's picker is open: an open dialog keeps everything outside it from
+      // being tapped, and the picker (and its tip) sit outside it.
+      setOpen(false);
       const picked = await pickAgentReplies(folder);
       if (picked.length === 1) return openReply(`file=${encodeURIComponent(picked[0].id)}`);
       if (picked.length) setReplies((r) => [...picked, ...(r ?? []).filter((x) => !picked.some((p) => p.id === x.id))]);
+      setOpen(true);
     } catch (e) {
+      setOpen(true);
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(msg, { description: e instanceof PickerError ? pickerTroubleHint() : undefined });
     }

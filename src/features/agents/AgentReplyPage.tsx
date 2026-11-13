@@ -8,7 +8,7 @@ import { Badge, Button, EmptyState, Select, Spinner, Tip } from '@/components/ui
 import { DiffView } from '@/features/compare/DiffView';
 import { driveProvider } from '@/features/sync/controller';
 import { SaveAsVariantDialog } from '@/features/variants/SaveAsVariantDialog';
-import { canLink, linkAsVariant, saveWorkAsVariant, unlinkVariant } from '@/variants/ops';
+import { canLink, linkAsVariant, makeOriginal, saveWorkAsVariant, unlinkVariant } from '@/variants/ops';
 import { cleanFolder } from '@/features/folders/folderTree';
 import { fileText } from '@/core/repo';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,9 @@ export function AgentReplyPage() {
   const [busy, setBusy] = useState(false);
   const [asVariant, setAsVariant] = useState(false);
   // The actions a reply proposes besides text (rename, move, make it a variant): each can be unticked.
-  const [use, setUse] = useState({ rename: true, folder: true, variant: true, archive: true, link: true, unlink: true });
+  const [use, setUse] = useState({ rename: true, folder: true, variant: true, archive: true, link: true, unlink: true, makeOriginal: true, merged: true, then: true });
+  /** Whether the version named in `merged=` really is a later version of the document's original. */
+  const [mergedOk, setMergedOk] = useState<{ ok: boolean; reason?: string }>();
 
   // Load the reply: from Drive, or pasted.
   useEffect(() => {
@@ -112,12 +114,48 @@ export function AgentReplyPage() {
     link: !!linkCheck?.ok,
     // "Link to X" and "unlink" in one reply: the link is the clearer wish.
     unlink: docId !== 'new' && !!doc?.parent && !!reply?.unlink && !reply.variantOf,
+    makeOriginal: docId !== 'new' && !!doc?.parent && !!original && !!reply?.makeOriginal && !reply.unlink && !reply.variantOf,
+    // The agent merged the original's changes into this text itself.
+    merged: docId !== 'new' && !!doc?.parent && !!reply?.merged && !!mergedOk?.ok,
+    // Or it asks for TexChef's own merge review once this is accepted.
+    then: docId !== 'new' && !!doc?.parent && !!original && !!reply?.then && !reply.unlink,
   };
   /** Proposed, but not possible: shown so it isn't silently dropped, and never applied. */
-  const refused = linkCheck && !linkCheck.ok ? `Link it as a variant of “${variantOf?.name ?? reply?.variantOf}”: ${linkCheck.reason}` : undefined;
+  const refused =
+    linkCheck && !linkCheck.ok
+      ? `Link it as a variant of “${variantOf?.name ?? reply?.variantOf}”: ${linkCheck.reason}`
+      : reply?.merged && mergedOk && !mergedOk.ok
+        ? `Count the original’s changes as taken: ${mergedOk.reason}`
+        : undefined;
   const anyAction =
-    (actions.rename && use.rename) || (actions.folder && use.folder) || (actions.archive && use.archive) || (actions.link && use.link) || (actions.unlink && use.unlink);
+    (actions.rename && use.rename) ||
+    (actions.folder && use.folder) ||
+    (actions.archive && use.archive) ||
+    (actions.link && use.link) ||
+    (actions.unlink && use.unlink) ||
+    (actions.makeOriginal && use.makeOriginal) ||
+    (actions.then && use.then);
   const active = plan?.files.find((f) => f.path === path) ?? plan?.files[0];
+  // `merged=`: it must name a version of this document's original that is not older than the one last taken.
+  const mergedId = reply?.merged;
+  const parentId = doc?.parent?.docId;
+  const parentBase = doc?.parent?.baseCommitId;
+  useEffect(() => {
+    setMergedOk(undefined);
+    if (!mergedId || !parentId || !parentBase) return;
+    let live = true;
+    (async () => {
+      const c = await repo.needCommit(mergedId);
+      if (!c || c.docId !== parentId) return { ok: false, reason: 'that isn’t a version of its original' };
+      if (!(await repo.isAncestor(parentBase, mergedId))) return { ok: false, reason: 'that version is older than the one already taken' };
+      return { ok: true };
+    })()
+      .then((r) => live && setMergedOk(r))
+      .catch(() => live && setMergedOk({ ok: false, reason: 'that version could not be found' }));
+    return () => {
+      live = false;
+    };
+  }, [mergedId, parentId, parentBase]);
   const conflicted = useMemo(() => Object.values(proposed).filter(hasConflictMarkers).length, [proposed]);
   const changed = plan?.files.filter((f) => proposed[f.path] !== f.current) ?? [];
   const note = source?.reply.note;
@@ -159,15 +197,22 @@ export function AgentReplyPage() {
       }
       if (changed.length) {
         await writeProposed(docId);
-        await repo.commitWork(docId, `Edits from an AI agent${note ? `: ${note}` : ''}`, 'agent');
+        const took = actions.merged && use.merged ? reply!.merged! : undefined;
+        await repo.commitWork(docId, `Edits from an AI agent${note ? `: ${note}` : ''}`, 'agent', took ? [took] : []);
+        // The text already carries the original's changes up to that version: they are not offered again.
+        const fresh = took ? await repo.getDoc(docId) : undefined;
+        if (took && fresh?.parent) await repo.updateDoc(docId, { parent: { ...fresh.parent, baseCommitId: took } });
       }
       if (actions.rename && use.rename) await repo.updateDoc(docId, { name: reply!.rename!.trim() });
       if (actions.folder && use.folder) await repo.updateDoc(docId, { folder: newFolder });
       if (actions.archive && use.archive) await repo.updateDoc(docId, { archived: reply!.archive });
       if (actions.link && use.link) await linkAsVariant(repo, docId, reply!.variantOf!);
       if (actions.unlink && use.unlink) await unlinkVariant(repo, docId);
+      if (actions.makeOriginal && use.makeOriginal) await makeOriginal(repo, docId);
       toast.success(changed.length ? 'Saved as a new version' : 'Done');
-      await finish(`/doc/${docId}`);
+      // Merging stays TexChef's own review: the reply can only ask for it to be opened.
+      const next = actions.then && use.then && !(actions.makeOriginal && use.makeOriginal) ? (reply!.then === 'get-updates' ? '/pull' : '/push') : '';
+      await finish(`/doc/${docId}${next}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
       setBusy(false);
@@ -262,7 +307,7 @@ export function AgentReplyPage() {
               </Select>
             )}
           </div>
-          {(actions.rename || actions.folder || actions.variant || actions.archive || actions.link || actions.unlink || refused) && (
+          {(actions.rename || actions.folder || actions.variant || actions.archive || actions.link || actions.unlink || actions.makeOriginal || actions.merged || actions.then || refused) && (
             <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-line px-3 py-2 text-sm" data-testid="agent-reply-actions">
               <span className="text-xs font-medium tracking-wide text-muted uppercase">Also proposed</span>
               {actions.rename && (
@@ -301,6 +346,25 @@ export function AgentReplyPage() {
                 <label className="flex items-center gap-1.5">
                   <input type="checkbox" checked={use.unlink} onChange={(e) => setUse((u) => ({ ...u, unlink: e.target.checked }))} data-testid="agent-action-unlink" />
                   <Unlink className="size-3.5 text-muted" /> Unlink it from “{original?.name ?? 'its original'}”: it keeps its text and versions
+                </label>
+              )}
+              {actions.makeOriginal && (
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={use.makeOriginal} onChange={(e) => setUse((u) => ({ ...u, makeOriginal: e.target.checked }))} data-testid="agent-action-make-original" />
+                  <Link2 className="size-3.5 text-muted" /> Make it the original, and “{original!.name}” its variant: no text changes
+                </label>
+              )}
+              {actions.merged && (
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={use.merged} onChange={(e) => setUse((u) => ({ ...u, merged: e.target.checked }))} data-testid="agent-action-merged" />
+                  <Link2 className="size-3.5 text-muted" /> This text already includes the latest changes from “{original?.name ?? 'its original'}”: don’t offer them again
+                </label>
+              )}
+              {actions.then && (
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={use.then} onChange={(e) => setUse((u) => ({ ...u, then: e.target.checked }))} data-testid="agent-action-then" />
+                  <Link2 className="size-3.5 text-muted" />{' '}
+                  {reply!.then === 'get-updates' ? `Then review the updates from “${original!.name}”` : `Then review sending this document’s changes to “${original!.name}”`}
                 </label>
               )}
               {refused && (

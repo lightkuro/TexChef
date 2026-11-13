@@ -117,7 +117,8 @@ async function showPicker(opts: PickerOptions): Promise<NonNullable<PickerRespon
       toast('Choosing files in Google Drive', {
         id: HELP_TOAST,
         duration: Infinity,
-        description: isBrave() ? pickerTroubleHint() : `Stuck on “Sign in” or an error? ${pickerTroubleHint()}`,
+        // Short on phones: beside the two buttons there is little room for text.
+        description: window.matchMedia('(max-width: 639px)').matches ? 'Stuck? Allow cookies for this site, or close the picker and upload the file instead.' : isBrave() ? pickerTroubleHint() : `Stuck on “Sign in” or an error? ${pickerTroubleHint()}`,
         action: { label: 'Close picker', onClick: () => finish([]) },
         cancel: {
           label: 'Don’t show again',

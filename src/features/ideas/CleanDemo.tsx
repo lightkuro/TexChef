@@ -58,7 +58,8 @@ export function CleanFrame({
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-line bg-panel shadow-lg shadow-black/5 dark:shadow-black/30" style={{ width: Math.round(size.w * scale) }} data-testid="ideas-frame">
       {/* The scenes, as tabs */}
-      <div role="tablist" aria-label="Scenes" className="flex shrink-0 border-b border-line bg-subtle" style={{ height: CLEAN_BAR }}>
+      {/* On a narrow window (a phone held upright, where the window is as wide as its height allows) the names shrink to fit. */}
+      <div role="tablist" aria-label="Scenes" className="flex shrink-0 border-b border-line bg-subtle" style={{ height: CLEAN_BAR, fontSize: Math.max(10, Math.min(13, (size.w * scale) / 27)) }}>
         {CLEAN_STORY.map((s, i) => (
           <button
             key={s.short}
@@ -66,7 +67,7 @@ export function CleanFrame({
             aria-selected={i === step}
             onClick={() => onStep(i)}
             className={cn(
-              'pointer-events-auto -mb-px min-w-0 flex-1 truncate border-r border-line px-1 text-[13px] font-medium transition-colors duration-150 sm:flex-none sm:px-4',
+              'pointer-events-auto -mb-px min-w-0 flex-1 border-r border-line px-0.5 font-medium whitespace-nowrap transition-colors duration-150 sm:flex-none sm:px-4',
               i === step ? 'bg-panel text-fg shadow-[inset_0_2px_0_var(--accent)]' : 'text-muted hover:bg-panel/60 hover:text-fg',
             )}
             data-testid={`ideas-step-${i}`}

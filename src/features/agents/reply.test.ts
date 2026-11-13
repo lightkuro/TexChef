@@ -33,6 +33,12 @@ describe('agent replies', () => {
     // For a document that already exists: link it as a variant of another, or unlink it.
     expect(parseReply('% texchef-reply doc=abc variant-of=m1')).toMatchObject({ doc: 'abc', variantOf: 'm1', files: {} });
     expect(parseReply('% texchef-reply doc=abc unlink=yes').unlink).toBe(true);
+    // Swapping with the original, a merge the agent did itself, and asking for TexChef's own merge review.
+    expect(parseReply('% texchef-reply doc=abc make-original=yes').makeOriginal).toBe(true);
+    expect(parseReply('% texchef-reply doc=abc base=v1 merged=o9\nText')).toMatchObject({ merged: 'o9', base: 'v1', files: { '': 'Text' } });
+    expect(parseReply('% texchef-reply doc=abc then=get-updates').then).toBe('get-updates');
+    expect(parseReply('% texchef-reply doc=abc then=send-changes').then).toBe('send-changes');
+    expect(parseReply('% texchef-reply doc=abc then=delete-everything').then).toBeUndefined();
     expect(parseReply('% texchef-reply doc=abc unlink=no').unlink).toBeUndefined();
   });
 
