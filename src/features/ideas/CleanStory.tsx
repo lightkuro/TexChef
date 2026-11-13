@@ -1,5 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { Link } from 'react-router';
 import { animate, useMotionValueEvent, useScroll } from 'motion/react';
+import { ArrowRight, BookOpen } from 'lucide-react';
+import type { MenuAction } from '@/components/ActionMenu';
+import { StartMenu } from './StartMenu';
 import { cn } from '@/lib/utils';
 import { CLEAN_BAR, CLEAN_FOOT, CLEAN_SIZE, CLEAN_STORY, CleanFrame } from './CleanDemo';
 
@@ -18,7 +22,15 @@ export function CleanStory({
   reduce,
   onStep,
   bottomRoom,
+  onStart,
+  upload,
+  guide,
 }: {
+  /** New document, beside the scenes. */
+  onStart: () => void;
+  upload: MenuAction[] | (() => void);
+  /** Show the Guide button too (not inside the help, which is the guide). */
+  guide: boolean;
   /** Keep the bottom of the window clear of something fixed there (the links between the ideas pages). */
   bottomRoom?: boolean;
   storyRef: RefObject<HTMLElement | null>;
@@ -89,10 +101,25 @@ export function CleanStory({
         className={cn('sticky mx-auto flex max-w-[90rem] flex-col gap-4 overflow-hidden px-4 pt-5 pb-5 sm:px-6 sm:pt-8 lg:px-12 xl:grid xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-rows-[minmax(0,1fr)] xl:items-center xl:gap-12 xl:py-10', bottomRoom && 'pb-16 xl:pb-16')}
         style={{ top: nav, height: pinned }}
       >
-        {/* A fixed height, so the window doesn't change size (or the title move) from one scene to the next. */}
-        <div className="flex min-h-[9.75rem] shrink-0 flex-col sm:min-h-[8.5rem] xl:min-h-[17rem]" data-testid="ideas-step-text">
-          <h2 className="text-[1.45rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl xl:text-[2.5rem] xl:leading-[1.1]">{CLEAN_STORY[step].title}</h2>
-          <p className="mt-2 text-[15px] text-pretty text-muted sm:mt-3 sm:text-lg xl:mt-5">{CLEAN_STORY[step].text}</p>
+        {/* A fixed height, so the window doesn't change size (or the title and buttons move) from one scene to the next. */}
+        <div className="flex min-h-[9.75rem] shrink-0 flex-col sm:min-h-[8.5rem] sm:[@media(min-height:900px)]:min-h-[12.75rem] xl:h-[23.5rem] xl:min-h-0">
+          <div data-testid="ideas-step-text">
+            <h2 className="text-[1.45rem] leading-tight font-semibold tracking-tight text-balance sm:text-4xl xl:text-[2.5rem] xl:leading-[1.1]">{CLEAN_STORY[step].title}</h2>
+            <p className="mt-2 text-[15px] text-pretty text-muted sm:mt-3 sm:text-lg xl:mt-5">{CLEAN_STORY[step].text}</p>
+          </div>
+          {/* Where there is room: wide screens (beside the window) and tall tablets. Phones have Start writing in the top bar. */}
+          <div className="pointer-events-auto mt-auto hidden flex-wrap items-center gap-3 pt-4 sm:[@media(min-height:900px)]:flex xl:flex" data-testid="ideas-story-actions">
+            <StartMenu onNew={onStart} upload={upload}>
+              <button className="flex h-11 items-center gap-2 rounded-lg bg-accent px-5 font-medium text-accent-fg transition-colors duration-150 hover:bg-accent-hover" data-testid="ideas-story-start">
+                New document <ArrowRight className="size-4" />
+              </button>
+            </StartMenu>
+            {guide && (
+              <Link to="/help/getting-started" className="flex h-11 items-center gap-2 rounded-lg border border-line px-5 font-medium transition-colors duration-150 hover:bg-subtle" data-testid="ideas-story-guide">
+                <BookOpen className="size-4" /> Guide
+              </Link>
+            )}
+          </div>
         </div>
         <div ref={stage} className="flex min-h-0 w-full flex-1 items-start xl:h-full xl:items-center xl:justify-end">
           <CleanFrame

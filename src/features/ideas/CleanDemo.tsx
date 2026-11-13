@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { ArrowLeft, Check, Cloud, Crown, FileText, GitBranch, GitPullRequestArrow, HardDrive, Pencil, Play, ServerOff, Type, X } from 'lucide-react';
-import { Logo } from '@/components/Logo';
+import { Check, Cloud, Crown, GitBranch, GitPullRequestArrow, HardDrive, Pencil, Play, ServerOff, Type, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, Chip, COPY_ROW, Footer, LINES, MiniPage, ROWS, Tex, Tile, TreeFigure, VARIANTS } from './DemoWindow';
 import { ease, lerp, seg } from './motionMath';
@@ -15,14 +14,13 @@ export const CLEAN_STORY: { short: string; title: string; text: string; secs: nu
   { short: 'Edit', title: 'Click the PDF. Type the change.', text: 'No hunting for the right line. Click a sentence, change a number, press Enter: TexChef edits the source for you.', secs: 1.5 },
   { short: 'Versions', title: 'One master. Many tailored versions.', text: 'Make a version per job, or per journal, and arrange them on the map. Fix something once and every version can take the fix, keeping its own edits.', secs: 1.5 },
   { short: 'Compare', title: 'Two documents, side by side.', text: 'Any two documents or versions next to each other, with the differences marked. Copy a line or a whole block across in one click.', secs: 1.1 },
-  { short: 'Private', title: 'Yours, on your device.', text: 'Documents and every version live in your browser. Connect Google Drive if you want a backup and your other devices.', secs: 1.3 },
+  { short: 'Private', title: 'Yours, on your device.', text: 'Documents and every version live in your browser. Connect Google Drive if you want a backup and your other devices.', secs: 1.5 },
 ];
 
-/** The drawn window (its header and scene), before scaling. The tabs and the bottom bar are drawn at full size. */
-export const CLEAN_SIZE = { wide: { w: 880, h: 520 }, compact: { w: 520, h: 620 } } as const;
+/** The drawn scene, before scaling. The tabs and the bottom bar are drawn at full size. */
+export const CLEAN_SIZE = { wide: { w: 880, h: 478 }, compact: { w: 520, h: 578 } } as const;
 export const CLEAN_BAR = 40;
 export const CLEAN_FOOT = 36;
-const HEADER = 42;
 
 /** Progress from `a` to `b` milliseconds, eased. */
 type K = (a: number, b: number) => number;
@@ -51,14 +49,12 @@ export function CleanFrame({
   onReplay?: () => void;
 }) {
   const size = compact ? CLEAN_SIZE.compact : CLEAN_SIZE.wide;
-  const body = { w: size.w, h: size.h - HEADER };
+  const body = { w: size.w, h: size.h };
   const at = (i: number) => {
     const ms = (i < step ? 1 : i === step ? t : 0) * CLEAN_STORY[i].secs * 1000;
     const k: K = (a, b) => ease(seg(ms, a, b));
     return { ms, k, compact, body };
   };
-  const ms = at(step).ms;
-  const status = [ms < 960 ? 'Compiling…' : 'Compiled · 1 page', ms < 1040 ? 'Compiled · 1 page' : 'Updated', '4 documents', ms < 700 ? '3 changes' : '2 changes', ms < 900 ? 'Local only' : 'Backed up'][step];
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-line bg-panel shadow-lg shadow-black/5 dark:shadow-black/30" style={{ width: Math.round(size.w * scale) }} data-testid="ideas-frame">
       {/* The scenes, as tabs */}
@@ -81,19 +77,6 @@ export function CleanFrame({
       </div>
       <div className="relative overflow-hidden" style={{ height: Math.round(size.h * scale) }} aria-hidden="true">
         <div className="flex flex-col text-fg select-none" style={{ width: size.w, height: size.h, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
-          {/* App header */}
-          <div className="flex shrink-0 items-center gap-2.5 border-b border-line px-3 text-[14px]" style={{ height: HEADER }}>
-            <ArrowLeft className="size-4 text-muted" />
-            <Logo size={20} />
-            <span className="flex-1" />
-            <span className="rounded-full bg-subtle px-2 py-0.5 text-[12px] text-muted tabular-nums">{status}</span>
-            {!compact && (
-              <span className="flex h-7 items-center gap-1 rounded-md border border-line px-2.5 text-[12.5px]">
-                <GitBranch className="size-3.5" /> New variant
-              </span>
-            )}
-            <span className="flex h-7 items-center gap-1 rounded-md bg-accent px-3 text-[12.5px] font-medium text-accent-fg">Compile</span>
-          </div>
           <div className="relative min-h-0 flex-1">
             <Scene on={step === 0}>
               <WriteScene {...at(0)} />
@@ -149,15 +132,17 @@ const rise = (v: number): CSSProperties => ({ opacity: v, transform: v < 1 ? `tr
 // ---------------------------------------------------------------- the typeset page
 
 /** The essay as LaTeX prints it. `show` says how far each of its three parts has appeared. */
-function Page({ show, sentence, top = 36, width = 400, side = 36 }: { show: (part: number) => number; sentence: ReactNode; top?: number; width?: number; side?: number }) {
+function Page({ show, sentence, top = 36, width = 400, side = 36, untitled }: { show: (part: number) => number; sentence: ReactNode; top?: number; width?: number; side?: number; /** Leave the title and author off, and start at the first section. */ untitled?: boolean }) {
   return (
     <div className="bg-white pb-6 font-serif text-[#1a1a1a] shadow-md" style={{ width, minHeight: 540, paddingTop: top, paddingLeft: side, paddingRight: side }}>
-      <div className="text-center" style={rise(show(0))}>
-        <div className="text-[18px]">Why Cities Plant Trees</div>
-        <div className="mt-1 text-[11px]">Maya Chef</div>
-      </div>
+      {!untitled && (
+        <div className="mb-5 text-center" style={rise(show(0))}>
+          <div className="text-[18px]">Why Cities Plant Trees</div>
+          <div className="mt-1 text-[11px]">Maya Chef</div>
+        </div>
+      )}
       <div style={rise(show(1))}>
-        <div className="mt-5 text-[13px] font-bold">1&nbsp;&nbsp;Introduction</div>
+        <div className="text-[13px] font-bold">1&nbsp;&nbsp;Introduction</div>
         <p className="mt-1.5 text-justify text-[10.5px] leading-[1.45]">
           Street trees cool the air by <b>3 degrees</b> on summer afternoons, for decades.
         </p>
@@ -243,7 +228,8 @@ function EditScene({ ms, k, compact }: SceneProps) {
   // Small screens get a narrower page, so the zoom can stay high and the sentence readable.
   const zoom = compact ? 1.9 : 2;
   const width = compact ? 264 : 400;
-  const boxZoom = compact ? 1.3 : 1;
+  // The edit box is the point of the scene: it is drawn well above its real size.
+  const boxZoom = compact ? 1.55 : 1.9;
   const picked = k(0, 150);
   const pop = k(150, 330);
   const selected = ms >= 380 && ms < 700;
@@ -256,10 +242,12 @@ function EditScene({ ms, k, compact }: SceneProps) {
       <div className="mx-auto" style={{ width: width * zoom }}>
         <div style={{ width, transform: `scale(${zoom})`, transformOrigin: '0 0' }}>
           <Page
-            show={() => 1}
+            // Only the paragraph being edited: the rest of the page would sit half-hidden behind the edit box.
+            show={(part) => (part === 2 ? 0 : 1)}
             width={width}
             side={compact ? 18 : 36}
-            top={compact ? 24 : 20}
+            top={compact ? 22 : 18}
+            untitled
             sentence={
               <>
                 <span
@@ -485,65 +473,45 @@ function PrivateScene({ ms, k, compact, body }: SceneProps) {
   const center = compact ? { x: body.w / 2, y: body.h * 0.25 } : { x: body.w / 2, y: body.h * 0.36 };
   const server = compact ? { x: body.w * 0.24, y: body.h * 0.62 } : { x: body.w * 0.15, y: body.h * 0.36 };
   const cloud = compact ? { x: body.w * 0.76, y: body.h * 0.62 } : { x: body.w * 0.85, y: body.h * 0.36 };
-  const docs = [0, 1, 2, 3, 4].map((j) => {
-    const a = -Math.PI / 2 + (j - 2) * 0.62;
-    return { x: center.x + Math.cos(a) * (compact ? 150 : 210), y: center.y + Math.sin(a) * (compact ? 120 : 150) + (compact ? 30 : 50) };
-  });
-  // The documents arrive together; both neighbours appear together; then the one switch is flipped.
-  const arrive = k(0, 380);
-  const stored = k(330, 450);
-  const sides = k(380, 560);
-  const ring = ms >= 680 && ms < 920;
-  const toggled = k(760, 900);
-  const synced = ms >= 900;
+  // Everything is there from the start. The only thing that happens: the switch to Google Drive is flipped, unhurried.
+  const halo = k(200, 500) * (1 - k(1000, 1300));
+  const toggled = k(450, 950);
+  const on = toggled > 0.5;
+  const synced = ms >= 950;
   const words = [
-    { text: 'Offline.', on: k(480, 620) },
-    { text: 'Online.', on: k(880, 1020) },
-    { text: 'Your choice.', on: k(1060, 1200) },
+    { text: 'Offline.', on: 1 },
+    { text: 'Online.', on: k(900, 1150) },
+    { text: 'Your choice.', on: k(1200, 1450) },
   ];
   const sw = { x: (center.x + cloud.x) / 2, y: (center.y + cloud.y) / 2 };
   const mid = { x: (center.x + server.x) / 2, y: (center.y + server.y) / 2 };
   return (
     <div className="relative h-full overflow-hidden bg-bg">
       <svg className="absolute inset-0" width={body.w} height={body.h}>
-        <line x1={center.x} y1={center.y} x2={server.x} y2={server.y} stroke="var(--color-line)" strokeWidth={2} strokeDasharray="5 6" opacity={sides} />
-        <line x1={center.x} y1={center.y} x2={cloud.x} y2={cloud.y} stroke={toggled > 0.5 ? 'var(--accent)' : 'var(--color-line)'} strokeWidth={2} strokeDasharray={toggled > 0.5 ? undefined : '6 7'} opacity={sides} />
+        <line x1={center.x} y1={center.y} x2={server.x} y2={server.y} stroke="var(--color-line)" strokeWidth={2} strokeDasharray="5 6" />
+        <line x1={center.x} y1={center.y} x2={cloud.x} y2={cloud.y} stroke={on ? 'var(--accent)' : 'var(--color-line)'} strokeWidth={2} strokeDasharray={on ? undefined : '6 7'} />
       </svg>
-      {sides > 0 && (
-        <>
-          <span className="absolute flex size-7 items-center justify-center rounded-full border border-line bg-panel text-danger shadow-sm" style={{ left: mid.x - 14, top: mid.y - 14, opacity: sides, transform: `scale(${lerp(0.5, 1, sides)})` }}>
-            <X className="size-4" strokeWidth={2.5} />
-          </span>
-          <span
-            className={cn('absolute flex h-6 w-11 items-center rounded-full border p-0.5 shadow-sm transition-[background-color,border-color,box-shadow] duration-150', toggled > 0.5 ? 'border-accent bg-accent' : 'border-line bg-subtle')}
-            style={{ left: sw.x - 22, top: sw.y - 12, opacity: sides, boxShadow: ring ? '0 0 0 4px color-mix(in srgb, var(--accent) 28%, transparent)' : undefined }}
-          >
-            <span className="size-[18px] rounded-full bg-white shadow" style={{ transform: `translateX(${toggled * 20}px)` }} />
-          </span>
-        </>
-      )}
+      <span className="absolute flex size-7 items-center justify-center rounded-full border border-line bg-panel text-danger shadow-sm" style={{ left: mid.x - 14, top: mid.y - 14 }}>
+        <X className="size-4" strokeWidth={2.5} />
+      </span>
+      <span
+        className={cn('absolute flex h-6 w-11 items-center rounded-full border p-0.5 shadow-sm transition-colors duration-300', on ? 'border-accent bg-accent' : 'border-line bg-subtle')}
+        style={{ left: sw.x - 22, top: sw.y - 12, boxShadow: halo > 0.01 ? `0 0 0 ${halo * 5}px color-mix(in srgb, var(--accent) ${Math.round(halo * 26)}%, transparent)` : undefined }}
+      >
+        <span className="size-[18px] rounded-full bg-white shadow" style={{ transform: `translateX(${toggled * 20}px)` }} />
+      </span>
       <Tile x={center.x} y={center.y} w={compact ? 200 : 220} on={1} strong>
         <HardDrive className="size-7 text-accent" />
         <b className="mt-2 text-[15px]">This browser</b>
-        <span className="text-[12.5px] text-muted">{stored > 0.5 ? '5 documents, every version' : 'Your documents live here'}</span>
+        <span className="text-[12.5px] text-muted">5 documents, every version</span>
       </Tile>
-      {arrive < 1 &&
-        docs.map((d, j) => (
-          <div
-            key={j}
-            className="absolute flex size-11 items-center justify-center rounded-lg border border-line bg-panel shadow-md"
-            style={{ left: lerp(d.x, center.x, arrive) - 22, top: lerp(d.y, center.y, arrive) - 22, transform: `scale(${lerp(1, 0.35, arrive)}) rotate(${lerp((j - 2) * 8, 0, arrive)}deg)`, opacity: 1 - seg(arrive, 0.8, 1) }}
-          >
-            <FileText className="size-5 text-muted" />
-          </div>
-        ))}
-      <Tile x={server.x} y={server.y} w={compact ? 150 : 170} on={sides}>
+      <Tile x={server.x} y={server.y} w={compact ? 150 : 170} on={1}>
         <ServerOff className="size-6 text-muted" />
         <b className="mt-1.5 text-[14px]">No TexChef server</b>
         <span className="text-[11.5px] text-muted">nothing to upload to</span>
       </Tile>
-      <Tile x={cloud.x} y={cloud.y} w={compact ? 150 : 170} on={sides}>
-        <Cloud className={cn('size-6 transition-colors duration-150', toggled > 0.5 ? 'text-info' : 'text-muted')} />
+      <Tile x={cloud.x} y={cloud.y} w={compact ? 150 : 170} on={1}>
+        <Cloud className={cn('size-6 transition-colors duration-300', on ? 'text-info' : 'text-muted')} />
         <b className="mt-1.5 text-[14px]">Your Google Drive</b>
         <span className="flex items-center gap-1 text-[11.5px] text-muted">
           {synced ? (

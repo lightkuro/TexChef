@@ -104,11 +104,14 @@ async function mapOption(testId) {
 await step('dashboard loads with welcome screen', async () => {
   await page.goto(BASE);
   await page.getByTestId('landing').waitFor();
-  // New users get the scroll story, with Start writing (and an arrow for uploads) at the top.
+  // New users get the cleaned-up story. Start writing first asks: a new document, or one you already have.
+  await page.locator('[data-testid=landing][data-look=clean]').waitFor();
   await page.getByTestId('landing').getByTestId('ideas-story').waitFor({ state: 'attached' });
-  assert.equal(await page.getByTestId('ideas-float-start').count(), 0, 'no floating button at the top');
-  // Blank article comes first and is chosen by default.
+  assert.equal(await page.getByTestId('ideas-float-start').count(), 0, 'nothing floats over the page');
   await page.getByTestId('landing').getByTestId('ideas-start').click();
+  await page.getByTestId('start-upload').waitFor();
+  // Blank article comes first and is chosen by default.
+  await page.getByTestId('start-new').click();
   assert.equal(await page.locator('[data-testid^="template-"]').first().getAttribute('data-testid'), 'template-article');
   await page.getByRole('dialog').getByText('Blank article').first().waitFor();
   assert.equal(await page.getByRole('dialog').getByRole('textbox').inputValue(), '');
@@ -141,6 +144,7 @@ await step('home page links to Terms (and from there Privacy); themes switch', a
 
 await step('create master resume from template and compile it', async () => {
   await page.getByTestId('ideas-nav-start').click();
+  await page.getByTestId('start-new').click();
   await page.getByTestId('template-resume-master').click();
   await page.getByTestId('create-doc').click();
   await page.getByTestId('editor-page').waitFor();
@@ -839,17 +843,42 @@ await step('help pages explain the features', async () => {
   await page.goto(BASE);
 });
 
-await step('archive hides a document until "show archived" is on', async () => {
+await step('archive: an archived document waits under Archive in the folders panel; Recent lists the latest', async () => {
   await page.getByTestId('view-list').click();
   await page.getByLabel('Actions for Frontend resume').click();
   await page.getByRole('menuitem', { name: 'Archive' }).click();
-  await page.getByTestId('toggle-archived').waitFor();
-  assert.equal(await page.getByTestId('doc-list').getByText('Frontend resume').count(), 0);
-  await page.getByTestId('toggle-archived').click();
+  await page.waitForFunction(() => !document.querySelector('[data-testid=doc-list]')?.textContent.includes('Frontend resume'));
+  // Archive is off until asked for, in the folders menu (which also holds New folder, Reorder and Hide).
+  assert.equal(await page.getByTestId('folder-archive').count(), 0, 'no Archive entry by default');
+  await page.getByTestId('folders-menu').click();
+  await page.getByTestId('new-folder').waitFor();
+  await page.getByTestId('folders-reorder').waitFor();
+  await page.getByTestId('folders-hide').waitFor();
+  await page.getByTestId('folders-show-archive').click();
+  await page.getByTestId('folder-archive').click();
+  await page.getByTestId('crumb-archive').waitFor();
   await page.getByTestId('doc-list').getByText('Frontend resume').waitFor();
+  assert.equal(await page.getByTestId('doc-list').getByText('Master resume').count(), 0, 'only archived documents here');
+  await page.screenshot({ path: `${OUT}10b-archive.png` });
   await page.getByLabel('Actions for Frontend resume').click();
   await page.getByRole('menuitem', { name: 'Unarchive' }).click();
-  await page.getByTestId('toggle-archived').waitFor({ state: 'detached' });
+  await page.getByTestId('empty-folder').waitFor();
+  // The back arrow leads out again.
+  await page.getByTestId('folder-up').click();
+  await page.getByTestId('doc-list').getByText('Frontend resume').waitFor();
+  // Recent: the documents changed last.
+  await page.getByTestId('folder-recent').click();
+  await page.getByTestId('crumb-recent').waitFor();
+  await page.getByTestId('doc-list').getByText('Frontend resume').waitFor();
+  await page.getByTestId('folder-all').click();
+  // The folders button now sits on the path bar; it hides and shows the panel.
+  await page.getByTestId('folder-bar').getByTestId('toggle-folders').click();
+  await page.getByTestId('folder-sidebar').waitFor({ state: 'detached' });
+  await page.getByTestId('folder-bar').getByTestId('toggle-folders').click();
+  await page.getByTestId('folder-sidebar').waitFor();
+  await page.getByTestId('folders-menu').click();
+  await page.getByTestId('folders-show-archive').click();
+  await page.getByTestId('folder-archive').waitFor({ state: 'detached' });
   await page.getByTestId('view-graph').click();
 });
 
@@ -857,6 +886,7 @@ await step('folders: create, drag in, move via menu, folders and expanded views,
   await page.goto(BASE);
   await page.getByTestId('folder-sidebar').waitFor();
   // New folder (opens it; it is empty).
+  await page.getByTestId('folders-menu').click();
   await page.getByTestId('new-folder').click();
   await page.getByTestId('folder-name').fill('Applications');
   await page.getByTestId('folder-dialog-ok').click();
@@ -908,6 +938,7 @@ await step('folders: create, drag in, move via menu, folders and expanded views,
   await page.getByTestId('crumb-Jobs').waitFor();
   await page.getByTestId('crumb-all').click();
   // Folders move too: drag one onto another in the panel, and back out with Move to….
+  await page.getByTestId('folders-menu').click();
   await page.getByTestId('new-folder').click();
   await page.getByTestId('folder-name').fill('Inner');
   await page.getByTestId('folder-dialog-ok').click();
@@ -1542,6 +1573,7 @@ await step('PDFs render on browsers without the newest JavaScript (as on Safari)
   // Gone before the app loaded (pdf.js's legacy build then brings its own).
   assert.equal(await p.evaluate(() => window.__removedNewJs), true);
   await p.getByTestId('ideas-nav-start').click();
+  await p.getByTestId('start-new').click();
   await p.getByTestId('template-cover-letter').click();
   await p.getByTestId('create-doc').click();
   await p.getByTestId('page-count').waitFor({ timeout: 180_000 });

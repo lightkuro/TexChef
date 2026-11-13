@@ -153,6 +153,7 @@ console.log('Home and new document');
 await page.goto(BASE);
 await page.getByTestId('landing').waitFor();
 await page.getByTestId('ideas-nav-start').click();
+await page.getByTestId('start-new').click();
 await page.waitForTimeout(400);
 // Blank article is chosen by default.
 await shot('new-document', { clip: page.getByRole('dialog'), pad: 0, maxWidth: 1400 });

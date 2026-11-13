@@ -130,6 +130,8 @@ for (const size of SIZES) {
 
   await step('create a document from the master resume template and compile it', async () => {
     await page.locator('[data-testid=ideas-nav-start], [data-testid=new-doc]:visible').first().click();
+    // On the cover page, Start writing first asks: a new document, or one you already have.
+    if (await page.getByTestId('start-new').count()) await page.getByTestId('start-new').click();
     await page.getByTestId('template-resume-master').click();
     await page.getByTestId('create-doc').click();
     await page.getByTestId('editor-page').waitFor();
@@ -401,6 +403,7 @@ for (const size of SIZES) {
     await assertFits('ideas/clean');
     await shot('ideas-clean');
     await page.getByTestId('ideas-start').click();
+    await page.getByTestId('start-new').click();
     await page.getByRole('dialog').waitFor();
     await page.keyboard.press('Escape');
     await page.getByRole('dialog').waitFor({ state: 'detached' });

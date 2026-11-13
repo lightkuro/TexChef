@@ -13,7 +13,6 @@ import {
   Settings,
   Archive,
   CircleHelp,
-  PanelLeft,
   FolderOpen,
   FolderPlus,
   FolderUp,
@@ -44,6 +43,8 @@ import { VersionGraph } from '@/features/graph/VersionGraph';
 import { DocList } from './DocList';
 import { NewDocDialog } from './NewDocDialog';
 // New users see the scroll story (loaded on its own, so returning users don't download it).
+/** How many documents Recent holds. */
+const RECENT_MAX = 8;
 const Cover = lazy(() => import('@/features/ideas/IdeasPage').then((m) => ({ default: m.IdeasPage })));
 import { APP_VERSION } from '@/app/changelog';
 import { SyncIndicator } from '@/features/sync/SyncIndicator';
@@ -54,7 +55,7 @@ import { BREAKPOINTS, useMinWidth, usePhone } from '@/lib/useMediaQuery';
 import { KurolightMark, Logo } from '@/components/Logo';
 import { ThemeMenu } from '@/components/ThemeMenu';
 import { cn } from '@/lib/utils';
-import { FolderSidebar, UNFILED } from '@/features/folders/FolderSidebar';
+import { ARCHIVE, FolderSidebar, RECENT, UNFILED, type SpecialView } from '@/features/folders/FolderSidebar';
 import { moveDocsToFolder, moveFolderInto, useEmptyFolders } from '@/features/folders/folders';
 import { folderName, inFolder, parentFolder } from '@/features/folders/folderTree';
 import { folderView, type FolderItem } from '@/features/folders/folderView';
@@ -115,6 +116,7 @@ export function Dashboard() {
   const graphMode = usePrefs((s) => s.graphMode);
   const showAutosaves = usePrefs((s) => s.showAutosaves);
   const showArchived = usePrefs((s) => s.showArchived);
+  const showRecent = usePrefs((s) => s.showRecent);
   const showFolders = usePrefs((s) => s.showFolders);
   const savedFolder = usePrefs((s) => s.currentFolder);
   const folderMode = usePrefs((s) => s.folderMode);
@@ -131,11 +133,16 @@ export function Dashboard() {
   const labels = useMinWidth(BREAKPOINTS.labels);
   const [folderDrawer, setFolderDrawer] = useState(false);
 
-  const archivedCount = docs?.filter((d) => d.archived).length ?? 0;
-  const shown = useMemo(() => (docs ?? []).filter((d) => showArchived || !d.archived), [docs, showArchived]);
+  // Archived documents live only under Archive in the folders panel; Recent is the handful changed last.
+  const active = useMemo(() => (docs ?? []).filter((d) => !d.archived), [docs]);
+  const archived = useMemo(() => (docs ?? []).filter((d) => d.archived), [docs]);
+  const recent = useMemo(() => [...active].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, RECENT_MAX), [active]);
+  const archivedCount = archived.length;
+  const special: SpecialView = savedFolder === RECENT && showRecent ? 'recent' : savedFolder === ARCHIVE && showArchived ? 'archive' : null;
+  const shown = special === 'archive' ? archived : special === 'recent' ? recent : active;
   // The open folder, if it still exists (it may have been renamed or removed on another device).
   const current =
-    savedFolder !== null && savedFolder !== UNFILED && ((docs ?? []).some((d) => inFolder(d.folder, savedFolder)) || emptyFolders.some((p) => inFolder(p, savedFolder)))
+    savedFolder !== null && ![UNFILED, RECENT, ARCHIVE].includes(savedFolder) && (active.some((d) => inFolder(d.folder, savedFolder)) || emptyFolders.some((p) => inFolder(p, savedFolder)))
       ? savedFolder
       : null;
   const targetFolder = current ?? undefined;
@@ -144,12 +151,16 @@ export function Dashboard() {
   const scopeDocs = useMemo(() => shown.filter((d) => (current === null ? true : inFolder(d.folder, current))), [shown, current]);
   const q = query.trim().toLowerCase();
   const fv = useMemo(() => {
+    // Recent and Archive gather documents from every folder, so they are always shown grouped by folder.
+    if (special && !q) return folderView(shown, [], undefined, 'grouped');
     if (!q) return folderView(shown, emptyFolders, targetFolder, folderMode);
     // Searching looks through everything inside the open folder, grouped by folder.
     const match = scopeDocs.filter((d) => d.name.toLowerCase().includes(q) || d.tags.some((t) => t.includes(q)) || d.recipe?.tags.some((t) => t.includes(q)));
     return folderView(match, [], targetFolder, 'grouped');
-  }, [shown, emptyFolders, targetFolder, folderMode, q, scopeDocs]);
-  const mode = q ? 'grouped' : folderMode;
+  }, [shown, emptyFolders, targetFolder, folderMode, q, scopeDocs, special]);
+  const mode = q || special ? 'grouped' : folderMode;
+  const toggleFolders = () => (docked ? setPref({ showFolders: !showFolders }) : setFolderDrawer(true));
+  const openArchive = () => setPref({ showArchived: true, currentFolder: ARCHIVE });
   const isEmpty = fv.docs.length === 0 && fv.folders.length === 0;
   /** Documents or folders exist; otherwise the home page is the landing page, with no folders to show. */
   const hasContent = !!docs && (docs.length > 0 || emptyFolders.length > 0);
@@ -202,7 +213,7 @@ export function Dashboard() {
           { key: 'list', label: 'List', checked: view === 'list', run: () => setPref({ dashboardView: 'list' }) },
           { key: 'grouped', label: 'Expanded', hint: 'subfolders open', separatorBefore: true, checked: folderMode === 'grouped', run: () => setPref({ folderMode: 'grouped' }) },
           { key: 'browse', label: 'Folders', hint: 'subfolders as folders', checked: folderMode === 'browse', run: () => setPref({ folderMode: 'browse' }) },
-          { key: 'archived', label: 'Show archived', separatorBefore: true, checked: showArchived, run: () => setPref({ showArchived: !showArchived }) },
+          { key: 'archived', label: 'Archive in the folders panel', separatorBefore: true, checked: showArchived, run: () => setPref({ showArchived: !showArchived }) },
           { key: 'panel', label: 'Folders panel', checked: showFolders, run: () => setPref({ showFolders: !showFolders }) },
         ],
       },
@@ -331,12 +342,12 @@ export function Dashboard() {
       ? [
           {
             key: 'archived',
-            label: `Show archived (${archivedCount})`,
+            label: `Archive (${archivedCount})`,
             icon: <Archive className="size-4" />,
-            checked: showArchived,
+            checked: special === 'archive',
             separatorBefore: true,
-            run: () => setPref({ showArchived: !showArchived }),
-            testId: 'toggle-archived',
+            run: () => (special === 'archive' ? openFolder(null) : openArchive()),
+            testId: 'open-archive',
           },
         ]
       : []),
@@ -369,20 +380,6 @@ export function Dashboard() {
       )}
       {/* Hidden on the cover page (it has its own bar), but kept: it holds the upload inputs. */}
       <div className={cn('flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2', phone && 'flex-nowrap gap-1.5', cover && 'hidden')}>
-{hasContent && (
-        <Tip content={docked ? (showFolders ? 'Hide folders' : 'Show folders') : 'Folders'}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => (docked ? setPref({ showFolders: !showFolders }) : setFolderDrawer(true))}
-            aria-label="Folders"
-            aria-pressed={docked ? showFolders : folderDrawer}
-            data-testid="toggle-folders"
-          >
-            <PanelLeft className="size-4" />
-          </Button>
-        </Tip>
-        )}
         <Button variant="primary" onClick={() => setNewOpen(true)} data-testid="new-doc">
           <Plus className="size-4" />
           {phone ? ' New' : ' New document'}
@@ -438,11 +435,6 @@ export function Dashboard() {
           />
         )}
         <div className="flex-1" />
-        {archivedCount > 0 && !phone && (
-          <Button variant={showArchived ? 'secondary' : 'ghost'} size="sm" onClick={() => setPref({ showArchived: !showArchived })} data-testid="toggle-archived">
-            <Archive className="size-3.5" /> {showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
-          </Button>
-        )}
         {view === 'graph' && graphMode === 'versions' && !phone && (
           <label className="flex items-center gap-1.5 text-xs text-muted">
             <input type="checkbox" checked={showAutosaves} onChange={(e) => setPref({ showAutosaves: e.target.checked })} /> Show autosaves
@@ -452,12 +444,17 @@ export function Dashboard() {
         <ViewSwitch />
       </div>
       <div className="flex min-h-0 flex-1">
-      {docked && showFolders && hasContent && <FolderSidebar docs={shown} current={current} onSelect={openFolder} actionsFor={actionsForFolder} />}
+      {docked && showFolders && hasContent && (
+        <FolderSidebar docs={active} current={current} special={special} recentCount={recent.length} archivedCount={archivedCount} onSelect={openFolder} actionsFor={actionsForFolder} />
+      )}
       {!docked && hasContent && (
         <Drawer open={folderDrawer} onOpenChange={setFolderDrawer} title="Folders" testId="folder-drawer">
           <FolderSidebar
-            docs={shown}
+            docs={active}
             current={current}
+            special={special}
+            recentCount={recent.length}
+            archivedCount={archivedCount}
             onSelect={(f) => {
               openFolder(f);
               setFolderDrawer(false);
@@ -468,10 +465,19 @@ export function Dashboard() {
         </Drawer>
       )}
       <main className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        {hasContent && (view !== 'graph' || graphMode === 'family') && (
-          <FolderBar current={current} onSelect={openFolder} mode={mode} onMode={(m) => setPref({ folderMode: m })} extra={<PreviewProgress />} />
+        {hasContent && (
+          <FolderBar
+            current={current}
+            special={special}
+            onSelect={openFolder}
+            // Expanded or Folders: a choice for real folders on the map and the list.
+            mode={!special && (view !== 'graph' || graphMode === 'family') ? mode : undefined}
+            onMode={(m) => setPref({ folderMode: m })}
+            extra={<PreviewProgress />}
+            folders={{ shown: docked ? showFolders : folderDrawer, docked, toggle: toggleFolders }}
+          />
         )}
-        <ActionContextMenu actions={backgroundActions} label={current ? folderName(current) : 'All documents'}>
+        <ActionContextMenu actions={backgroundActions} label={special === 'recent' ? 'Recent' : special === 'archive' ? 'Archive' : current ? folderName(current) : 'All documents'}>
         <div className="relative min-h-0 flex-1 overflow-auto" data-testid="dashboard-content">
         {docs === undefined ? (
           <div className="flex h-full items-center justify-center">
@@ -487,6 +493,7 @@ export function Dashboard() {
           >
             <Cover
               mode="page"
+              look="clean"
               snap
               onNew={() => setNewOpen(true)}
               uploadActions={importActions}
@@ -502,8 +509,11 @@ export function Dashboard() {
         ) : isEmpty && (view !== 'graph' || graphMode === 'family') ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted" data-testid="empty-folder">
             <FolderOpen className="size-8 opacity-50" />
-            <p className="font-medium text-fg">{q ? 'Nothing matches your search here' : current ? `“${folderName(current)}” is empty` : 'No documents here'}</p>
-            {!q && (
+            <p className="font-medium text-fg">
+              {q ? 'Nothing matches your search here' : special === 'archive' ? 'Nothing is archived' : current ? `“${folderName(current)}” is empty` : 'No documents here'}
+            </p>
+            {!q && special === 'archive' && <p className="max-w-sm">Archive a document with <b>⋯ → Archive</b>: it leaves the map and the list, and waits here.</p>}
+            {!q && !special && (
               <p className="max-w-sm">
                 Move documents here with <b>⋯ → Move to folder</b>, drag them onto the folder, or create a new one: it goes into the open folder.
               </p>
@@ -516,7 +526,7 @@ export function Dashboard() {
             view={fv}
             mode={mode}
             scopeDocs={scopeDocs}
-            scopeKey={`${current ?? ''}|${q}`}
+            scopeKey={`${special ?? current ?? ''}|${q}`}
             onOpenFolder={openFolder}
             onMoveToFolder={moveDoc}
             onMoveFolder={moveFolder}
@@ -548,7 +558,7 @@ export function Dashboard() {
         </ActionContextMenu>
       </main>
       </div>
-      <FolderDialogHost docs={shown} current={current} onSelect={openFolder} />
+      <FolderDialogHost docs={active} current={current} onSelect={openFolder} />
       {/* Clear of the home indicator on phones (safe area). The cover page has its own footer. */}
       {!cover && (
       <footer className="flex h-[calc(1.75rem+env(safe-area-inset-bottom))] shrink-0 items-center gap-3 border-t border-line bg-panel px-4 pb-[env(safe-area-inset-bottom)] text-[11px] text-muted">

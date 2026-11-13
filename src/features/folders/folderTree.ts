@@ -83,3 +83,29 @@ export function renamedFolder(path: string | undefined, from: string, to: string
   const rest = path!.slice(from.length);
   return cleanFolder((to ?? '') + rest);
 }
+
+/**
+ * The tree in a hand-picked order: `order` lists, for a parent folder ('' = top level), its subfolders' names.
+ * Folders not listed keep their alphabetical place after the listed ones.
+ */
+export function orderTree(nodes: FolderNode[], order: Record<string, string[]>, parent = ''): FolderNode[] {
+  const wanted = order[parent] ?? [];
+  const rank = (n: FolderNode) => {
+    const i = wanted.indexOf(n.name);
+    return i < 0 ? wanted.length : i;
+  };
+  return nodes
+    .map((n, i) => ({ n, i }))
+    .sort((a, b) => rank(a.n) - rank(b.n) || a.i - b.i)
+    .map(({ n }) => ({ ...n, children: orderTree(n.children, order, n.path) }));
+}
+
+/** `list` with `item` moved one place up (-1) or down (1). */
+export function moved<T>(list: T[], item: T, dir: -1 | 1): T[] {
+  const i = list.indexOf(item);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return list;
+  const out = [...list];
+  [out[i], out[j]] = [out[j], out[i]];
+  return out;
+}

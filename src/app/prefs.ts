@@ -43,12 +43,19 @@ interface Prefs {
   /** Dragged map cards snap to a grid of card-sized cells. */
   mapSnap: boolean;
   showAutosaves: boolean;
+  /** The Archive entry in the folders panel (archived documents are only shown there). */
   showArchived: boolean;
+  /** The Recent entry in the folders panel. */
+  showRecent: boolean;
   /** Folder sidebar on the home page. */
   showFolders: boolean;
+  /** The order of the folders panel's top entries (All documents, Recent, Archive). */
+  categoryOrder: string[];
+  /** A hand-picked order for folders: for each parent folder ('' = top level), its subfolders' names in order. */
+  folderOrder: Record<string, string[]>;
   /** Home page: show subfolders as folders (browse) or everything inside, grouped by folder. */
   folderMode: 'browse' | 'grouped';
-  /** Folder open on the home page: a path, "__unfiled__", or null for all documents. */
+  /** Folder open on the home page: a path, "__recent__", "__archive__", or null for all documents. */
   currentFolder: string | null;
   /** Experimental, opt-in: an Agents(optional_AI) folder in Drive that AI agents read and reply into. */
   agentsEnabled: boolean;
@@ -95,7 +102,10 @@ export const usePrefs = create<Prefs>((set, get) => ({
   mapSnap: false,
   showAutosaves: false,
   showArchived: false,
+  showRecent: true,
   showFolders: true,
+  categoryOrder: ['all', 'recent', 'archive'],
+  folderOrder: {},
   folderMode: 'browse',
   currentFolder: null,
   agentsEnabled: false,

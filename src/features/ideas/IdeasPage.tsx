@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
+import { toast } from 'sonner';
 import { AnimatePresence, animate, motion, useInView, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import Lenis from 'lenis';
 import 'lenis/dist/lenis.css';
@@ -12,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { DEMO_SIZE, DemoWindow } from './DemoWindow';
 import { CLEAN_STORY } from './CleanDemo';
 import { CleanStory } from './CleanStory';
+import { StartMenu } from './StartMenu';
 
 /** What the story says at each scene, and how long the scene's animation plays (seconds). */
 const STORY: { short: string; title: string; text: string; secs: number }[] = [
@@ -71,6 +73,24 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
   const reduce = !!useReducedMotion();
   const nav = mode === 'page' ? 56 : 0;
   const start = onNew ?? (() => setNewOpen(true));
+  // Pages that don't bring their own ways to upload (the home page does) take a .tex or .zip here.
+  const fileInput = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const uploadHere = async (files: FileList) => {
+    try {
+      const io = await import('@/features/importexport/io');
+      const plan = await io.planImport(files);
+      if (plan.backup || plan.projects.length !== 1) {
+        toast.message('This upload holds several documents', { description: 'Use Import on the home page to choose which ones to bring in.' });
+        return;
+      }
+      const doc = await io.createDocumentFromProject(plan.projects[0]);
+      navigate(`/doc/${doc.id}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const upload: MenuAction[] | (() => void) = uploadActions?.length ? uploadActions : () => fileInput.current?.click();
 
   useEffect(() => {
     if (mode !== 'page') return;
@@ -244,26 +264,26 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
   const [pastHero, setPastHero] = useState(false);
   const { scrollY } = useScroll({ container: scroller });
   useMotionValueEvent(scrollY, 'change', (y) => setPastHero(y > vh * 0.3));
-  // The clean look's page keeps Start writing in its top bar, so nothing needs to float over the window.
-  const floating = pastHero && !heroInView && !endInView && !(clean && mode === 'page');
+  // The clean look keeps New document beside its scenes, so nothing needs to float over the window.
+  const floating = pastHero && !heroInView && !endInView && !clean;
 
   return (
     <div ref={scroller} className="relative h-full overflow-x-clip overflow-y-auto bg-bg" data-testid={testId} data-mode={mode} data-look={look}>
       <style>{KEYFRAMES}</style>
       <div ref={content}>
-        {mode === 'page' && <Nav onStart={start} extra={navExtra} clean={clean} />}
+        {mode === 'page' && <Nav onStart={start} extra={navExtra} clean={clean} upload={upload} />}
         {clean ? (
-          <CleanHero ctaRef={heroCta} onStart={start} uploadActions={uploadActions} onTour={() => scrollTo(sceneY(0))} compactTop={mode !== 'page'} />
+          <CleanHero ctaRef={heroCta} onStart={start} upload={upload} onTour={() => scrollTo(sceneY(0))} compactTop={mode !== 'page'} />
         ) : (
           <Hero ctaRef={heroCta} onStart={start} uploadActions={uploadActions} onTour={() => scrollTo(sceneY(0))} reduce={reduce} compactTop={mode !== 'page'} scroller={scroller} />
         )}
         {clean ? (
-          <CleanStory storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} bottomRoom={switcher} onStep={(i) => scrollTo(sceneY(i))} />
+          <CleanStory storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} bottomRoom={switcher} onStep={(i) => scrollTo(sceneY(i))} onStart={start} upload={upload} guide={mode !== 'help'} />
         ) : (
           <Story storyRef={story} scroller={scroller} vh={vh} nav={nav} reduce={reduce} floatRoom={mode === 'page' ? 'tablet' : 'stacked'} onStep={(i) => scrollTo(sceneY(i))} />
         )}
         {clean ? <FeatureList /> : <Bento />}
-        {clean ? <CleanCta ctaRef={endCta} onStart={start} /> : <Cta ctaRef={endCta} onStart={start} />}
+        {clean ? <CleanCta ctaRef={endCta} onStart={start} upload={upload} /> : <Cta ctaRef={endCta} onStart={start} />}
         {mode === 'page' && (
           <footer className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line px-4 py-6 text-xs text-muted', clean ? 'mx-auto max-w-[90rem] sm:px-6 lg:px-12' : 'justify-center')}>
             <Link to="/help/whats-new" className="hover:text-fg" data-testid="link-version">
@@ -307,6 +327,9 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
         )}
       </AnimatePresence>
       {!onNew && <NewDocDialog open={newOpen} onOpenChange={setNewOpen} />}
+      {clean && !uploadActions?.length && (
+        <input ref={fileInput} type="file" multiple hidden accept=".tex,.zip,.cls,.sty,.bib,.png,.jpg,.jpeg,.pdf,.ttf,.otf" data-testid="ideas-upload-input" onChange={(e) => e.target.files && void uploadHere(e.target.files).then(() => (e.target.value = ''))} />
+      )}
       {switcher && <IdeasSwitcher current={clean ? '/ideas/clean' : '/ideas'} />}
     </div>
   );
@@ -315,8 +338,8 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
 /** Links between the landing page ideas. Plain links: the typeset and product-first pages are static files, not app routes. */
 function IdeasSwitcher({ current }: { current: string }) {
   const items = [
-    ['/ideas', 'Current'],
-    ['/ideas/clean', 'Cleaned up'],
+    ['/ideas', 'Earlier'],
+    ['/ideas/clean', 'Cleaned up (live)'],
     ['/ideas/typeset', 'Typeset'],
     ['/ideas/split', 'Product-first'],
   ];
@@ -338,7 +361,12 @@ function IdeasSwitcher({ current }: { current: string }) {
 
 // ---------------------------------------------------------------- top bar and hero
 
-function Nav({ onStart, extra, clean }: { onStart: () => void; extra?: ReactNode; clean?: boolean }) {
+function Nav({ onStart, extra, clean, upload }: { onStart: () => void; extra?: ReactNode; clean?: boolean; upload: MenuAction[] | (() => void) }) {
+  const button = (
+    <button onClick={clean ? undefined : onStart} className="h-9 rounded-lg bg-accent px-3.5 text-sm font-medium text-accent-fg hover:bg-accent-hover" data-testid="ideas-nav-start">
+      Start writing
+    </button>
+  );
   return (
     <div className={cn('sticky top-0 z-30 border-b', clean ? 'border-line bg-bg' : 'border-line/60 bg-bg/80 backdrop-blur-md')}>
       <div className={cn('mx-auto flex h-14 items-center gap-3 px-4 sm:px-6', clean ? 'max-w-[90rem] lg:px-12' : 'max-w-6xl')}>
@@ -350,18 +378,21 @@ function Nav({ onStart, extra, clean }: { onStart: () => void; extra?: ReactNode
           Guide
         </Link>
         {extra}
-        <button onClick={onStart} className="h-9 rounded-lg bg-accent px-3.5 text-sm font-medium text-accent-fg hover:bg-accent-hover" data-testid="ideas-nav-start">
-          Start writing
-        </button>
+        {clean ? (
+          <StartMenu onNew={onStart} upload={upload} align="end">
+            {button}
+          </StartMenu>
+        ) : (
+          button
+        )}
       </div>
     </div>
   );
 }
 
-function StartButton({ onStart, uploadActions, plain }: { onStart: () => void; uploadActions?: MenuAction[]; plain?: boolean }) {
-  // `plain` (the clean look): no coloured shadow, squarer corners, a quick colour change on hover.
-  const r = plain ? ['rounded-l-lg', 'rounded-lg', 'rounded-r-lg'] : ['rounded-l-xl', 'rounded-xl', 'rounded-r-xl'];
-  const tone = plain ? 'transition-colors duration-150' : 'shadow-lg shadow-accent/20';
+function StartButton({ onStart, uploadActions }: { onStart: () => void; uploadActions?: MenuAction[] }) {
+  const r = ['rounded-l-xl', 'rounded-xl', 'rounded-r-xl'];
+  const tone = 'shadow-lg shadow-accent/20';
   const main = (
     <button
       onClick={onStart}
@@ -470,13 +501,13 @@ function Hero({
 function CleanHero({
   ctaRef,
   onStart,
-  uploadActions,
+  upload,
   onTour,
   compactTop,
 }: {
   ctaRef: RefObject<HTMLDivElement | null>;
   onStart: () => void;
-  uploadActions?: MenuAction[];
+  upload: MenuAction[] | (() => void);
   onTour: () => void;
   compactTop: boolean;
 }) {
@@ -494,7 +525,11 @@ function CleanHero({
         ))}
       </ul>
       <div ref={ctaRef} className="mt-9 flex flex-wrap items-center gap-x-7 gap-y-4">
-        <StartButton onStart={onStart} uploadActions={uploadActions} plain />
+        <StartMenu onNew={onStart} upload={upload}>
+          <button className="group flex h-12 items-center gap-2 rounded-lg bg-accent px-6 font-medium text-accent-fg transition-colors duration-150 hover:bg-accent-hover" data-testid="ideas-start">
+            Start writing <ArrowRight className="size-4" />
+          </button>
+        </StartMenu>
         <button onClick={onTour} className="flex items-center gap-1.5 text-sm font-medium text-muted transition-colors duration-150 hover:text-fg" data-testid="ideas-tour">
           See how it works <ChevronDown className="size-4 text-accent" />
         </button>
@@ -940,7 +975,7 @@ function Cta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null>; on
 }
 
 /** The clean look's closing section: a rule, a line and the two buttons, with nothing moving. */
-function CleanCta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null>; onStart: () => void }) {
+function CleanCta({ ctaRef, onStart, upload }: { ctaRef: RefObject<HTMLDivElement | null>; onStart: () => void; upload: MenuAction[] | (() => void) }) {
   return (
     <section className="mx-auto max-w-[90rem] px-4 pb-20 sm:px-6 sm:pb-28 lg:px-12">
       <div ref={ctaRef} className="flex flex-wrap items-end justify-between gap-x-12 gap-y-8 border-t border-fg pt-10">
@@ -949,9 +984,11 @@ function CleanCta({ ctaRef, onStart }: { ctaRef: RefObject<HTMLDivElement | null
           <p className="mt-4 max-w-md text-pretty text-muted">A blank article, a master resume or a cover letter: pick one and the PDF is ready in seconds.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button onClick={onStart} className="flex h-11 items-center gap-2 rounded-lg bg-accent px-6 font-medium text-accent-fg transition-colors duration-150 hover:bg-accent-hover" data-testid="ideas-end-start">
-            New document <ArrowRight className="size-4" />
-          </button>
+          <StartMenu onNew={onStart} upload={upload}>
+            <button className="flex h-11 items-center gap-2 rounded-lg bg-accent px-6 font-medium text-accent-fg transition-colors duration-150 hover:bg-accent-hover" data-testid="ideas-end-start">
+              New document <ArrowRight className="size-4" />
+            </button>
+          </StartMenu>
           <Link to="/help/getting-started" className="flex h-11 items-center gap-2 rounded-lg border border-line px-6 font-medium transition-colors duration-150 hover:bg-subtle">
             <BookOpen className="size-4" /> TexChef Guide
           </Link>

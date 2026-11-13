@@ -91,7 +91,7 @@ export function HelpPage() {
           {intro ? (
             <div className="min-h-0 flex-1">
               <Suspense fallback={null}>
-                <Cover mode="help" snap testId="help-intro" />
+                <Cover mode="help" look="clean" snap testId="help-intro" />
               </Suspense>
             </div>
           ) : (
