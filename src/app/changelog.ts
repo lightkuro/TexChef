@@ -12,6 +12,23 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.12.0',
+    date: '2026-11-13',
+    title: 'Lighter Drive sync, linking documents, a new first page',
+    notes: [
+      ['new', 'Google Drive sync takes only what a device needs: the current version of each document, with older versions fetched when you open History, compare or take updates. Settings → Google Drive → “This device keeps” also offers Data saver (a document comes down when you open it; no checking every minute; PDFs left out of uploads) and Everything.'],
+      ['improved', 'Sync sends less: the readable copy in Drive is no longer sent again after every compile, only changed files go up, and the list of documents isn’t downloaded again when nothing changed. Bigger images are stored one by one and fetched when a document needs them.'],
+      ['new', 'Stay signed in: when Google’s hour-long sign-in runs out, TexChef renews it on your next click and shows a small “Drive resynced” note, instead of waiting for you to press Reconnect. On by default with a mouse; a switch in Settings.'],
+      ['new', 'On phones and limited data, a document that needs extra font or package sets (200 MB and more) asks before downloading them.'],
+      ['new', 'Link documents that already exist: from a document’s menu, or by dragging a line between two cards on the map, make one a variant of another, unlink a variant, or make a variant the original. No text changes, loops are refused, and each change has Undo.'],
+      ['new', 'Send changes to original: the review you know from getting updates, the other way round. See what would change in the original, settle conflicts first, then send; it is saved there as a version you can restore past.'],
+      ['improved', 'Restoring a variant to a version from before it took updates puts those updates back on offer. With AI agents on, an assistant can also propose linking or unlinking a document.'],
+      ['new', 'Folders panel: Recent (the documents changed last) and Archive beside All documents. The panel’s menu has New folder, Show Recent, Show Archive, Reorder and Hide this panel. Archived documents now wait under Archive instead of mixing into the map.'],
+      ['improved', 'The folders button sits on the path bar, next to a back arrow that goes up one folder.'],
+      ['new', 'A new first page for new visitors: five short scenes in a tabbed window, each playing once in about a second. Start writing first asks whether to create a new document or upload one.'],
+    ],
+  },
+  {
     version: '0.11.0',
     date: '2026-11-12',
     title: 'AI agents through Google Drive (experimental, off by default)',

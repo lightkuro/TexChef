@@ -1115,7 +1115,19 @@ export const TOPICS: Topic[] = [
             and <b>Open TexChef folder in Drive</b>.
           </li>
           <li>
-            Google sign-ins last about an hour. When it expires the indicator says <b>Reconnect Drive</b>; your work keeps saving locally meanwhile.
+            Google sign-ins last about an hour. With <b>Stay signed in</b> (Settings → Google Drive; on by default with a mouse), TexChef renews it on your
+            next click: Google’s window flashes and closes by itself, and a small “Drive resynced” note shows. Otherwise the indicator says{' '}
+            <b>Reconnect Drive</b>; your work keeps saving locally meanwhile.
+          </li>
+          <li>
+            <b>How much a device keeps</b> (Settings → Google Drive → This device keeps). <i>What’s needed</i>, the default, brings the current version of
+            every document; older versions come down when you open a document’s History, compare, or take updates. <i>Data saver</i> brings only the list:
+            a document comes down when you open it (it shows a small cloud until then), TexChef stops checking Drive every minute, and PDFs are left out
+            of what it sends. <i>Everything</i> keeps every version of every document.
+          </li>
+          <li>
+            The readable copy in Drive is written by the device that saved the version, and only the files that changed are sent. The PDF there is the one
+            from when that version was saved.
           </li>
         </UL>
         <Code title="In your Google Drive">{`
