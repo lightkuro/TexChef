@@ -248,14 +248,16 @@ export function MenuItem({
   onSelect,
   danger,
   disabled,
+  testId,
 }: {
   children: React.ReactNode;
   onSelect?: () => void;
   danger?: boolean;
   disabled?: boolean;
+  testId?: string;
 }) {
   return (
-    <DM.Item disabled={disabled} onSelect={onSelect} className={cn(itemClass, danger && 'text-danger')}>
+    <DM.Item disabled={disabled} onSelect={onSelect} className={cn(itemClass, danger && 'text-danger')} data-testid={testId}>
       {children}
     </DM.Item>
   );
@@ -282,9 +284,9 @@ export function ContextMenuContent({ children }: { children: React.ReactNode }) 
   );
 }
 
-export function ContextMenuItem({ children, onSelect, danger, disabled }: { children: React.ReactNode; onSelect?: () => void; danger?: boolean; disabled?: boolean }) {
+export function ContextMenuItem({ children, onSelect, danger, disabled, testId }: { children: React.ReactNode; onSelect?: () => void; danger?: boolean; disabled?: boolean; testId?: string }) {
   return (
-    <CM.Item disabled={disabled} onSelect={onSelect} className={cn(itemClass, danger && 'text-danger')}>
+    <CM.Item disabled={disabled} onSelect={onSelect} className={cn(itemClass, danger && 'text-danger')} data-testid={testId}>
       {children}
     </CM.Item>
   );

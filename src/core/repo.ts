@@ -253,6 +253,7 @@ export class Repo {
       engine: input.engine ?? 'pdflatex',
       parent: input.parent,
       recipe: input.recipe,
+      ...(input.parent ? { linkedAt: now } : {}),
       tags: input.tags ?? [],
       ...(input.folder ? { folder: input.folder } : {}),
       createdAt: now,
@@ -272,7 +273,7 @@ export class Repo {
     const docs = await this.listDocs();
     await this.db.transaction('rw', this.db.docs, this.db.work, this.db.previews, async () => {
       for (const child of docs.filter((d) => d.parent?.docId === id)) {
-        await this.db.docs.update(child.id, { parent: undefined, updatedAt: Date.now() });
+        await this.db.docs.update(child.id, { parent: undefined, linkedAt: Date.now(), updatedAt: Date.now() });
       }
       await this.db.docs.update(id, { deleted: true, updatedAt: Date.now() });
       await this.db.work.delete(id);
@@ -383,7 +384,56 @@ export class Repo {
     await this.commitWork(docId, 'Autosave before restore', 'auto');
     await this.setWorkFiles(docId, files);
     const c = await this.getCommit(commitId);
-    return this.commitWork(docId, `Restored version from ${new Date(c?.createdAt ?? Date.now()).toLocaleString()}`, 'restore');
+    const made = await this.commitWork(docId, `Restored version from ${new Date(c?.createdAt ?? Date.now()).toLocaleString()}`, 'restore');
+    if (made) {
+      await this.db.commits.update(made.id, { restoredFrom: commitId });
+      await this.rewindParentBase(docId, commitId);
+    }
+    return made ? { ...made, restoredFrom: commitId } : made;
+  }
+
+  /**
+   * The version of its original that a variant had last taken updates from when it was at `commitId`
+   * (the original's version it was made from, if it had taken none yet).
+   */
+  private async parentBaseAt(doc: DocMeta, commitId: string): Promise<{ base: string; exact: boolean } | undefined> {
+    if (!doc.parent) return undefined;
+    const seen = new Set<string>();
+    let exact = true;
+    let id: string | undefined = commitId;
+    while (id && !seen.has(id)) {
+      seen.add(id);
+      const c = await this.getCommit(id);
+      if (!c || c.docId !== doc.id) return undefined;
+      if (c.kind === 'restore') {
+        // A restored version stands where the version it brought back stood.
+        if (c.restoredFrom) {
+          id = c.restoredFrom;
+          continue;
+        }
+        // Restored before that was recorded: the versions before it say nothing sure about its text.
+        exact = false;
+      }
+      for (const p of c.parents) {
+        if ((await this.getCommit(p))?.docId === doc.parent.docId) return { base: p, exact };
+      }
+      id = c.parents[0];
+    }
+    return undefined;
+  }
+
+  /**
+   * After a variant goes back to another of its versions: the updates it had taken by then are the
+   * ones in its text, so count from there (updates taken later are waiting again).
+   */
+  private async rewindParentBase(docId: string, restoredId: string): Promise<void> {
+    const doc = await this.getDoc(docId);
+    if (!doc?.parent) return;
+    const then = await this.parentBaseAt(doc, restoredId);
+    if (!then || then.base === doc.parent.baseCommitId) return;
+    // When unsure, only ever back in time: offering an update twice is harmless, hiding one is not.
+    if (!then.exact && !(await this.isAncestor(then.base, doc.parent.baseCommitId))) return;
+    await this.updateDoc(docId, { parent: { ...doc.parent, baseCommitId: then.base }, linkedAt: Date.now() });
   }
 
   /** Commit pending edits of every dirty working copy (used before sync and on page hide). */

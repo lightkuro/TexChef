@@ -10,6 +10,8 @@ import { merge3 } from '@/core/merge';
  *   % texchef-reply doc=<document id> rename="Resume, Acme" folder="Applications/Acme"
  *   % texchef-reply doc=new name="Cover letter, Acme" folder="Applications/Acme" variant-of=<document id>
  *   % texchef-reply doc=<document id> archive=yes
+ *   % texchef-reply doc=<document id> variant-of=<document id>      (link an existing document as a variant)
+ *   % texchef-reply doc=<document id> unlink=yes                    (make a variant a document of its own)
  *
  * The rest of the file is the whole edited file (it may be left out when only renaming or moving). Several files
  * are separated by `% texchef-file: <path>` lines. Nothing is applied until the person reviews it, and each
@@ -26,8 +28,10 @@ export interface AgentReply {
   rename?: string;
   /** The folder to move the document to, or to create a new one in ("A/B"). */
   folder?: string;
-  /** For a new document: make it a linked variant of this document. */
+  /** Make the document (new or existing) a linked variant of this document. */
   variantOf?: string;
+  /** For an existing variant: unlink it from its original. */
+  unlink?: boolean;
   /** Move the document to the archive (true) or bring it back (false). */
   archive?: boolean;
   /** path → full text. A path of '' means "the document's main file". */
@@ -71,8 +75,19 @@ export function parseReply(raw: string): AgentReply {
     buf.push(line);
   }
   flush();
-  const archive = a.archive === undefined ? undefined : /^(yes|true|1)$/i.test(a.archive) ? true : /^(no|false|0)$/i.test(a.archive) ? false : undefined;
-  return { doc: a.doc, base: a.base, name: a.name, note: a.note, rename: a.rename, folder: a.folder, variantOf: a['variant-of'] ?? a.variantof, archive, files };
+  const flag = (v: string | undefined) => (v === undefined ? undefined : /^(yes|true|1)$/i.test(v) ? true : /^(no|false|0)$/i.test(v) ? false : undefined);
+  return {
+    doc: a.doc,
+    base: a.base,
+    name: a.name,
+    note: a.note,
+    rename: a.rename,
+    folder: a.folder,
+    variantOf: a['variant-of'] ?? a.variantof,
+    unlink: flag(a.unlink) || undefined,
+    archive: flag(a.archive),
+    files,
+  };
 }
 
 export interface ReplyFilePlan {

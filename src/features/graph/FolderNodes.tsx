@@ -29,7 +29,7 @@ export const FolderCard = memo(function FolderCard({ id, data }: NodeProps<Folde
   // A folder tab on top and a tinted footer tell folders apart from documents at a glance.
   const card = (
     <div className="group flex flex-col" style={{ width: CARD_W, height: snap ? cardHeight(fullPage) : undefined }} data-testid={`folder-node-${item.name}`}>
-      <Handle type="target" position={vertical ? Position.Top : Position.Left} className="!size-2 !border-0 !bg-line" />
+      <Handle type="target" position={vertical ? Position.Top : Position.Left} className="!size-2 !border-0 !bg-line" isConnectable={false} />
       <div
         className={cn('-mb-px ml-3 h-2.5 w-20 shrink-0 rounded-t-md border border-b-0', dropping ? 'border-accent bg-accent' : 'border-accent/35 bg-accent-soft')}
         aria-hidden
@@ -69,7 +69,7 @@ export const FolderCard = memo(function FolderCard({ id, data }: NodeProps<Folde
           </span>
         </div>
       </div>
-      <Handle type="source" position={vertical ? Position.Bottom : Position.Right} className="!size-2 !border-0 !bg-line" />
+      <Handle type="source" position={vertical ? Position.Bottom : Position.Right} className="!size-2 !border-0 !bg-line" isConnectable={false} />
     </div>
   );
   return <>{wrap ? wrap(card) : card}</>;

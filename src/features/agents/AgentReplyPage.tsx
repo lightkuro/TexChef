@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
-import { Archive, ArrowLeft, Bot, Check, FolderInput, GitBranch, GitBranchPlus, PencilLine, X } from 'lucide-react';
+import { Archive, ArrowLeft, Bot, Check, FolderInput, GitBranch, GitBranchPlus, Link2, PencilLine, Unlink, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useDocs } from '@/app/repo';
 import { usePrefs } from '@/app/prefs';
@@ -8,7 +8,7 @@ import { Badge, Button, EmptyState, Select, Spinner, Tip } from '@/components/ui
 import { DiffView } from '@/features/compare/DiffView';
 import { driveProvider } from '@/features/sync/controller';
 import { SaveAsVariantDialog } from '@/features/variants/SaveAsVariantDialog';
-import { saveWorkAsVariant } from '@/variants/ops';
+import { canLink, linkAsVariant, saveWorkAsVariant, unlinkVariant } from '@/variants/ops';
 import { cleanFolder } from '@/features/folders/folderTree';
 import { fileText } from '@/core/repo';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,7 @@ export function AgentReplyPage() {
   const [busy, setBusy] = useState(false);
   const [asVariant, setAsVariant] = useState(false);
   // The actions a reply proposes besides text (rename, move, make it a variant): each can be unticked.
-  const [use, setUse] = useState({ rename: true, folder: true, variant: true, archive: true });
+  const [use, setUse] = useState({ rename: true, folder: true, variant: true, archive: true, link: true, unlink: true });
 
   // Load the reply: from Drive, or pasted.
   useEffect(() => {
@@ -99,14 +99,24 @@ export function AgentReplyPage() {
   const reply = source?.reply;
   const variantOf = docs?.find((d) => d.id === reply?.variantOf && !d.deleted);
   const newFolder = reply?.folder !== undefined ? cleanFolder(reply.folder) : undefined;
+  // Linking an existing document goes through the same checks as in the document menu (one original, no loops).
+  const alreadyLinked = !!doc?.parent && doc.parent.docId === reply?.variantOf;
+  const linkCheck = docId !== 'new' && doc && docs && reply?.variantOf && !alreadyLinked ? canLink(docs, doc.id, reply.variantOf) : undefined;
+  const original = docs?.find((d) => d.id === doc?.parent?.docId);
   /** What the reply proposes besides text, for the document chosen. */
   const actions = {
     rename: docId !== 'new' && !!doc && !!reply?.rename && reply.rename !== doc.name,
     folder: reply?.folder !== undefined && (docId === 'new' ? !!newFolder : !!doc && newFolder !== cleanFolder(doc.folder)),
     variant: docId === 'new' && !!variantOf?.head,
     archive: docId !== 'new' && !!doc && reply?.archive !== undefined && reply.archive !== !!doc.archived,
+    link: !!linkCheck?.ok,
+    // "Link to X" and "unlink" in one reply: the link is the clearer wish.
+    unlink: docId !== 'new' && !!doc?.parent && !!reply?.unlink && !reply.variantOf,
   };
-  const anyAction = (actions.rename && use.rename) || (actions.folder && use.folder) || (actions.archive && use.archive);
+  /** Proposed, but not possible: shown so it isn't silently dropped, and never applied. */
+  const refused = linkCheck && !linkCheck.ok ? `Link it as a variant of “${variantOf?.name ?? reply?.variantOf}”: ${linkCheck.reason}` : undefined;
+  const anyAction =
+    (actions.rename && use.rename) || (actions.folder && use.folder) || (actions.archive && use.archive) || (actions.link && use.link) || (actions.unlink && use.unlink);
   const active = plan?.files.find((f) => f.path === path) ?? plan?.files[0];
   const conflicted = useMemo(() => Object.values(proposed).filter(hasConflictMarkers).length, [proposed]);
   const changed = plan?.files.filter((f) => proposed[f.path] !== f.current) ?? [];
@@ -154,6 +164,8 @@ export function AgentReplyPage() {
       if (actions.rename && use.rename) await repo.updateDoc(docId, { name: reply!.rename!.trim() });
       if (actions.folder && use.folder) await repo.updateDoc(docId, { folder: newFolder });
       if (actions.archive && use.archive) await repo.updateDoc(docId, { archived: reply!.archive });
+      if (actions.link && use.link) await linkAsVariant(repo, docId, reply!.variantOf!);
+      if (actions.unlink && use.unlink) await unlinkVariant(repo, docId);
       toast.success(changed.length ? 'Saved as a new version' : 'Done');
       await finish(`/doc/${docId}`);
     } catch (e) {
@@ -250,7 +262,7 @@ export function AgentReplyPage() {
               </Select>
             )}
           </div>
-          {(actions.rename || actions.folder || actions.variant || actions.archive) && (
+          {(actions.rename || actions.folder || actions.variant || actions.archive || actions.link || actions.unlink || refused) && (
             <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-line px-3 py-2 text-sm" data-testid="agent-reply-actions">
               <span className="text-xs font-medium tracking-wide text-muted uppercase">Also proposed</span>
               {actions.rename && (
@@ -277,6 +289,24 @@ export function AgentReplyPage() {
                   <input type="checkbox" checked={use.variant} onChange={(e) => setUse((u) => ({ ...u, variant: e.target.checked }))} data-testid="agent-action-variant" />
                   <GitBranch className="size-3.5 text-muted" /> Link it as a variant of “{variantOf!.name}”
                 </label>
+              )}
+              {actions.link && (
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={use.link} onChange={(e) => setUse((u) => ({ ...u, link: e.target.checked }))} data-testid="agent-action-link" />
+                  <Link2 className="size-3.5 text-muted" /> Link it as a variant of “{variantOf!.name}”
+                  {original ? ` (instead of “${original.name}”)` : ''}: no text changes
+                </label>
+              )}
+              {actions.unlink && (
+                <label className="flex items-center gap-1.5">
+                  <input type="checkbox" checked={use.unlink} onChange={(e) => setUse((u) => ({ ...u, unlink: e.target.checked }))} data-testid="agent-action-unlink" />
+                  <Unlink className="size-3.5 text-muted" /> Unlink it from “{original?.name ?? 'its original'}”: it keeps its text and versions
+                </label>
+              )}
+              {refused && (
+                <span className="flex items-center gap-1.5 text-xs text-muted" data-testid="agent-action-refused">
+                  <X className="size-3.5" /> Can’t be done: {refused}
+                </span>
               )}
             </div>
           )}

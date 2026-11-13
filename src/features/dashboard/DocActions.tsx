@@ -1,12 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive, Archive, ArchiveRestore, Palette, AlertTriangle, FolderInput } from 'lucide-react';
+import { MoreHorizontal, ExternalLink, GitBranch, GitCompare, GitPullRequestArrow, Copy, Pencil, Download, Trash2, FileArchive, Archive, ArchiveRestore, Palette, AlertTriangle, FolderInput, Link2, Unlink, Crown, ArrowUpFromLine } from 'lucide-react';
 import { ColorDialog } from './ColorDialog';
 import { MoveToFolderDialog } from '@/features/folders/MoveToFolderDialog';
 import { toast } from 'sonner';
 import type { DocMeta } from '@/core/model';
 import { db, repo, useDocs } from '@/app/repo';
-import { forkDocument } from '@/variants/ops';
+import { forkDocument, pushBlockedReason } from '@/variants/ops';
+import { LinkDialog } from '@/features/variants/LinkDialog';
+import { promoteDoc, unlinkDoc } from '@/features/variants/linkActions';
 import { makePreviews } from '@/features/workspace/previews';
 import { downloadPdf, downloadProjectZip } from '@/features/importexport/io';
 import {
@@ -47,6 +49,7 @@ interface Action {
   danger?: boolean;
   disabled?: boolean;
   separatorBefore?: boolean;
+  testId?: string;
 }
 
 function useDocActions(doc: DocMeta) {
@@ -55,8 +58,11 @@ function useDocActions(doc: DocMeta) {
   const [deleting, setDeleting] = useState(false);
   const [coloring, setColoring] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [linking, setLinking] = useState(false);
   const [name, setName] = useState(doc.name);
-  const variants = (useDocs() ?? []).filter((d) => d.parent?.docId === doc.id && !d.deleted);
+  const docs = useDocs() ?? [];
+  const variants = docs.filter((d) => d.parent?.docId === doc.id && !d.deleted);
+  const original = doc.parent ? docs.find((d) => d.id === doc.parent!.docId) : undefined;
 
   const actions: Action[] = [
     { key: 'open', label: 'Open', icon: <ExternalLink className="size-4" />, run: () => navigate(`/doc/${doc.id}`) },
@@ -68,6 +74,22 @@ function useDocActions(doc: DocMeta) {
       run: () => navigate(`/doc/${doc.id}/pull`),
       disabled: !doc.parent,
     },
+    // Only for variants: the way back up.
+    ...(doc.parent
+      ? [
+          {
+            key: 'push',
+            label: 'Send changes to original',
+            icon: <ArrowUpFromLine className="size-4" />,
+            run: () => {
+              const blocked = pushBlockedReason(doc);
+              if (blocked) toast.info(blocked, { duration: 9000 });
+              else navigate(`/doc/${doc.id}/push`);
+            },
+            testId: 'doc-push',
+          },
+        ]
+      : []),
     {
       key: 'compare',
       label: doc.parent ? 'Compare with original' : 'Compare side by side…',
@@ -83,7 +105,14 @@ function useDocActions(doc: DocMeta) {
         toast.success(`Created “${d.name}”`);
       },
     },
-    { key: 'rename', label: 'Rename…', icon: <Pencil className="size-4" />, run: () => (setName(doc.name), setRenaming(true)) },
+    { key: 'link', label: doc.parent ? 'Link to a different original…' : 'Link as variant of…', icon: <Link2 className="size-4" />, separatorBefore: true, run: () => setLinking(true), testId: 'doc-link' },
+    ...(doc.parent
+      ? [
+          { key: 'unlink', label: 'Unlink from original', icon: <Unlink className="size-4" />, run: () => void unlinkDoc(doc, original?.name), testId: 'doc-unlink' },
+          { key: 'promote', label: 'Make this the original', icon: <Crown className="size-4" />, run: () => void promoteDoc(doc, original?.name), testId: 'doc-make-original' },
+        ]
+      : []),
+    { key: 'rename', label: 'Rename…', separatorBefore: true, icon: <Pencil className="size-4" />, run: () => (setName(doc.name), setRenaming(true)) },
     { key: 'color', label: 'Color…', icon: <Palette className="size-4" />, run: () => setColoring(true) },
     { key: 'move', label: 'Move to folder…', icon: <FolderInput className="size-4" />, run: () => setMoving(true) },
     {
@@ -121,6 +150,7 @@ function useDocActions(doc: DocMeta) {
     <Contained keys>
       {coloring && <ColorDialog doc={doc} open={coloring} onOpenChange={setColoring} />}
       {moving && <MoveToFolderDialog doc={doc} open={moving} onOpenChange={setMoving} />}
+      {linking && <LinkDialog doc={doc} open={linking} onOpenChange={setLinking} />}
       <Dialog
         open={renaming}
         onOpenChange={setRenaming}
@@ -205,7 +235,7 @@ export function DocActionsMenu({ doc, asContextMenu, children }: { doc: DocMeta;
               {actions.map((a) => (
                 <div key={a.key}>
                   {a.separatorBefore && <ContextMenuSeparator />}
-                  <ContextMenuItem onSelect={a.run} danger={a.danger} disabled={a.disabled}>
+                  <ContextMenuItem onSelect={a.run} danger={a.danger} disabled={a.disabled} testId={a.testId}>
                     {a.icon} {a.label}
                   </ContextMenuItem>
                 </div>
@@ -230,7 +260,7 @@ export function DocActionsMenu({ doc, asContextMenu, children }: { doc: DocMeta;
             {actions.map((a) => (
               <div key={a.key}>
                 {a.separatorBefore && <MenuSeparator />}
-                <MenuItem onSelect={a.run} danger={a.danger} disabled={a.disabled}>
+                <MenuItem onSelect={a.run} danger={a.danger} disabled={a.disabled} testId={a.testId}>
                   {a.icon} {a.label}
                 </MenuItem>
               </div>

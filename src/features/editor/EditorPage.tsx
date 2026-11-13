@@ -6,6 +6,7 @@ import { useAgentsDialog } from '@/features/agents/agents';
 import { AgentsButton } from '@/features/agents/AgentsButton';
 import {
   ArrowLeft,
+  ArrowUpFromLine,
   ChevronDown,
   Download,
   FileArchive,
@@ -59,7 +60,7 @@ import { decodeSynctex, parseSynctex, pdfToSource, sourceToPdf, type SyncData, t
 import { sourceLineKey } from '@/pdfedit/locate';
 import { usePdfEdit } from '@/features/pdfedit/usePdfEdit';
 import type { SourceChange } from '@/pdfedit/applyEdit';
-import { applyTextToOriginal } from '@/variants/ops';
+import { applyTextToOriginal, pushBlockedReason } from '@/variants/ops';
 
 type SideTab = 'files' | 'blocks' | 'history';
 type Pane = 'code' | 'pdf';
@@ -865,6 +866,19 @@ export function EditorPage() {
             <MenuItem onSelect={() => navigate(`/compare?left=${doc.id}${parent ? `&right=${parent.id}` : ''}`)}>
               <GitCompare className="size-4" /> Compare side by side…
             </MenuItem>
+            {parent && (
+              <MenuItem
+                onSelect={async () => {
+                  const blocked = pushBlockedReason(doc);
+                  if (blocked) return void toast.info(blocked, { duration: 9000 });
+                  await flush();
+                  navigate(`/doc/${doc.id}/push`);
+                }}
+                testId="editor-push"
+              >
+                <ArrowUpFromLine className="size-4" /> <span className="min-w-0 truncate">Send changes to “{parent.name}”…</span>
+              </MenuItem>
+            )}
             {agentsEnabled && phone && (
               <MenuItem onSelect={async () => (await flush(), openAgents(true))}>
                 <Bot className="size-4" /> AI updates…
