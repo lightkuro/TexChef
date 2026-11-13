@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { usePrefs } from '@/app/prefs';
 import { keepMeasured } from './keepMeasured';
-import { Background, Controls, Handle, Position, ReactFlow, useEdgesState, useNodesState, type Edge, type Node, type NodeProps } from '@xyflow/react';
+import { Background, BaseEdge, Controls, Handle, Position, ReactFlow, useEdgesState, useNodesState, type Edge, type EdgeProps, type Node, type NodeProps } from '@xyflow/react';
 import { X, GitCompare, RotateCcw, GitBranch, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { repo, useAllCommits } from '@/app/repo';
@@ -14,6 +14,10 @@ import { Button, Badge } from '@/components/ui';
 const LANE_H = 64;
 const COL_W = 54;
 const LABEL_W = 210;
+/** A version's circle (size-7). */
+const NODE = 28;
+/** The free space between one version and the next column: links change lanes here, where no version can be. */
+const GAP = COL_W - NODE;
 
 type LaneData = { doc: DocMeta; color: string };
 type CommitData = { commit: Commit; color: string; head: boolean; diverged: boolean };
@@ -40,13 +44,78 @@ const CommitNode = memo(function CommitNode({ data, selected }: NodeProps<Node<C
       title={`${commit.message}\n${new Date(commit.createdAt).toLocaleString()}`}
     >
       <Handle type="target" position={Position.Left} className="!size-1 !border-0 !opacity-0" />
+      {/* Links from another document's lane come in from above or below, clear of the lane's own line. */}
+      <Handle type="target" id="top" position={Position.Top} className="!size-1 !border-0 !opacity-0" />
+      <Handle type="target" id="bottom" position={Position.Bottom} className="!size-1 !border-0 !opacity-0" />
       {kindIcon(commit.kind)}
       <Handle type="source" position={Position.Right} className="!size-1 !border-0 !opacity-0" />
     </div>
   );
 });
 
+type CrossData = {
+  /**
+   * 'drop': change lanes right after the source, then run along the target's lane into its left side. For a
+   * document's first version: its lane is empty up to there.
+   * 'gutter': the target's lane already has versions (and a line joining them), so run between two lanes and come
+   * down (or up) into the target.
+   */
+  route: 'drop' | 'gutter';
+  /** Right angles with rounded corners, instead of slanted lines. */
+  angled: boolean;
+  /** Nudges links that share a gutter apart. */
+  offset: number;
+};
+
+/** A polyline through `pts`, with its corners rounded by up to `r`. */
+function roundedPath(pts: [number, number][], r: number): string {
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [px, py] = pts[i - 1];
+    const [x, y] = pts[i];
+    const [nx, ny] = pts[i + 1];
+    const inLen = Math.hypot(x - px, y - py);
+    const outLen = Math.hypot(nx - x, ny - y);
+    const k = Math.min(r, inLen / 2, outLen / 2);
+    if (k < 0.5) {
+      d += ` L${x},${y}`;
+      continue;
+    }
+    d += ` L${x - ((x - px) / inLen) * k},${y - ((y - py) / inLen) * k} Q${x},${y} ${x + ((nx - x) / outLen) * k},${y + ((ny - y) / outLen) * k}`;
+  }
+  const [ex, ey] = pts[pts.length - 1];
+  return `${d} L${ex},${ey}`;
+}
+
+/**
+ * A link between versions of two documents. A straight line from one to the other would cut through any version
+ * that sits between them, so the link changes lanes only in the gap right after its source (every version has a
+ * column to itself, so no version can be there), and otherwise runs along an empty lane or between two lanes.
+ * (tx, ty) is the target's left side for 'drop', and its top or bottom for 'gutter'.
+ */
+export function crossLanePath(sx: number, sy: number, tx: number, ty: number, { route, angled, offset }: CrossData): string {
+  const room = tx - sx;
+  // Out of order (clocks that disagree between devices): nothing better than a straight line.
+  if (room < 6 || sy === ty) return `M${sx},${sy} L${tx},${ty}`;
+  const turn = Math.min(angled ? 10 : GAP, angled ? room / 2 : room);
+  if (route === 'gutter') {
+    // Halfway between the target's lane and the next lane towards the source.
+    const yg = ty - Math.sign(ty - sy) * (LANE_H / 2 - NODE / 2) + offset;
+    return angled
+      ? roundedPath([[sx, sy], [sx + turn, sy], [sx + turn, yg], [tx, yg], [tx, ty]], 6)
+      : roundedPath([[sx, sy], [sx + turn, yg], [tx, yg], [tx, ty]], 5);
+  }
+  return angled
+    ? roundedPath([[sx, sy], [sx + turn, sy], [sx + turn, ty], [tx, ty]], 6)
+    : roundedPath([[sx, sy], [sx + turn, ty], [tx, ty]], 4);
+}
+
+const CrossEdge = memo(function CrossEdge({ id, sourceX, sourceY, targetX, targetY, data, style }: EdgeProps<Edge<CrossData>>) {
+  return <BaseEdge id={id} path={crossLanePath(sourceX, sourceY, targetX, targetY, data!)} style={style} />;
+});
+
 const nodeTypes = { lane: LaneNode, commit: CommitNode };
+const edgeTypes = { cross: CrossEdge };
 
 function laneOrder(docs: DocMeta[]): DocMeta[] {
   const out: DocMeta[] = [];
@@ -108,19 +177,36 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
       return c ? c.parents.flatMap((p) => visibleAncestors(p, seen)) : [];
     };
     const edges: Edge[] = [];
+    // Each document's versions by column, to tell whether a link's target is the first in its lane.
+    const laneCols = new Map<string, number[]>();
+    for (const c of visible) laneCols.set(c.docId, [...(laneCols.get(c.docId) ?? []), col.get(c.id)!]);
+    const gutterUse = new Map<string, number>();
     for (const c of visible) {
       const parents = new Set(c.parents.flatMap((p) => visibleAncestors(p)));
       for (const p of parents) {
         const pc = byId.get(p)!;
         const cross = pc.docId !== c.docId;
         const doc = docById.get(cross ? pc.docId : c.docId)!;
+        const style = { stroke: docColor(doc.id, doc.color), strokeWidth: 2, strokeDasharray: cross ? '5 4' : undefined };
+        if (!cross) {
+          edges.push({ id: `${p}->${c.id}`, source: p, target: c.id, type: 'straight', style });
+          continue;
+        }
+        const to = col.get(c.id)!;
+        const blocked = (laneCols.get(c.docId) ?? []).some((k) => k < to);
+        // Links sharing the space between the same two lanes sit a few pixels apart.
+        const gutter = `${laneIndex.get(c.docId)}:${Math.sign(laneIndex.get(c.docId)! - laneIndex.get(pc.docId)!)}`;
+        const n = blocked ? (gutterUse.get(gutter) ?? 0) : 0;
+        if (blocked) gutterUse.set(gutter, n + 1);
         edges.push({
           id: `${p}->${c.id}`,
           source: p,
           target: c.id,
-          type: cross && angled ? 'smoothstep' : 'straight',
-          animated: cross && c.kind === 'merge',
-          style: { stroke: docColor(doc.id, doc.color), strokeWidth: 2, strokeDasharray: cross ? '5 4' : undefined },
+          type: 'cross',
+          targetHandle: blocked ? (laneIndex.get(c.docId)! > laneIndex.get(pc.docId)! ? 'top' : 'bottom') : undefined,
+          data: { route: blocked ? 'gutter' : 'drop', angled, offset: ((n % 3) - (n % 3 === 2 ? 3 : 0)) * 5 } satisfies CrossData,
+          animated: c.kind === 'merge',
+          style,
         });
       }
     }
@@ -144,6 +230,7 @@ export function VersionGraph({ docs, showAutosaves }: { docs: DocMeta[]; showAut
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={{ padding: 0.15, maxZoom: 1.2 }}
         minZoom={0.2}

@@ -19,6 +19,8 @@ export const RELEASES: Release[] = [
       ['new', 'Experimental and opt-in (Settings → Experimental): TexChef can keep a TexChef/Agents(optional_AI) folder in your Google Drive with instructions for an AI assistant you connect to Drive yourself. TexChef never sends anything to an AI.'],
       ['new', 'Replies from AI agents (Import menu, or the editor’s ⌄ menu): pick a reply in Drive or paste one, then review it side by side. Edits you made after the agent read the file are kept; Accept, keep it as a new variant, or Dismiss.'],
       ['improved', 'When the browser’s storage is full, TexChef says so and what to do instead of failing quietly.'],
+      ['fixed', 'Versions view: links between documents go around the versions in between instead of through them, and a link that brings updates in arrives from above or below.'],
+      ['fixed', 'Coloured borders show as designed (the selected template and colour theme, ticked boxes, update badges, tip boxes), and the “working” spinner shows as a turning arc.'],
     ],
   },
   {

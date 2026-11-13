@@ -523,6 +523,91 @@ await step('document color label shows on the graph card', async () => {
 });
 
 /** Scroll position (in the page's own scroll box) of the middle of scene `i` of the story. */
+await step('versions view: links between documents go around the versions in between', async () => {
+  // A master, two versions made from the same master version, and one of them taking a later fix after an edit of
+  // its own: drawn as straight lines, those links would run through other versions.
+  const made = await page.evaluate(async () => {
+    const { repo } = window.rc;
+    const { createVariant, planPull, applyPull } = await import('/src/variants/ops.ts');
+    const tick = () => new Promise((r) => setTimeout(r, 15));
+    const tex = (body) => `\\documentclass{article}\n\\begin{document}\n%% @block a tags=x\n${body}\n%% @end\n%% @block b tags=y\nSecond.\n%% @end\n\\end{document}\n`;
+    const recipe = (tags) => ({ include: [], exclude: [], tags, known: [] });
+    const m = await repo.createDoc({ name: 'Lines master', files: { 'main.tex': { kind: 'text', text: tex('First.') } } });
+    await tick();
+    const a = await createVariant(repo, { parentId: m.id, name: 'Lines A', recipe: recipe(['x']) });
+    await tick();
+    const b = await createVariant(repo, { parentId: m.id, name: 'Lines B', recipe: recipe(['y']) });
+    await tick();
+    await repo.writeWorkText(m.id, 'main.tex', tex('First, fixed.'));
+    await repo.commitWork(m.id, 'A fix', 'save');
+    await tick();
+    await repo.writeWorkText(a.id, 'main.tex', (await repo.getWork(a.id)).files['main.tex'].text.replace('\\end{document}', 'Own edit.\n\\end{document}'));
+    await repo.commitWork(a.id, 'Own edit', 'save');
+    await tick();
+    const plan = await planPull(repo, a.id);
+    await applyPull(repo, a.id, plan.files, plan.parentHead);
+    await tick();
+    const c = await createVariant(repo, { parentId: m.id, name: 'Lines C', recipe: recipe(['x']) });
+    return [m.id, a.id, b.id, c.id];
+  });
+  /** Links that come closer to a version they don't connect than that version's own edge. */
+  const throughVersions = () =>
+    page.evaluate((ids) => {
+      const nodes = [...document.querySelectorAll('.react-flow__node-commit')].map((n) => {
+        const r = n.getBoundingClientRect();
+        return { id: n.dataset.id, x: r.left + r.width / 2, y: r.top + r.height / 2, rad: r.width / 2 };
+      });
+      const out = [];
+      let cross = 0;
+      for (const e of document.querySelectorAll('.react-flow__edge')) {
+        const [from, to] = (e.dataset.id ?? e.getAttribute('data-testid').replace('rf__edge-', '')).split('->');
+        const path = e.querySelector('path.react-flow__edge-path');
+        const m = path.getScreenCTM();
+        const len = path.getTotalLength();
+        if (path.getAttribute('d').includes('Q')) cross++;
+        for (const n of nodes) {
+          if (n.id === from || n.id === to) continue;
+          for (let d = 0; d <= len; d += 1.5) {
+            const p = path.getPointAtLength(d);
+            if (Math.hypot(p.x * m.a + p.y * m.c + m.e - n.x, p.x * m.b + p.y * m.d + m.f - n.y) < n.rad + 1) {
+              out.push(`${from.slice(-4)}->${to.slice(-4)} runs through ${n.id.slice(-4)}`);
+              break;
+            }
+          }
+        }
+      }
+      return { out, cross, versions: nodes.length, ids: ids.length };
+    }, made);
+  await page.goto(BASE);
+  await page.getByTestId('graph-mode').hover();
+  await page.getByTestId('graph-versions').click();
+  await page.locator('.react-flow__node-commit').first().waitFor();
+  await page.mouse.move(5, 500);
+  await page.waitForTimeout(1000);
+  const straight = await throughVersions();
+  assert.ok(straight.cross >= 4, `links between documents are routed (found ${straight.cross})`);
+  assert.deepEqual(straight.out, [], 'slanted lines');
+  await page.screenshot({ path: `${OUT}07c-versions-links.png` });
+  // The right-angled line style, too.
+  await page.goto(`${BASE}/settings`);
+  await page.getByTestId('settings-map-lines').selectOption('angled');
+  await page.goto(BASE);
+  await page.locator('.react-flow__node-commit').first().waitFor();
+  await page.mouse.move(5, 500);
+  await page.waitForTimeout(1000);
+  assert.deepEqual((await throughVersions()).out, [], 'right-angled lines');
+  await page.goto(`${BASE}/settings`);
+  await page.getByTestId('settings-map-lines').selectOption('straight');
+  // Back to how the next checks expect things: the map, and without these documents.
+  await page.goto(BASE);
+  await page.getByTestId('graph-mode').hover();
+  await page.getByTestId('graph-family').click();
+  await page.evaluate(async (ids) => {
+    for (const id of ids.reverse()) await window.rc.repo.deleteDoc(id);
+  }, made);
+  await page.waitForTimeout(300);
+});
+
 const sceneY = (i) =>
   page.evaluate((i) => {
     const s = document.querySelector('[data-testid=ideas-story]');
