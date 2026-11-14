@@ -1293,6 +1293,37 @@ await step('AI agents (experimental): off by default; on, a pasted reply is revi
     return { name: d.name, folder: d.folder };
   }, letter);
   assert.deepEqual(after2, { name: 'Agent letter, sent', folder: 'Agent drafts' });
+  // ---- agents: choosing edits one by one (begin) ----
+  // The review lists each text edit with a tick box, and Accept says what it will do.
+  const three = 'one\n\nalpha\n\ntwo\n\nbeta\n\nthree\n';
+  const pick = await page.evaluate(async (t) => {
+    const d = await window.rc.repo.createDoc({ name: 'Pick and choose', files: { 'main.tex': { kind: 'text', text: t } } });
+    return { id: d.id, head: d.head };
+  }, three);
+  const pickText = () => page.evaluate(async (id) => (await window.rc.repo.getWork(id)).files['main.tex'].text, pick.id);
+  await openPaste(`% texchef-reply doc=${pick.id} base=${pick.head} file=main.tex rename="Picked" note="Two edits"\n${three.replace('alpha', 'ALPHA').replace('beta', 'BETA')}`);
+  await page.getByTestId('agent-change-1').waitFor();
+  assert.match(await page.getByTestId('agent-reply-base').innerText(), /read version 1/);
+  assert.equal(await page.getByTestId('agent-reply-accept-label').innerText(), 'Accept 2 edits, rename');
+  await page.getByTestId('agent-change-0').uncheck();
+  assert.equal(await page.getByTestId('agent-reply-accept-label').innerText(), 'Accept 1 edit, rename');
+  // How it would print is one click away (compiled on the spot; nothing is saved).
+  await page.getByTestId('agent-view-pdf').click();
+  await page.getByTestId('agent-pdf-after').waitFor();
+  await page.getByTestId('agent-pdf-before').waitFor();
+  await page.getByTestId('agent-view-text').click();
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${pick.id}`);
+  assert.equal(await pickText(), three.replace('beta', 'BETA'), 'only the ticked edit was saved');
+  // All text edits unticked: Accept applies only the rest.
+  await openPaste(`% texchef-reply doc=${pick.id} file=main.tex rename="Picked again"\n${three.replace('alpha', 'ALPHA').replace('beta', 'BETA')}`);
+  await page.getByTestId('agent-changes-all').uncheck();
+  assert.equal(await page.getByTestId('agent-reply-accept-label').innerText(), 'Accept rename');
+  await page.getByTestId('agent-reply-accept').click();
+  await page.waitForURL(`**/doc/${pick.id}`);
+  assert.equal(await pickText(), three.replace('beta', 'BETA'));
+  assert.equal(await page.evaluate(async (id) => (await window.rc.repo.getDoc(id)).name, pick.id), 'Picked again');
+  // ---- agents: choosing edits one by one (end) ----
   // ---- agents: linking proposals (begin) ----
   // An assistant can also propose unlinking a variant, or linking a document as a variant: tick boxes, like the rest.
   const linkedTo = (id) => page.evaluate(async (id) => (await window.rc.repo.getDoc(id)).parent?.docId ?? null, id);
