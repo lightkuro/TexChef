@@ -8,7 +8,7 @@ import { driveProvider, useSync } from '@/features/sync/controller';
 export const useAgentsDialog = create<{ open: boolean; set: (open: boolean) => void; waiting: number }>((set) => ({ open: false, set: (open) => set({ open }), waiting: 0 }));
 
 /** Replies in the Agents folder that TexChef can see and that haven't been reviewed. */
-export async function waitingReplies(): Promise<{ id: string; name: string }[]> {
+export async function waitingReplies(): Promise<{ id: string; name: string; folder?: string }[]> {
   const provider = driveProvider();
   if (!provider) return [];
   const handled = new Set(await handledReplies());
@@ -35,18 +35,6 @@ export function useAgentReplyCount(): number {
 /** Replies already reviewed (accepted or dismissed), by Drive file id. */
 export async function handledReplies(): Promise<string[]> {
   return (await db.getMeta<string[]>('agents.handled')) ?? [];
-}
-
-/** Where the review of a reply file with several parts has got to (the part to show next), by Drive file id. */
-export async function replyProgress(fileId: string): Promise<number> {
-  return ((await db.getMeta<Record<string, number>>('agents.progress')) ?? {})[fileId] ?? 0;
-}
-
-export async function setReplyProgress(fileId: string, part: number | undefined) {
-  const all = { ...((await db.getMeta<Record<string, number>>('agents.progress')) ?? {}) };
-  if (part === undefined) delete all[fileId];
-  else all[fileId] = part;
-  await db.setMeta('agents.progress', all);
 }
 
 /** Remember a reply as handled and, when it came from Drive, move it into Agents/Done. */

@@ -183,6 +183,18 @@ describe('DriveProvider against a fake Drive API', () => {
     await A.provider.moveTo('r1', done);
     expect(drive.files.get('r1')!.parents).toEqual([done]);
     expect((await A.provider.listAgentReplies()).map((f) => f.id)).toEqual(['g1']);
+    // Replies filed by task: a folder inside the Agents folder, listed with its name. Done is never listed.
+    const file = (id: string, name: string, parent: string) =>
+      drive.files.set(id, { id, name, mimeType: 'text/plain', parents: [parent], appProperties: {}, data: new Uint8Array(), version: 1, trashed: false });
+    drive.files.set('t1', { id: 't1', name: 'Acme application', mimeType: 'application/vnd.google-apps.folder', parents: [agents.id], appProperties: {}, data: new Uint8Array(), version: 1, trashed: false });
+    file('a1', 'Resume - Acme.tex', 't1');
+    file('a2', 'Cover letter - Acme.tex', 't1');
+    expect(await A.provider.listAgentReplies()).toEqual([
+      { id: 'g1', name: 'Resume - doc' },
+      { id: 'a1', name: 'Resume - Acme.tex', folder: 'Acme application' },
+      { id: 'a2', name: 'Cover letter - Acme.tex', folder: 'Acme application' },
+    ]);
+    expect(await A.provider.listFilesIn('t1')).toHaveLength(2);
     expect(await A.provider.trashAgentsFolder()).toBe(true);
     expect(named('Agents(optional_AI)')).toHaveLength(0);
   });

@@ -360,11 +360,18 @@ export class DriveProvider implements SyncProvider {
    * Replies TexChef can already see in the Agents folder (not in Done, not the read-me). With the
    * `drive.file` permission that is only files it made or the person picked; others need the picker.
    */
-  async listAgentReplies(): Promise<{ id: string; name: string }[]> {
+  async listAgentReplies(): Promise<{ id: string; name: string; folder?: string }[]> {
     const folder = await this.findAgentsFolder();
     if (!folder) return [];
-    const files = await this.list(`'${folder}' in parents and trashed=false and mimeType!='${FOLDER}'`, 'files(id,name,mimeType,appProperties)');
-    return files.filter((f) => f.appProperties?.rc !== 'agents-readme').map((f) => ({ id: f.id, name: f.name }));
+    const all = await this.list(`'${folder}' in parents and trashed=false`, 'files(id,name,mimeType,appProperties)');
+    const out: { id: string; name: string; folder?: string }[] = all
+      .filter((f) => f.mimeType !== FOLDER && f.appProperties?.rc !== 'agents-readme')
+      .map((f) => ({ id: f.id, name: f.name }));
+    // An assistant that changed several documents puts its replies in a folder of their own, one per task.
+    for (const sub of all.filter((f) => f.mimeType === FOLDER && f.appProperties?.rc !== 'agents-done').sort((a, b) => a.name.localeCompare(b.name))) {
+      for (const f of await this.listFilesIn(sub.id).catch(() => [])) out.push({ ...f, folder: sub.name });
+    }
+    return out;
   }
 
   /** The files (not folders) directly inside a folder, as far as this app may see them. */

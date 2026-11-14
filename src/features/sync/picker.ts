@@ -139,7 +139,7 @@ async function showPicker(opts: PickerOptions): Promise<NonNullable<PickerRespon
  * Experimental AI agents: pick replies in TexChef/Agents(optional_AI). Picking is what lets TexChef
  * (with its narrow drive.file permission) read files an agent created.
  */
-export async function pickAgentReplies(folder?: string): Promise<{ id: string; name: string }[]> {
+export async function pickAgentReplies(folder?: string): Promise<{ id: string; name: string; folder?: string }[]> {
   const picked = await showPicker({
     title: 'Pick replies from AI agents',
     mimeTypes: folder ? undefined : 'text/plain,text/x-tex,application/x-tex,text/markdown,application/vnd.google-apps.document,application/octet-stream',
@@ -148,14 +148,14 @@ export async function pickAgentReplies(folder?: string): Promise<{ id: string; n
   });
   // A picked folder stands for the files in it, as far as Google lets TexChef see them: its narrow permission
   // covers what was picked, and that may be the folder alone and not what is inside.
-  const out: { id: string; name: string }[] = [];
+  const out: { id: string; name: string; folder?: string }[] = [];
   for (const d of picked) {
     if (d.mimeType !== 'application/vnd.google-apps.folder') {
       out.push({ id: d.id, name: d.name });
       continue;
     }
     const inside = (await driveProvider()?.listFilesIn(d.id).catch(() => [])) ?? [];
-    if (inside.length) out.push(...inside);
+    if (inside.length) out.push(...inside.map((f) => ({ ...f, folder: d.name })));
     else toast.info(`Google shared the folder “${d.name}” but not the files in it`, { description: 'Open the folder in the picker and select the files themselves (several at once is fine).', duration: 9000 });
   }
   return out;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RCDatabase } from '@/storage/db';
 import { Repo } from '@/core/repo';
-import { parseReplies, parseReply, planReply } from './reply';
+import { parseReply, planReply } from './reply';
 
 let n = 0;
 
@@ -65,30 +65,5 @@ describe('agent replies', () => {
     const p = await planReply(repo, doc.id, parseReply(`% texchef-reply doc=${doc.id} base=nope\nnew`));
     expect(p.baseKnown).toBe(false);
     expect(p.files[0]).toMatchObject({ current: 'old', proposed: 'new' });
-  });
-
-  it('reads a bundle: several replies in one file, each from its own header line', () => {
-    const bundle = [
-      'Here are the three updates you asked for.',
-      '% texchef-reply doc=a1 base=v1 file=main.tex note="Tightened the summary"',
-      'A text',
-      'second line',
-      '% texchef-reply doc=b2 rename="Cover letter, Acme"',
-      '% texchef-reply doc=new name="Notes" folder="Drafts"',
-      '% texchef-file: main.tex',
-      'N text',
-      '% texchef-file: refs.bib',
-      'B',
-    ].join('\n');
-    const parts = parseReplies(bundle);
-    expect(parts.map((r) => r.doc)).toEqual(['a1', 'b2', 'new']);
-    expect(parts[0]).toMatchObject({ base: 'v1', note: 'Tightened the summary', files: { 'main.tex': 'A text\nsecond line' } });
-    expect(parts[1]).toMatchObject({ rename: 'Cover letter, Acme', files: {} });
-    expect(parts[2]).toMatchObject({ name: 'Notes', folder: 'Drafts', files: { 'main.tex': 'N text', 'refs.bib': 'B' } });
-    // One header (or none) is one reply, as before.
-    expect(parseReplies('% texchef-reply doc=a1\nX')).toHaveLength(1);
-    expect(parseReplies('just text')).toEqual([{ files: { '': 'just text' } }]);
-    // A code fence around the whole bundle is fine.
-    expect(parseReplies('```\n% texchef-reply doc=a1\nX\n% texchef-reply doc=b2\nY\n```').map((r) => r.doc)).toEqual(['a1', 'b2']);
   });
 });

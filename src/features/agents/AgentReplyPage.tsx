@@ -17,29 +17,26 @@ import { canLink, linkAsVariant, makeOriginal, saveWorkAsVariant, unlinkVariant 
 import { cleanFolder } from '@/features/folders/folderTree';
 import { fileText, type FileMap } from '@/core/repo';
 import { cn, timeAgo } from '@/lib/utils';
-import { dropPastedReply, markReplyHandled, pastedReply, replyProgress, setReplyProgress, useAgentsDialog, waitingReplies } from './agents';
+import { dropPastedReply, markReplyHandled, pastedReply, useAgentsDialog, waitingReplies } from './agents';
 import { textChanges } from './changes';
-import { hasConflictMarkers, parseReplies, planReply, type AgentReply, type ReplyPlan } from './reply';
+import { hasConflictMarkers, parseReply, planReply, type AgentReply, type ReplyPlan } from './reply';
 
 /** Review a reply from an AI agent (experimental): the document beside what accepting would write. */
 export function AgentReplyPage() {
   const [params] = useSearchParams();
   const fileId = params.get('file') ?? undefined;
   const pasteKey = params.get('paste') ?? undefined;
-  // A reply file may hold several replies (one per document): `part` says which one is on screen.
-  const part = params.has('part') ? Math.max(0, Number(params.get('part')) || 0) : undefined;
   // Each reply gets a review of its own: moving on to the next one waiting starts from scratch.
-  return <AgentReplyReview key={`${fileId ?? pasteKey ?? ''}|${part ?? ''}`} fileId={fileId} pasteKey={pasteKey} partAsked={part} />;
+  return <AgentReplyReview key={fileId ?? pasteKey ?? ''} fileId={fileId} pasteKey={pasteKey} />;
 }
 
-function AgentReplyReview({ fileId, pasteKey, partAsked }: { fileId?: string; pasteKey?: string; partAsked?: number }) {
+function AgentReplyReview({ fileId, pasteKey }: { fileId?: string; pasteKey?: string }) {
   const enabled = usePrefs((s) => s.agentsEnabled);
   const phone = usePhone();
   const waiting = useAgentsDialog((s) => s.waiting);
   const navigate = useNavigate();
   const docs = useDocs();
-  /** `part` of `parts`: which reply of the file this is (a file usually holds one). */
-  const [source, setSource] = useState<{ name: string; reply: AgentReply; part: number; parts: number }>();
+  const [source, setSource] = useState<{ name: string; reply: AgentReply }>();
   const [error, setError] = useState<string>();
   const [docId, setDocId] = useState<string>();
   const [plan, setPlan] = useState<ReplyPlan>();
@@ -70,23 +67,18 @@ function AgentReplyReview({ fileId, pasteKey, partAsked }: { fileId?: string; pa
         const provider = driveProvider();
         if (!provider) throw new Error('Connect Google Drive to open this reply');
         const { name, text } = await provider.readText(fileId);
-        const all = parseReplies(text);
-        // Opened again later: carry on where the review of this file stopped.
-        const at = Math.min(all.length - 1, partAsked ?? (await replyProgress(fileId)));
-        return { name, reply: all[at], part: at, parts: all.length };
+        return { name, reply: parseReply(text) };
       }
       const text = pasteKey && pastedReply(pasteKey);
       if (!text) throw new Error('This pasted reply is gone (it lasts only while this tab is open). Paste it again.');
-      const all = parseReplies(text);
-      const at = Math.min(all.length - 1, partAsked ?? 0);
-      return { name: 'Pasted reply', reply: all[at], part: at, parts: all.length };
+      return { name: 'Pasted reply', reply: parseReply(text) };
     })()
       .then((s) => live && setSource(s))
       .catch((e) => live && setError(e instanceof Error ? e.message : String(e)));
     return () => {
       live = false;
     };
-  }, [enabled, fileId, pasteKey, partAsked]);
+  }, [enabled, fileId, pasteKey]);
 
   // Which document: the header's, or chosen here when the header is missing or unknown.
   const headerDoc = source?.reply.doc;
@@ -191,21 +183,6 @@ function AgentReplyReview({ fileId, pasteKey, partAsked }: { fileId?: string; pa
 
   /** `queue`: with more replies waiting in Drive, go on to the next one instead of `go`. */
   const finish = async (go: string, queue = true) => {
-    // More documents in the same reply file: on to the next part. The file is done once its last part is.
-    if (source && source.part + 1 < source.parts) {
-      const next = source.part + 1;
-      if (fileId) await setReplyProgress(fileId, next);
-      if (!queue) {
-        // Off to a merge review first: the rest of this file keeps waiting, and opens where it stopped.
-        toast.info(`${source.parts - next} more in this reply: find it under AI updates when you’re done here`);
-        navigate(go);
-        return;
-      }
-      toast.info(`On to document ${next + 1} of ${source.parts} in this reply`);
-      navigate(`/agent-reply?${fileId ? `file=${encodeURIComponent(fileId)}` : `paste=${pasteKey}`}&part=${next}`);
-      return;
-    }
-    if (fileId) await setReplyProgress(fileId, undefined);
     await markReplyHandled(fileId);
     if (pasteKey) dropPastedReply(pasteKey);
     const rest = queue && fileId ? (await waitingReplies().catch(() => [])).filter((r) => r.id !== fileId) : [];
@@ -361,11 +338,6 @@ function AgentReplyReview({ fileId, pasteKey, partAsked }: { fileId?: string; pa
           Experimental
         </Badge>
         <span className="min-w-0 truncate text-xs text-muted max-md:hidden">{source?.name}</span>
-        {source && source.parts > 1 && (
-          <Badge tone="accent" data-testid="agent-reply-part">
-            {source.part + 1} of {source.parts}
-          </Badge>
-        )}
         {fileId && waiting > 1 && (
           <Badge className="max-sm:hidden" data-testid="agent-reply-queue">
             {waiting - 1} more waiting

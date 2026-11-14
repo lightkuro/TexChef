@@ -45,7 +45,10 @@ holds the history: don't touch it.
 
 ## How to reply
 
-TexChef can't apply edits you make anywhere else. Write each answer as **one new file in this folder**:
+TexChef can't apply edits you make anywhere else. Write each answer as **one new file in this folder**, one file
+per document. When a task touches several documents, first make **a new folder inside this one**, named for the
+task (for example \`Acme application\`), and put that task's reply files in it: the owner can then find and pick
+them together. Never write into \`Done/\`. Each file looks like this:
 
 1. **Plain text**, not a Google Doc (if your tool converts uploads, turn conversion off).
 2. Name it \`<Document name> - <what changed>.tex\`, for example \`Master resume - tailored for Acme.tex\`.
@@ -57,9 +60,6 @@ TexChef can't apply edits you make anywhere else. Write each answer as **one new
 …the complete file…
 \`\`\`
 
-- **Several documents in one go:** put all your replies in ONE file, one after another. Each starts with its own
-  \`% texchef-reply …\` header line and runs until the next header line. The owner then picks a single file and
-  reviews the documents one by one.
 - To change several files of one document, leave out \`file=\` and start each file with a line
   \`% texchef-file: <path>\`, followed by that file's complete text.
 - To propose a **new document**, use \`doc=new name="<new document name>"\` instead of \`doc=\` and \`base=\`.

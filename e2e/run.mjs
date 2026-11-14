@@ -1323,19 +1323,6 @@ await step('AI agents (experimental): off by default; on, a pasted reply is revi
   await page.waitForURL(`**/doc/${pick.id}`);
   assert.equal(await pickText(), three.replace('beta', 'BETA'));
   assert.equal(await page.evaluate(async (id) => (await window.rc.repo.getDoc(id)).name, pick.id), 'Picked again');
-  // One reply file can cover several documents: they are reviewed one after another.
-  await openPaste(
-    `% texchef-reply doc=${pick.id} rename="Bundle one" note="First of two"\n% texchef-reply doc=new name="Bundle two" note="Second of two"\n\\documentclass{article}\\begin{document}Two\\end{document}\n`,
-  );
-  assert.equal(await page.getByTestId('agent-reply-part').innerText(), '1 of 2');
-  await page.getByTestId('agent-action-rename').waitFor();
-  await page.getByTestId('agent-reply-accept').click();
-  await page.waitForFunction(() => document.querySelector('[data-testid=agent-reply-part]')?.textContent === '2 of 2');
-  await page.getByText('“Second of two”').waitFor();
-  assert.equal(await page.evaluate(async (id) => (await window.rc.repo.getDoc(id)).name, pick.id), 'Bundle one');
-  await page.getByTestId('agent-reply-accept').click();
-  await page.waitForURL('**/doc/*');
-  assert.ok((await page.evaluate(async () => (await window.rc.repo.listDocs()).map((d) => d.name))).includes('Bundle two'));
   // ---- agents: choosing edits one by one (end) ----
   // ---- agents: linking proposals (begin) ----
   // An assistant can also propose unlinking a variant, or linking a document as a variant: tick boxes, like the rest.

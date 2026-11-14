@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Bot, ClipboardPaste, CloudDownload, Copy, FileText, RefreshCw } from 'lucide-react';
+import { Bot, ClipboardPaste, CloudDownload, Copy, FileText, Folder, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePrefs } from '@/app/prefs';
 import { Badge, Button, Dialog, Spinner } from '@/components/ui';
@@ -22,7 +22,7 @@ export function AgentRepliesDialog() {
   const enabled = usePrefs((s) => s.agentsEnabled);
   const sync = useSync();
   const navigate = useNavigate();
-  const [replies, setReplies] = useState<{ id: string; name: string }[]>();
+  const [replies, setReplies] = useState<{ id: string; name: string; folder?: string }[]>();
   const [loading, setLoading] = useState(false);
   const [pasting, setPasting] = useState(false);
   const [pasted, setPasted] = useState('');
@@ -106,9 +106,15 @@ export function AgentRepliesDialog() {
                 <Spinner />
               </div>
             ) : replies?.length ? (
-              <ul className="divide-y divide-line rounded-lg border border-line">
-                {replies.map((r) => (
+              <ul className="max-h-72 divide-y divide-line overflow-auto rounded-lg border border-line">
+                {replies.map((r, i) => (
                   <li key={r.id}>
+                    {/* Replies an assistant filed together (one folder per task) sit under that folder's name. */}
+                    {r.folder && r.folder !== replies[i - 1]?.folder && (
+                      <div className="flex items-center gap-2 bg-subtle/70 px-3 py-1.5 text-xs font-medium text-muted" data-testid="agent-reply-folder">
+                        <Folder className="size-3.5" /> {r.folder} · {replies.filter((x) => x.folder === r.folder).length}
+                      </div>
+                    )}
                     <button className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-subtle" onClick={() => openReply(`file=${encodeURIComponent(r.id)}`)} data-testid="agent-reply-item">
                       <FileText className="size-4 shrink-0 text-muted" />
                       <span className="min-w-0 flex-1 truncate">{r.name}</span>
