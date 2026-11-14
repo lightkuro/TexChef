@@ -16,6 +16,8 @@ import { merge3 } from '@/core/merge';
  *   % texchef-reply doc=<variant id> base=<version> merged=<original's version id>   (text that already includes the original's changes)
  *   % texchef-reply doc=<variant id> then=get-updates | then=send-changes           (open TexChef's own merge review afterwards)
  *
+ * A file may hold several such replies one after another (a bundle): each header line starts the next one.
+ *
  * The rest of the file is the whole edited file (it may be left out when only renaming or moving). Several files
  * are separated by `% texchef-file: <path>` lines. Nothing is applied until the person reviews it, and each
  * proposed action can be unticked there. Agents cannot delete anything; archiving (which only hides a document,
@@ -103,6 +105,20 @@ export function parseReply(raw: string): AgentReply {
     archive: flag(a.archive),
     files,
   };
+}
+
+/**
+ * A reply file may hold several replies, one after another, each starting with its own header line: one file to
+ * pick for a run that touched many documents. Each part is reviewed on its own.
+ */
+export function parseReplies(raw: string): AgentReply[] {
+  let text = raw.replace(/\r\n?/g, '\n').replace(/^\uFEFF/, '');
+  const fenced = /^\s*```[\w-]*\n([\s\S]*?)\n```\s*$/.exec(text);
+  if (fenced) text = fenced[1];
+  const lines = text.split('\n');
+  const starts = lines.map((l, i) => (HEADER.test(l.trim()) ? i : -1)).filter((i) => i >= 0);
+  if (starts.length < 2) return [parseReply(raw)];
+  return starts.map((from, k) => parseReply(lines.slice(from, starts[k + 1] ?? lines.length).join('\n')));
 }
 
 export interface ReplyFilePlan {

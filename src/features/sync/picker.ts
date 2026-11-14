@@ -62,6 +62,8 @@ interface PickerOptions {
   mimeTypes?: string;
   /** Open inside this folder. */
   parent?: string;
+  /** Folders can be picked too (not only opened). */
+  folders?: boolean;
 }
 
 /** Show Google Picker and return what was picked ([] when closed). */
@@ -94,6 +96,7 @@ async function showPicker(opts: PickerOptions): Promise<NonNullable<PickerRespon
       else resolve(docs);
     };
     const view = new gp.DocsView(gp.ViewId.DOCS).setIncludeFolders(true);
+    if (opts.folders) view.setSelectFolderEnabled(true);
     // A file-type filter turns the view into a flat search of the whole Drive, which ignores the folder to open
     // in. So when a folder is given, show that folder as it is (as a list, where file names are readable).
     if (opts.parent) view.setParent(opts.parent).setMode(gp.DocsViewMode.LIST);
@@ -141,6 +144,19 @@ export async function pickAgentReplies(folder?: string): Promise<{ id: string; n
     title: 'Pick replies from AI agents',
     mimeTypes: folder ? undefined : 'text/plain,text/x-tex,application/x-tex,text/markdown,application/vnd.google-apps.document,application/octet-stream',
     parent: folder,
+    folders: true,
   });
-  return picked.map((d) => ({ id: d.id, name: d.name }));
+  // A picked folder stands for the files in it, as far as Google lets TexChef see them: its narrow permission
+  // covers what was picked, and that may be the folder alone and not what is inside.
+  const out: { id: string; name: string }[] = [];
+  for (const d of picked) {
+    if (d.mimeType !== 'application/vnd.google-apps.folder') {
+      out.push({ id: d.id, name: d.name });
+      continue;
+    }
+    const inside = (await driveProvider()?.listFilesIn(d.id).catch(() => [])) ?? [];
+    if (inside.length) out.push(...inside);
+    else toast.info(`Google shared the folder “${d.name}” but not the files in it`, { description: 'Open the folder in the picker and select the files themselves (several at once is fine).', duration: 9000 });
+  }
+  return out;
 }

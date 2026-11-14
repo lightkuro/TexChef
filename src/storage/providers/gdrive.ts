@@ -367,6 +367,12 @@ export class DriveProvider implements SyncProvider {
     return files.filter((f) => f.appProperties?.rc !== 'agents-readme').map((f) => ({ id: f.id, name: f.name }));
   }
 
+  /** The files (not folders) directly inside a folder, as far as this app may see them. */
+  async listFilesIn(folderId: string): Promise<{ id: string; name: string }[]> {
+    const files = await this.list(`'${folderId}' in parents and trashed=false and mimeType!='${FOLDER}'`, 'files(id,name,mimeType,appProperties)');
+    return files.filter((f) => f.appProperties?.rc !== 'agents-readme').map((f) => ({ id: f.id, name: f.name }));
+  }
+
   /** A file's text; Google Docs are exported as plain text. */
   async readText(fileId: string): Promise<{ name: string; text: string }> {
     const meta = await this.json<DriveFile>(`${API}/files/${fileId}?fields=id,name,mimeType`);

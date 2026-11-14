@@ -37,6 +37,18 @@ export async function handledReplies(): Promise<string[]> {
   return (await db.getMeta<string[]>('agents.handled')) ?? [];
 }
 
+/** Where the review of a reply file with several parts has got to (the part to show next), by Drive file id. */
+export async function replyProgress(fileId: string): Promise<number> {
+  return ((await db.getMeta<Record<string, number>>('agents.progress')) ?? {})[fileId] ?? 0;
+}
+
+export async function setReplyProgress(fileId: string, part: number | undefined) {
+  const all = { ...((await db.getMeta<Record<string, number>>('agents.progress')) ?? {}) };
+  if (part === undefined) delete all[fileId];
+  else all[fileId] = part;
+  await db.setMeta('agents.progress', all);
+}
+
 /** Remember a reply as handled and, when it came from Drive, move it into Agents/Done. */
 export async function markReplyHandled(fileId?: string) {
   if (!fileId) return;
