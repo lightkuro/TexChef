@@ -403,7 +403,7 @@ writeFileSync(
   `${TMP}shots-project.zip`,
   zipSync({
     'Thesis/main.tex': strToU8(
-      '\\documentclass{article}\n\\usepackage{graphicx}\n\\title{A Small Thesis}\n\\author{Sam Rivera}\n\\begin{document}\n\\maketitle\n\\input{sections/intro}\n\\input{sections/method}\n\\end{document}\n',
+      '\\documentclass{article}\n\\usepackage{graphicx}\n\\title{A Small Thesis}\n\\author{Sam Writer}\n\\begin{document}\n\\maketitle\n\\input{sections/intro}\n\\input{sections/method}\n\\end{document}\n',
     ),
     'Thesis/sections/intro.tex': strToU8('\\section{Introduction}\nThis project studies how people write documents together.\n'),
     'Thesis/sections/method.tex': strToU8('\\section{Method}\nWe asked twelve teams to keep a diary for a month.\n'),
@@ -452,7 +452,7 @@ writeFileSync(
 \usepackage[hidelinks]{hyperref}
 
 \title{Why Cities Plant Trees}
-\author{Maya Chen}
+\author{Maya Chef}
 \date{November 2026}
 
 \begin{document}

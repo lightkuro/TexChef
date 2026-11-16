@@ -120,7 +120,7 @@ export function DemoWindow({ step, t, compact }: { step: number; t: number; comp
         <span className="size-2.5 rounded-full bg-[#ff5f57]" />
         <span className="size-2.5 rounded-full bg-[#febc2e]" />
         <span className="size-2.5 rounded-full bg-[#28c840]" />
-        <span className="mx-auto -translate-x-6 rounded-md bg-panel px-10 py-0.5 text-[11px] text-muted">texchef.kurolight.dev</span>
+        <span className="mx-auto -translate-x-6 rounded-md bg-panel px-10 py-0.5 text-[11px] text-muted">{typeof location === 'undefined' ? 'texchef' : location.host}</span>
       </div>
       {/* App header */}
       <div className="flex h-[42px] shrink-0 items-center gap-2.5 border-b border-line px-3 text-[14px]">

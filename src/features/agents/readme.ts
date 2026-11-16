@@ -1,3 +1,4 @@
+import { LEGAL } from '@/legal/config';
 import type { DocMeta } from '@/core/model';
 import { AGENTS_FOLDER } from '@/storage/providers/gdrive';
 
@@ -26,7 +27,7 @@ export function buildAgentsReadme(items: ReadmeDoc[], all: DocMeta[]): string {
   return `# Read me first (for AI agents)
 
 This folder exists because the owner of this Google Drive turned on **AI agents (experimental)** in TexChef
-(https://texchef.kurolight.dev), a LaTeX editor. TexChef never sends documents to an AI itself; you are reading
+(${LEGAL.site || 'https://github.com/lightkuro/TexChef'}), a LaTeX editor. TexChef never sends documents to an AI itself; you are reading
 this because the owner connected you to their Drive. Follow these rules exactly.
 
 ## What you can read

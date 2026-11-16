@@ -475,7 +475,7 @@ export const TOPICS: Topic[] = [
               ['same', 'Tex C. Smith · (555) 010-2030'],
               ['same', 'Rebuilt the dashboard, 60% faster'],
               ['same', 'Built a component library'],
-              ['same', 'University of Washington, 2019'],
+              ['same', 'Lakeside University, 2019'],
             ]}
           />
           <Lines
@@ -485,7 +485,7 @@ export const TOPICS: Topic[] = [
               ['changed', 'Tex C. Smith · (555) 999-0000'],
               ['same', 'Rebuilt the dashboard, 60% faster'],
               ['same', 'Built a component library'],
-              ['same', 'University of Washington, 2019'],
+              ['same', 'Lakeside University, 2019'],
             ]}
           />
           <Lines
@@ -495,7 +495,7 @@ export const TOPICS: Topic[] = [
               ['same', 'Tex C. Smith · (555) 010-2030'],
               ['same', 'Rebuilt the dashboard, 60% faster'],
               ['changed', 'Built a shared React component library'],
-              ['same', 'University of Washington, 2019'],
+              ['same', 'Lakeside University, 2019'],
             ]}
           />
         </Grid>
@@ -507,7 +507,7 @@ export const TOPICS: Topic[] = [
             ['changed', 'Tex C. Smith · (555) 999-0000   ← from master'],
             ['same', 'Rebuilt the dashboard, 60% faster'],
             ['changed', 'Built a shared React component library   ← yours'],
-            ['same', 'University of Washington, 2019'],
+            ['same', 'Lakeside University, 2019'],
           ]}
         />
         <H2>The rules, line by line</H2>

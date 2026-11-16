@@ -221,7 +221,7 @@ function Shot({ className, alt, window: win, ...img }: ImgHTMLAttributes<HTMLIma
           <span className="size-2.5 rounded-full bg-[#ff5f57]" />
           <span className="size-2.5 rounded-full bg-[#febc2e]" />
           <span className="size-2.5 rounded-full bg-[#28c840]" />
-          <span className="mx-auto -translate-x-6 rounded-md bg-panel px-10 py-0.5 text-[11px] text-muted max-sm:hidden">texchef.kurolight.dev</span>
+          <span className="mx-auto -translate-x-6 rounded-md bg-panel px-10 py-0.5 text-[11px] text-muted max-sm:hidden">{typeof location === 'undefined' ? 'texchef' : location.host}</span>
         </div>
       )}
       <img alt={alt} decoding="async" className="block h-auto w-full dark:brightness-[0.92]" {...img} />

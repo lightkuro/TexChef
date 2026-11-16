@@ -8,6 +8,7 @@ export function Operator() {
 }
 
 export function Contact() {
+  if (!LEGAL.contact) return <>the operator of this site (no contact details have been set for this copy of {LEGAL.appName})</>;
   const isEmail = LEGAL.contact.includes('@') && !LEGAL.contact.startsWith('http');
   return (
     <a className="text-accent underline" href={isEmail ? `mailto:${LEGAL.contact}` : LEGAL.contact} rel="noopener">

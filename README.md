@@ -1,32 +1,50 @@
 # TexChef
 
-Edit with LaTeX easily, all in the browser. TexChef is a LaTeX editor (in the spirit of Overleaf) for essays, papers,
-letters and resumes, with one idea of its own: **keep one master document and branch tailored variants from it** (a
-resume per job, a paper per venue), all kept linked.
+**A LaTeX editor that runs entirely in your browser.** Write essays, papers, letters and resumes; compile them to PDF
+on your own device; keep everything in your browser and, if you like, your own Google Drive. There is no TexChef
+server and no account.
 
-- **Compile in the browser.** TeX Live 2026 running as WebAssembly ([texlyre-busytex](https://github.com/TeXlyre/texlyre-busytex)); pdfLaTeX, XeLaTeX, LuaLaTeX, BibTeX. No compile server.
-- **Linked variants.** Build a variant by ticking sections/jobs/bullets or picking tags (`#backend`, `#ml`…) with a live PDF and page count. Later, **get updates** from the original (master edits are combined with a 3‑way merge), or **copy** a reworded bullet back to the original.
-- **Visual editor.** A *Visual* mode beside *Code* shows the LaTeX formatted (headings, bold, bullets, links; the preamble folded away) without changing the file, plus a formatting bar: paragraph style, bold/italic/underline, size, color, lists, links, special characters, and a document font menu (Charter, Times, Palatino, Helvetica and more from the bundled TeX Live).
-- **Edit on the PDF.** Turn on *Edit text* and click any sentence in the PDF to change it as plain text; TexChef finds the LaTeX behind it (SyncTeX + text matching), rewrites only the changed characters, escapes `& % $ # _`, and keeps formatting. Optionally makes the same change in the variant's original.
-- **Readable problems.** Errors and warnings link to their line; common ones (overfull lines, fancyhdr's `\footskip`, shell escape) get a plain explanation, invisible sub‑point overfull lines are filed with the bad boxes, and a document written for another engine gets a one-click *Switch to XeLaTeX / LuaLaTeX / pdfLaTeX*.
-- **Source ↔ PDF sync (SyncTeX).** Double-click the PDF to jump to the source line; the locate button highlights the cursor's line in the PDF.
-- **Version history.** Every save is an immutable, numbered version (with lines added/removed); restore, branch from, download or compare any of them.
-- **Folders.** Nested folders on the home page, browsed like a file manager (folder cards on the map, folder rows in the list, a path bar) or *Expanded* (everything inside, grouped by folder); drag documents and folders onto folders, or use *Move to…*; folders sync with the documents.
-- **Right-click menus** on documents, folders and empty space (new, upload, move, previews, export, view and layout options).
-- **Previews.** From a right-click menu, compile every document in a folder that has no (or an old) preview in one go (after a confirmation), so the map shows its pages.
-- **Export and backup.** PDFs or LaTeX projects of a folder or everything as a .zip, and a full *Backup TexChef* with history (.zip, written to a folder, or saved to Google Drive) that keeps the LaTeX projects untouched and puts versions, drafts, folders, variant links and previews in a `.texchef/` folder; uploading it restores everything, including edits made outside TexChef.
-- **Saving.** Edits are kept as you type, versions are made on save and after a minute idle, and TexChef warns before leaving when something would be lost.
-- **Map.** A family tree of documents (master → variants → sub‑variants), left to right or top down, with straight or right‑angled lines, update counts by each arrow, full‑page card previews, drag‑to‑arrange with optional grid snapping (cards centred in card‑sized cells), and git‑style version swimlanes (under the Map button's hover menu).
-- **Side‑by‑side compare & edit.** Any two documents (or versions), picked from nearby documents or a full browser with folders, search, thumbnails and versions; both sides editable, per‑change copy arrows, copy whole blocks across, PDFs side by side.
-- **Bring your own storage.** Everything lives in your browser (IndexedDB) and, if you connect it, your own Google Drive using the narrow `drive.file` permission. There is no TexChef server.
-- **Phones, tablets and split screens.** Below desktop width the editor shows code and PDF side by side with a fold-away side panel, then one pane at a time (Code | PDF) on iPad portrait and phones; the home page's folders become a drawer. `node e2e/responsive.mjs <url>` checks four sizes.
-- **Themes.** Six color themes (Forest, the default, plus Kitchen, Ocean, Plum, Graphite, Nord), each in light and dark.
-- **Privacy Policy and Terms** at `/privacy` and `/terms`, linked from every page footer (needed for Google's branding review).
-- **Upload / download.** `.tex`, `.cls`, `.sty`, `.bib`, images, fonts, Overleaf `.zip` exports, and `.zip` bundles of many projects (e.g. a Prism export: one document per folder with its own main `.tex`); download PDF, sources or a project `.zip`, or all PDFs at once.
+Its own idea: **keep one master document and branch linked variants from it**: a resume per job, a paper per venue,
+a letter per recipient. When the master changes, each variant can take the update without losing its own edits.
 
-## Blocks: how variants work
+![The TexChef editor: LaTeX on the left, the compiled PDF on the right](public/landing/hero.webp)
 
-Blocks are marked with LaTeX comments, so the compiler ignores them:
+## What it does
+
+- **Compiles in the browser.** TeX Live 2026 runs as WebAssembly ([texlyre-busytex](https://github.com/TeXlyre/texlyre-busytex)):
+  pdfLaTeX, XeLaTeX, LuaLaTeX and BibTeX, with no compile server. Packages download once, the first time a document needs them.
+- **Linked variants.** Build a variant by ticking sections, jobs and bullets, or by picking tags (`backend`, `ml`…),
+  with a live PDF and page count. Later, **get updates** from the original (a 3‑way merge keeps your rewording) or
+  **copy** a reworded bullet back to it. Documents can also be linked, unlinked or swapped after the fact.
+- **Edit on the PDF.** Click a sentence in the PDF and change it as plain text; TexChef finds the LaTeX behind it,
+  rewrites only what changed and keeps the formatting.
+- **Visual mode.** A formatted view beside the code (headings, bold, lists, links; the preamble folded away), with a
+  formatting bar and a font menu, without changing how the file is written.
+- **Version history.** Every save is a numbered version you can restore, branch from, download or compare. A map
+  shows how documents and versions relate.
+- **Compare side by side.** Any two documents or versions, both editable, with per‑change copy arrows and the PDFs
+  next to each other.
+- **Readable problems.** Errors link to their line, common warnings get a plain explanation, and a document written
+  for another engine gets a one‑click switch.
+- **SyncTeX.** Double‑click the PDF to jump to the source; locate the cursor's line in the PDF.
+- **Folders, previews, export and backup.** Nested folders, PDFs or LaTeX projects of a folder as a `.zip`, and a full
+  backup with history that restores everything.
+- **Upload what you have.** `.tex`, `.cls`, `.sty`, `.bib`, images, fonts, Overleaf `.zip` exports, and bundles of
+  many projects.
+- **AI agents (experimental, off by default).** An assistant you already use can read your documents from your Drive
+  and leave proposed changes there, which you review edit by edit. TexChef never sends anything to an AI itself.
+- **Phones, tablets and split screens**, and six colour themes in light and dark.
+
+## Your files stay yours
+
+- Documents live in your browser (IndexedDB). Nothing is uploaded unless you connect Google Drive.
+- With Drive connected, TexChef uses the narrow `drive.file` permission: it can see only the files it created or that
+  you pick. Your documents appear in a `TexChef/` folder as readable LaTeX and PDFs, with history in `TexChef/.texchef/`.
+- Edits made offline or on two devices are never lost: TexChef merges them, or asks when it can't.
+
+## Variants: how blocks work
+
+Variants are built from blocks, marked with LaTeX comments so the compiler ignores them:
 
 ```tex
 %% @block exp-acme tags=backend,lead
@@ -40,17 +58,16 @@ Blocks are marked with LaTeX comments, so the compiler ignores them:
 ```
 
 - Blocks nest and need ids that are unique in the project. `tags=` is optional; `title="…"` overrides the label.
-- A variant keeps a *recipe*: blocks you ticked, or tags you picked (tag mode keeps untagged structure plus matching blocks), with per‑block overrides.
-- **Get updates** (called *pull* in the code) re‑applies the recipe to the original's old and new versions and 3‑way merges the difference into the variant, so your rewording survives. Blocks that are new in the original are offered for inclusion. Conflicts are shown side by side.
-- **Copy to original** (called *push* in the code) copies one block (matched by id) into the original and records it as a version there.
+- A variant keeps a *recipe*: the blocks you ticked, or the tags you picked, with per‑block overrides.
+- **Get updates** re‑applies the recipe to the original's old and new versions and 3‑way merges the difference into
+  the variant. Blocks that are new in the original are offered; conflicts are shown side by side.
+- **Copy to original** copies one block (matched by id) back into the original as a new version there.
+- Already have a resume? Upload it and press **Auto‑mark** in the Blocks panel to wrap its sections, entries and
+  bullets in blocks.
 
-The UI says *original* for what the code calls the *parent* document.
-- Item lists left empty by filtering are removed automatically so LaTeX doesn't fail with "missing \item".
-- Already have a resume? Upload it and press **Auto‑mark** in the Blocks panel: it wraps sections, entries (`\resumeSubheading`, `\cventry`, `\subsection`, …) and bullets (`\item`, `\resumeItem`) in blocks. Undo with Ctrl/⌘+Z.
+The code calls the original the *parent*, getting updates *pull* and copying back *push*.
 
-The **Master resume** template is already split into tagged blocks.
-
-## Run locally
+## Run it locally
 
 Requires Node 20+ and pnpm.
 
@@ -59,122 +76,76 @@ pnpm install
 ```
 
 ```bash
-pnpm tex:assets   # downloads the BusyTeX engine + TeX Live data (~520 MB download, ~700 MB on disk) into tex-assets/
+pnpm tex:assets   # the TeX engine and TeX Live data: about 520 MB to download, 700 MB on disk, into tex-assets/
 ```
 
 ```bash
 pnpm dev          # http://localhost:5173
 ```
 
-The dev server serves `tex-assets/busytex` at `/core/busytex` (see `vite.config.ts`); it is not copied into the build.
-The browser downloads the 93 MB core bundle once and caches it; the `recommended` (201 MB) and `extra` (342 MB)
-collections download only when a document uses a package from them (e.g. `titlesec`, `enumitem`, the Charter font).
-
-Other scripts:
+Without Google settings the app runs in **Local only** mode: fully working, with data kept in that browser.
 
 | Command | What it does |
 | --- | --- |
-| `pnpm test` | Unit tests (blocks, merge, versions, variants, sync, log parser) |
+| `pnpm test` | Unit tests |
 | `pnpm typecheck` | TypeScript |
-| `pnpm build` | Production build into `dist/` (~3 MB, without the TeX engine) |
-| `pnpm build:pages` | Build plus the gzipped, sharded TeX engine in `dist/core/busytex` (what gets deployed) |
-| `pnpm e2e http://localhost:5173` | Browser end‑to‑end checks with Playwright against a running dev server |
-| `pnpm e2e:engines http://localhost:5173` | Engine coverage: XeLaTeX + fontspec, LuaLaTeX, BibTeX, images, TikZ, moderncv (downloads the larger bundles) |
-| `pnpm shots http://localhost:5173` | Retake the help and landing screenshots (`public/help`, `public/landing`) from the running app. Start the dev server with any values for the three `VITE_GOOGLE_*` variables so the Drive options show |
+| `pnpm build` | Production build into `dist/` (about 3 MB, without the TeX engine) |
+| `pnpm build:pages` | Build plus the gzipped, split TeX engine in `dist/core/busytex` (what gets deployed) |
+| `pnpm e2e http://localhost:5173` | End‑to‑end browser checks (Playwright) against a running dev server |
+| `pnpm e2e:engines http://localhost:5173` | Engine coverage: XeLaTeX, LuaLaTeX, BibTeX, TikZ, moderncv… |
+| `node e2e/responsive.mjs http://localhost:5173` | Layout checks at phone, tablet and desktop sizes |
+| `pnpm shots http://localhost:5173` | Retake the help and landing screenshots from the running app |
 
-New visitors (no documents yet) see the landing page as a scroll story (Motion and Lenis, `src/features/ideas`): one
-scene per screen, each playing at its own pace, with gentle snapping. It loads on its own chunk. The same story is the
-help's Intro page and stands alone at `/ideas`; `/ideas/1` is the same without snapping, and `/ideas/classic` the
-earlier static landing page.
+## Host your own copy
 
-Patch notes live in `src/app/changelog.ts` and show on the **What’s new** help page (`/help/whats-new`, linked from the
-footer). For a release, add an entry at the top and set the same version in `package.json`.
+TexChef is a static site: any static host works. These steps use Cloudflare's free plan.
 
-Without Google configuration the app runs in **Local only** mode: fully functional, data stays in this browser.
+### 1. Settings
 
-The Privacy Policy and Terms send questions to https://kurolight.dev/contact. Optionally set `VITE_LEGAL_OPERATOR`
-(who runs the site), `VITE_LEGAL_CONTACT` (another email or URL) and `VITE_LEGAL_JURISDICTION` (governing law) as build
-variables. The texts in `src/legal/` are written for this app's actual data flows, not legal advice; have them reviewed
-if the stakes matter.
+Copy `.env.example` to `.env` for local use; on a host, set the same names as **build** variables (Vite bakes them in).
 
-## Google Drive setup
+| Variable | What it's for |
+| --- | --- |
+| `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID` | Google Drive sync and the Drive file picker (see below). Leave empty for Local only. |
+| `VITE_LEGAL_OPERATOR`, `VITE_LEGAL_CONTACT`, `VITE_LEGAL_JURISDICTION` | Who runs your copy, how to reach you, and the governing law, shown on `/privacy` and `/terms`. |
+| `VITE_SITE_URL` | Your copy's address, shown on those pages (defaults to the address in the browser). |
+| `VITE_SOURCE_URL` | Where your copy's source code is published. If you changed the code, point this at your fork. |
 
-TexChef uses the Google Identity Services token flow from the browser — no backend and no client secret.
+The Privacy Policy and Terms in `src/legal/` describe this app's actual data flows. They are not legal advice; have
+them reviewed if the stakes matter.
 
-1. **Project.** In [Google Cloud console](https://console.cloud.google.com/), create a project (e.g. `texchef`)
-   and note its **project number** (Dashboard / project settings) — that is `VITE_GOOGLE_APP_ID`.
-2. **APIs.** APIs & Services → Library: enable **Google Drive API** and **Google Picker API**.
-3. **Google Auth Platform** (left menu; formerly "OAuth consent screen"):
-   - **Branding:** app name (`TexChef`), support email, logo `brand/logo-120.png` (120×120 PNG), app home page
-     `https://texchef.kurolight.dev`, privacy policy `https://texchef.kurolight.dev/privacy`, terms of service
-     `https://texchef.kurolight.dev/terms`, developer contact; under **Authorized domains** add `kurolight.dev`.
-     Google shows the name and logo on the sign-in screen only after a brand verification (a few days); until then it
-     shows the domain, which is fine for testing.
-   - **Audience:** user type **External**, publishing status **Testing**; add yourself and friends as **Test users**
-     (up to 100).
-   - **Data Access:** Add or remove scopes → `.../auth/drive.file` ("See, edit, create and delete only the specific
-     Google Drive files you use with this app"). It is non‑sensitive, so no verification is needed in Testing.
-   - **Clients:** Create client → **Web application**. Authorized JavaScript origins: `https://texchef.kurolight.dev`
-     and `http://localhost:5173`. No redirect URIs. Copy the **Client ID** (the secret is not used).
-4. **API key** (Google Picker only): APIs & Services → Credentials → Create credentials → API key. Restrict it:
-   application restriction **Websites** with `https://texchef.kurolight.dev/*`, `http://localhost:5173/*` **and
-   `https://docs.google.com/*`** (the picker runs on docs.google.com; without it Google shows “The API developer key
-   is invalid”); API restriction **Google Picker API**.
-5. Copy `.env.example` to `.env` for local development, and set the same three values as **build** variables in
-   Cloudflare (Worker → Settings → Build → Variables and secrets), then redeploy:
+### 2. Google Drive (optional)
 
-   ```
-   VITE_GOOGLE_CLIENT_ID=<client id>.apps.googleusercontent.com
-   VITE_GOOGLE_API_KEY=<api key>
-   VITE_GOOGLE_APP_ID=<project number>
-   ```
+TexChef signs in with the Google Identity Services token flow from the browser: no backend and no client secret.
 
-What ends up in Drive:
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project and note its **project number**
+   (that is `VITE_GOOGLE_APP_ID`).
+2. APIs & Services → Library: enable **Google Drive API** and **Google Picker API**.
+3. **Google Auth Platform:**
+   - **Branding:** your app name, support email, home page `https://<your-domain>`, privacy policy
+     `https://<your-domain>/privacy`, terms `https://<your-domain>/terms`, and your domain under **Authorized domains**.
+   - **Audience:** External; in **Testing**, add up to 100 test users.
+   - **Data Access:** add the scope `.../auth/drive.file`. It is non‑sensitive, so Testing needs no verification.
+   - **Clients:** create a **Web application** client. Authorized JavaScript origins: `https://<your-domain>` and
+     `http://localhost:5173`. No redirect URIs. Copy the **Client ID**.
+4. **API key** (for the picker only): Credentials → Create credentials → API key. Restrict it to the websites
+   `https://<your-domain>/*`, `http://localhost:5173/*` **and `https://docs.google.com/*`** (the picker runs there;
+   without it Google says “The API developer key is invalid”), and to the **Google Picker API**.
 
-```
-TexChef/
-  Master resume/          readable copy of each document + its latest PDF (updated when you save a version)
-  Master resume · Backend/
-  .texchef/            history: index.json, packs/ (versions), blobs/ (large files) — leave as is
-```
+### 3. Deploy
 
-Sync runs after saves, when the tab regains focus and every minute. Edits made offline or on two devices at once are
-never lost: when two devices change the same document, you get a banner to merge (3‑way) or compare. Access tokens last
-an hour and are kept in the tab's session storage; after that the app shows **Reconnect Drive**.
+The TeX engine's largest files are bigger than Cloudflare's 25 MiB limit, so `scripts/shard-tex-assets.mjs` gzips and
+splits them, and a small worker wrapper (`scripts/busytex-worker-shim.js`) joins them again in the browser.
 
-**Import from Drive** (dashboard) opens Google Picker; picking a file is what grants a `drive.file` app access to it.
-If the picker says “The API developer key is invalid”, the key's website restrictions are missing
-`https://docs.google.com/*`. If it shows “Sign in” although you are signed in, the browser is blocking Google's
-cookies on the site (Brave Shields, Safari): allow cookies for the site, or download the file and use Import → Upload.
+**From a Git repository** (Workers & Pages → Create → Import a repository):
 
-## Deploy (Cloudflare Workers static assets, free plan)
+1. Build command `pnpm cf:build`; deploy command `npx wrangler deploy`. `wrangler.toml` serves `dist/` as static
+   assets with a single‑page‑app fallback.
+2. Settings → Build → **Variables and secrets**: the variables from step 1.
+3. Settings → Domains & Routes → add your **custom domain**, and add it to your Google client's origins and the API
+   key's websites.
 
-The app is fully static, so it deploys as an **assets-only Worker**: no Worker code runs, asset requests are free
-and unlimited, and no R2 or paid features are needed. Free-plan limits that matter: 25 MiB per file and 20,000
-files per deployment (we use ~70).
-
-The engine's big files exceed 25 MiB, so `scripts/shard-tex-assets.mjs` gzips every `.wasm`/`.data` file and splits
-it into ≤24 MiB parts (`texlive-basic.data.gz.000`, `.001`, …) listed in `shards.json`; `busytex_worker.js` is
-replaced by a small wrapper (`scripts/busytex-worker-shim.js`) that streams the parts back together and gunzips them
-in the browser. Result: 46 engine files, about 520 MB (from ~700 MB). Gzip also makes the first visit lighter:
-about 80 MB instead of 125 MB for the engine core.
-
-**Git-connected Worker (Workers & Pages → Create → Import a repository):**
-
-1. Build command: `pnpm cf:build` (downloads the engine from the texlyre-busytex GitHub release, builds, shards).
-   Deploy command: `npx wrangler deploy` (the default). `wrangler.toml` serves `dist/` as static assets with
-   single-page-app fallback. Its build step (`scripts/ensure-site.mjs`) also completes `dist/` if the build command
-   was left at a plain `npm run build`, so a deploy never ships without the TeX engine.
-2. Settings → Build → **Variables and secrets** (build variables, not runtime ones — Vite bakes them in at build
-   time): `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_API_KEY`, `VITE_GOOGLE_APP_ID`.
-3. Settings → Domains & Routes → Add → **Custom domain** → `texchef.kurolight.dev`. If Cloudflare reports an
-   existing DNS record for that name, delete the record and add the domain again (Cloudflare creates its own).
-   To manage the domain from code instead, uncomment the `routes` line in `wrangler.toml`.
-4. In Google Cloud → Credentials → your OAuth client, add `https://texchef.kurolight.dev` to **Authorized JavaScript
-   origins** (and to the API key's allowed referrers as `https://texchef.kurolight.dev/*`, next to
-   `https://docs.google.com/*`).
-
-**Or deploy from your machine:**
+**Or from your machine:**
 
 ```bash
 pnpm tex:assets && pnpm build:pages
@@ -184,46 +155,61 @@ pnpm tex:assets && pnpm build:pages
 npx wrangler deploy
 ```
 
-Uploads are de-duplicated by content hash and the shards are deterministic, so after the first deploy only changed
-files are uploaded.
-
-**Caching.** Engine parts are named after a hash of their content (`/core/busytex-parts/…`) and cached by the
-browser for a year; the TeX packages are also stored in IndexedDB by the engine. The small loader files and
-`shards.json` are always revalidated (`304 Not Modified` when unchanged), so reopening the site downloads none of
-the large files, and a new engine version is picked up immediately without mixing old and new parts. The app asks
-the browser for persistent storage after the first save (status and usage are shown in Settings).
-
-To check the production setup locally, run `pnpm build:pages`, then `pnpm preview`; it serves the sharded copy.
+Engine parts are named by content hash and cached for a year, so returning visitors download none of the large files
+and a new engine version never mixes with the old one. To check the production build locally, run `pnpm build:pages`,
+then `pnpm preview`.
 
 ## Project layout
 
 ```
 src/
-  core/        versions: model, repo (commits, working copies, merge base), 3-way text merge, hashing
-  blocks/      %% @block parser, recipe filter, auto-mark, block copy/compare
-  variants/    create variant, get updates (pull), copy block to original (push)
-  pdfedit/     edit on the PDF: LaTeX → plain text projection, PDF text → source matching, edit write-back
+  core/        versions: model, repository (commits, working copies, merge base), 3-way text merge
+  blocks/      block parser, recipe filter, auto-mark, block copy and compare
+  variants/    create variants, get updates (pull), copy to original (push), linking
+  pdfedit/     editing on the PDF: LaTeX to plain text, PDF text to source, write-back
   compile/     BusyTeX wrapper, TeX bundle planner, log parser, pdf.js helpers
-  storage/     Dexie database, sync engine (packs + index), Drive and in-memory providers
-  features/    dashboard, editor, graph, compare, variants UI, history, sync, settings, import/export
-  templates/   master resume, cover letter, article
-  legal/       Privacy Policy and Terms pages (details from VITE_LEGAL_* variables)
-brand/         logo sources (SVG) and exported PNGs (120 px for Google, 512 px)
-scripts/       engine sharding, the worker wrapper that reassembles shards, deploy helper
+  storage/     IndexedDB (Dexie), the sync engine, Google Drive and in-memory providers
+  features/    home page, editor, map, compare, history, sync, settings, agents, import and export
+  help/        the in-app guide
+  templates/   starting documents
+  legal/       Privacy Policy and Terms
+ideas/         static landing page experiments
+brand/         logo sources
+scripts/       engine sharding, the worker wrapper, screenshots, deploy helper
 e2e/           Playwright end-to-end checks
 ```
 
-## Limits and notes
+Patch notes live in `src/app/changelog.ts` and appear on the **What's new** page in the guide.
 
-- First compile needs the 93 MB core download; packages outside it trigger larger one‑time downloads. A package that
-  isn't in TeX Live 2026's bundled collections can be uploaded as a `.sty` into the project.
-- Fonts: XeLaTeX/LuaLaTeX can use fonts in TeX Live or fonts you upload into the project. The template uses Latin Modern;
-  `\usepackage{charter}` works but pulls the 342 MB `extra` bundle.
-- No real‑time co‑editing; one person per workspace. Share PDFs or the Drive folder.
-- Licensing: texlyre-busytex is AGPL‑3.0 and TeX Live programs are GPL. Fine for private use; if you ever offer this
-  publicly, you must offer the corresponding source.
+## Limits
 
-## Ideas for later
+- The first compile downloads a 93 MB core bundle; documents using packages outside it trigger larger one‑time
+  downloads. A package that isn't in TeX Live 2026 can be uploaded into the project as a `.sty` file.
+- No real‑time co‑editing.
+- Google Drive is the only cloud storage so far.
 
-A visual PDF diff overlay, offline PWA shell, a GitHub storage provider, and AI tailoring
-(paste a job description → suggested tags/blocks and bullet rewrites with your own API key).
+## Feedback
+
+Bug reports and ideas are welcome in [Issues](https://github.com/lightkuro/TexChef/issues).
+
+## Licence
+
+TexChef is free software: you can redistribute it and/or modify it under the terms of the
+[GNU General Public License](LICENSE), version 3 or (at your option) any later version. It comes with no warranty.
+
+If you host a copy for others, offer them its source code: link your fork with `VITE_SOURCE_URL` (the footer and the
+Terms page link to it).
+
+TexChef includes or downloads software under other free licences:
+
+- **TeXlyre BusyTeX** (the TeX engine), GNU AGPL‑3.0, based on [BusyTeX](https://github.com/busytex/busytex) (MIT).
+  Its terms apply to hosted copies too, which is another reason to keep your copy's source public.
+- **TeX Live**, downloaded at build time and not stored in this repository: various free licences, including the GPL
+  and the LaTeX Project Public License.
+- **PDF.js** (Apache 2.0), **Dexie** (Apache 2.0) and other libraries under MIT and ISC licences; see `package.json`.
+- The **Computer Modern** web fonts in `ideas/fonts/` are under the SIL Open Font License (`ideas/fonts/OFL.txt`).
+
+The licence covers the code. If you run a modified copy publicly, please give it your own name and logo, so people
+don't mistake it for this one.
+
+Made by [kurolight.dev](https://kurolight.dev).

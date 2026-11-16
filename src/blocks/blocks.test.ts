@@ -42,7 +42,7 @@ describe('filterTex', () => {
     expect(out).not.toContain('Kubernetes with Terraform');
     expect(out).not.toContain('Contoso');
     expect(out).not.toContain('\\rcSection{Projects}');
-    expect(out).toContain('University of Washington');
+    expect(out).toContain('Lakeside University');
     expect(out).toContain('\\begin{document}');
     expect(parseBlocks(out).issues).toEqual([]);
   });

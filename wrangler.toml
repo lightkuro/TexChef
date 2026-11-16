@@ -16,4 +16,4 @@ not_found_handling = "single-page-application"
 # Custom domain. Attaching it here fails the whole deploy if a DNS record already exists for the
 # hostname, so the domain is attached in the dashboard instead (Worker → Settings → Domains & Routes).
 # To manage it from this file, delete any existing DNS record for it, then uncomment:
-# routes = [{ pattern = "texchef.kurolight.dev", custom_domain = true }]
+# routes = [{ pattern = "texchef.example.com", custom_domain = true }]

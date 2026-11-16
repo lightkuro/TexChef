@@ -74,6 +74,8 @@ export function TermsPage() {
         <Ext href="https://github.com/busytex/busytex">BusyTeX</Ext>, MIT), <Ext href="https://tug.org/texlive/">TeX Live</Ext> (various free
         licenses, including the GPL and the LaTeX Project Public License), <Ext href="https://mozilla.github.io/pdf.js/">PDF.js</Ext> (Apache
         2.0), and other components under MIT and similar licenses. Their source code is available at the linked project pages.
+        {' '}{app} itself is free software under the GNU GPL v3 or later; its source code is at{' '}
+        <Ext href={LEGAL.source}>{LEGAL.source.replace('https://', '')}</Ext>.
       </P>
 
       <H2>6. No warranty</H2>

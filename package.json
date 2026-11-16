@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.12.0",
   "description": "Browser LaTeX editor for master resumes and linked, role-focused variants. Local-first, syncs to your own Google Drive.",
+  "license": "GPL-3.0-or-later",
+  "repository": "github:lightkuro/TexChef",
   "type": "module",
   "scripts": {
     "dev": "vite",

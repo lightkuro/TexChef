@@ -6,6 +6,7 @@ import Lenis from 'lenis';
 import 'lenis/dist/lenis.css';
 import { ArrowRight, BookOpen, ChevronDown, Columns2, Cpu, FolderTree, GitBranch, HardDrive, History, MousePointerClick, RotateCcw, Smartphone, type LucideIcon } from 'lucide-react';
 import { KurolightMark, Logo } from '@/components/Logo';
+import { LEGAL } from '@/legal/config';
 import { ActionDropdown, type MenuAction } from '@/components/ActionMenu';
 import { NewDocDialog } from '@/features/dashboard/NewDocDialog';
 import { APP_VERSION } from '@/app/changelog';
@@ -292,6 +293,9 @@ export function IdeasPage({ snap = true, mode = 'page', onNew, uploadActions, na
             <Link to="/terms" className="hover:text-fg" data-testid="link-terms">
               Terms
             </Link>
+            <a href={LEGAL.source} target="_blank" rel="noopener" className="hover:text-fg" data-testid="link-source">
+              Source
+            </a>
             <KurolightMark />
           </footer>
         )}

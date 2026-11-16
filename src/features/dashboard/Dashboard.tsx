@@ -53,6 +53,7 @@ import { PickerError, pickFromDrive, pickerConfigured, pickerTroubleHint } from 
 import { Button, Drawer, Input, Spinner, Tip } from '@/components/ui';
 import { BREAKPOINTS, useMinWidth, usePhone } from '@/lib/useMediaQuery';
 import { KurolightMark, Logo } from '@/components/Logo';
+import { LEGAL } from '@/legal/config';
 import { ThemeMenu } from '@/components/ThemeMenu';
 import { cn } from '@/lib/utils';
 import { ARCHIVE, FolderSidebar, RECENT, UNFILED, type SpecialView } from '@/features/folders/FolderSidebar';
@@ -568,6 +569,9 @@ export function Dashboard() {
         <Link to="/terms" className="hover:text-fg" data-testid="link-terms">
           Terms
         </Link>
+        <a href={LEGAL.source} target="_blank" rel="noopener" className="hover:text-fg" data-testid="link-source">
+          Source
+        </a>
         <span className="ml-auto hidden sm:inline">Runs in your browser · your files stay yours</span>
         <KurolightMark />
       </footer>
