@@ -4,7 +4,9 @@
 on your own device; keep everything in your browser and, if you like, your own Google Drive. There is no TexChef
 server and no account.
 
-Its own idea: **keep one master document and branch linked variants from it**: a resume per job, a paper per venue,
+No servers needed, open, simple and easier to use than mainstream LaTeX software. 
+Has the unique feature of being able to create branched/connected variants easily: 
+**keep one master document and branch linked variants from it**: a resume per job, a paper per venue,
 a letter per recipient. When the master changes, each variant can take the update without losing its own edits.
 
 ![The TexChef editor: LaTeX on the left, the compiled PDF on the right](public/landing/hero.webp)
