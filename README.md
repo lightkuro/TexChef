@@ -40,6 +40,27 @@ Try a live version, hosted by me: https://texchef.kurolight.dev
   and leave proposed changes there, which you review edit by edit. TexChef never sends anything to an AI itself.
 - **Phones, tablets and split screens**, and six colour themes in light and dark.
 
+## A closer look
+
+### Edit on the PDF
+
+Turn on **Edit text**, click a sentence in the PDF and type the change. TexChef shows where it comes from in the
+LaTeX, writes only the characters you changed, and recompiles.
+
+![Editing a bullet point directly on the PDF; the edit box shows the sentence as plain text and its line in main.tex](public/landing/pdf-edit.webp)
+
+### Linked variants
+
+Make a variant by picking tags or ticking the sections, jobs and bullets to keep. The preview shows the result and
+whether it still fits on one page.
+
+![The variant builder: tags and checkboxes on the left, a live PDF preview of the frontend resume on the right](public/help/variant-builder.webp)
+
+The map shows each master with its variants. When the master changes, every variant shows how many updates are
+waiting, and getting them keeps the variant's own edits.
+
+<p align="center"><img src="public/landing/versions.webp" width="520" alt="The map: a master resume with three variants (data, backend, frontend), each showing one update waiting"></p>
+
 ## Your files stay yours
 
 - Documents live in your browser (IndexedDB). Nothing is uploaded unless you connect Google Drive.
