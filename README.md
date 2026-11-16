@@ -10,6 +10,8 @@ server and no account.
 keep one master document and branch linked variants from it: a resume per job, a paper per venue,
 a letter per recipient. When the master changes, each variant can take the update without losing its own edits.
 
+Try a live version, hosted by me: https://texchef.kurolight.dev
+
 ![The TexChef editor: LaTeX on the left, the compiled PDF on the right](public/landing/hero.webp)
 
 ## What it does
