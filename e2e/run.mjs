@@ -1229,7 +1229,7 @@ await step('AI agents (experimental): off by default; on, a pasted reply is revi
     await page.getByTestId('agent-reply-page').waitFor();
   };
   // Meanwhile the person edits a line next to the agent's: a conflict, and Accept waits until it's resolved.
-  await page.evaluate(async ([id, t]) => window.rc.repo.writeWorkText(id, 'main.tex', t.replace('{jordan@example.com}', '{jo@example.com}')), [m, text]);
+  await page.evaluate(async ([id, t]) => window.rc.repo.writeWorkText(id, 'main.tex', t.replace('{tex@example.com}', '{jo@example.com}')), [m, text]);
   await openPaste(reply);
   await page.getByText('1 file has conflicts').waitFor();
   assert.equal(await page.getByTestId('agent-reply-accept').isDisabled(), true);
@@ -1841,7 +1841,7 @@ await step('full backup: export, wipe, restore everything (zip, then a folder wi
   rmSync(`${OUT}backup-folder`, { recursive: true, force: true });
   for (const [p, data] of Object.entries(entries)) {
     mkdirSync(`${dir}/${p.split('/').slice(0, -1).join('/')}`, { recursive: true });
-    writeFileSync(`${dir}/${p}`, p === masterTex ? new TextDecoder().decode(data).replace('Jordan Rivera', 'Jordan Q. Rivera') : data);
+    writeFileSync(`${dir}/${p}`, p === masterTex ? new TextDecoder().decode(data).replace('Tex C. Smith', 'Tex Q. Smith') : data);
   }
   await wipe();
   await page.getByTestId('upload-folder-input').setInputFiles(dir);
@@ -1851,7 +1851,7 @@ await step('full backup: export, wipe, restore everything (zip, then a folder wi
     const w = await window.rc.repo.getWork(id);
     return { text: w.files['main.tex'].text, dirty: w.dirty };
   }, draftId);
-  assert.match(edited.text, /Jordan Q\. Rivera/);
+  assert.match(edited.text, /Tex Q\. Smith/);
   assert.equal(edited.dirty, true);
   const again = await snapshot();
   assert.deepEqual(again.docs, before.docs);

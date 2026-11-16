@@ -53,9 +53,9 @@ describe('locating clicked text', () => {
 
   it('handles uppercased section titles and the header lines', () => {
     expect(unitFor(resume, 'SUMMARY')?.text).toBe('Summary');
-    expect(unitFor(resume, 'Jordan Rivera')?.text).toBe('Jordan Rivera');
-    const contact = unitFor(resume, 'Seattle, WA · (555) 010-2030 · jordan@example.com', '010');
-    expect(contact?.text).toBe('Seattle, WA · (555) 010-2030 · jordan@example.com · github.com/example · linkedin.com/in/example');
+    expect(unitFor(resume, 'Tex C. Smith')?.text).toBe('Tex C. Smith');
+    const contact = unitFor(resume, 'Seattle, WA · (555) 010-2030 · tex@example.com', '010');
+    expect(contact?.text).toBe('Seattle, WA · (555) 010-2030 · tex@example.com · github.com/example · linkedin.com/in/example');
   });
 
   it('keeps a paragraph inside a formatting group together', () => {

@@ -472,7 +472,7 @@ export const TOPICS: Topic[] = [
             title="Starting point"
             subtitle="master when the variant last caught up"
             lines={[
-              ['same', 'Jordan Rivera · (555) 010-2030'],
+              ['same', 'Tex C. Smith · (555) 010-2030'],
               ['same', 'Rebuilt the dashboard, 60% faster'],
               ['same', 'Built a component library'],
               ['same', 'University of Washington, 2019'],
@@ -482,7 +482,7 @@ export const TOPICS: Topic[] = [
             title="Master now"
             subtitle="what the original changed"
             lines={[
-              ['changed', 'Jordan Rivera · (555) 999-0000'],
+              ['changed', 'Tex C. Smith · (555) 999-0000'],
               ['same', 'Rebuilt the dashboard, 60% faster'],
               ['same', 'Built a component library'],
               ['same', 'University of Washington, 2019'],
@@ -492,7 +492,7 @@ export const TOPICS: Topic[] = [
             title="Your variant now"
             subtitle="what you changed"
             lines={[
-              ['same', 'Jordan Rivera · (555) 010-2030'],
+              ['same', 'Tex C. Smith · (555) 010-2030'],
               ['same', 'Rebuilt the dashboard, 60% faster'],
               ['changed', 'Built a shared React component library'],
               ['same', 'University of Washington, 2019'],
@@ -504,7 +504,7 @@ export const TOPICS: Topic[] = [
           title="After getting updates"
           className="md:max-w-md"
           lines={[
-            ['changed', 'Jordan Rivera · (555) 999-0000   ← from master'],
+            ['changed', 'Tex C. Smith · (555) 999-0000   ← from master'],
             ['same', 'Rebuilt the dashboard, 60% faster'],
             ['changed', 'Built a shared React component library   ← yours'],
             ['same', 'University of Washington, 2019'],
@@ -531,7 +531,7 @@ export const TOPICS: Topic[] = [
           title="After getting updates (needs a decision)"
           className="md:max-w-xl"
           lines={[
-            ['same', 'Jordan Rivera · (555) 999-0000'],
+            ['same', 'Tex C. Smith · (555) 999-0000'],
             ['conflict', '<<<<<<< Frontend resume'],
             ['conflict', 'Rebuilt the dashboard, much faster for 2M users'],
             ['conflict', '======='],

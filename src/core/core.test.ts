@@ -32,7 +32,7 @@ describe('repo + variants', () => {
   it('commits, detects no-op saves, restores and tracks ancestry', async () => {
     const doc = await repo.createDoc({ name: 'Master', files: { 'main.tex': { kind: 'text', text: master } } });
     expect(await repo.commitWork(doc.id, 'nothing')).toBeNull();
-    await repo.writeWorkText(doc.id, 'main.tex', master.replace('Jordan Rivera', 'J. Rivera'));
+    await repo.writeWorkText(doc.id, 'main.tex', master.replace('Tex C. Smith', 'T. Smith'));
     const c2 = (await repo.commitWork(doc.id, 'rename'))!;
     expect(c2.parents).toEqual([doc.head]);
     expect(await repo.isAncestor(doc.head!, c2.id)).toBe(true);
@@ -114,10 +114,10 @@ describe('repo + variants', () => {
 
   it('saves unsaved edits as a new variant and puts the original back', async () => {
     const m = await repo.createDoc({ name: 'Master', files: { 'main.tex': { kind: 'text', text: master } } });
-    await repo.writeWorkText(m.id, 'main.tex', master.replace('Jordan Rivera', 'Jo Rivera'));
+    await repo.writeWorkText(m.id, 'main.tex', master.replace('Tex C. Smith', 'Tex Smith'));
     const v = await saveWorkAsVariant(repo, m.id, 'Short');
     expect(v.parent).toEqual({ docId: m.id, baseCommitId: m.head });
-    expect(fileText((await repo.getWork(v.id)).files, 'main.tex')).toContain('Jo Rivera');
+    expect(fileText((await repo.getWork(v.id)).files, 'main.tex')).toContain('Tex Smith');
     const back = await repo.getWork(m.id);
     expect(fileText(back.files, 'main.tex')).toBe(master);
     expect(back.dirty).toBe(false);

@@ -72,7 +72,7 @@ const CASES = [
     engine: 'pdflatex',
     files: {
       'main.tex':
-        '\\documentclass[11pt,a4paper]{moderncv}\n\\moderncvstyle{classic}\n\\moderncvcolor{blue}\n\\name{Jordan}{Rivera}\n\\begin{document}\n\\makecvtitle\n\\section{Experience}\n\\cventry{2022}{Engineer}{Northwind}{Seattle}{}{Built things.}\n\\end{document}\n',
+        '\\documentclass[11pt,a4paper]{moderncv}\n\\moderncvstyle{classic}\n\\moderncvcolor{blue}\n\\name{Tex C.}{Smith}\n\\begin{document}\n\\makecvtitle\n\\section{Experience}\n\\cventry{2022}{Engineer}{Northwind}{Seattle}{}{Built things.}\n\\end{document}\n',
     },
     expect: /Northwind/,
   },

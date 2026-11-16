@@ -393,7 +393,9 @@ console.log('Compare');
 await page.goto(`${BASE}/compare?left=${master}&right=${variant}`);
 await page.getByTestId('diff-view').waitFor();
 await page.locator('.cm-mergeView').waitFor();
-await page.waitForTimeout(2500);
+// Both sides' PDFs, not "Compiling…".
+await page.waitForFunction(() => !/Compiling/.test(document.body.innerText) && document.querySelectorAll('canvas').length >= 2, null, { timeout: 120000 });
+await page.waitForTimeout(800);
 await shot('compare');
 
 console.log('Files and problems');
